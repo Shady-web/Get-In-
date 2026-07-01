@@ -1,54 +1,166 @@
-import type { ReactNode } from "react";
-import { txlineGet } from "@/lib/txline";
+"use client";
 
-// Fetch fresh on every load so we're testing the live TxLINE connection.
-export const dynamic = "force-dynamic";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { PhantomWalletName } from "@solana/wallet-adapter-phantom";
+import { WalletReadyState } from "@solana/wallet-adapter-base";
+import { setStoredPlayer, type PlayerRecord } from "@/lib/player";
 
-// A deliberately plain smoke-test page: it just proves the server-side token
-// works end to end. The real, styled UI comes later (refero-ui-styles skill).
-export default async function Home() {
-  let status: ReactNode;
-  try {
-    const data = await txlineGet<unknown[]>("/fixtures/snapshot");
-    const fixtures = Array.isArray(data) ? data : [];
-    status = (
-      <>
-        <p style={{ color: "#0a7d34" }}>✅ Connected to TxLINE — {fixtures.length} fixtures returned.</p>
-        <pre style={preStyle}>{JSON.stringify(fixtures.slice(0, 3), null, 2)}</pre>
-      </>
-    );
-  } catch (err) {
-    status = (
-      <p style={{ color: "#b00020" }}>
-        ⚠️ {err instanceof Error ? err.message : "Could not reach TxLINE."}
-      </p>
-    );
+export default function Landing() {
+  const router = useRouter();
+  const { select, connect, publicKey, wallet, connecting } = useWallet();
+
+  const [guestOpen, setGuestOpen] = useState(false);
+  const [nickname, setNickname] = useState("");
+  const [busy, setBusy] = useState<"wallet" | "guest" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const walletFlow = useRef(false); // true while a user-initiated connect is in flight
+  const finished = useRef(false);
+
+  async function finishLogin(identity: string, kind: "wallet" | "guest") {
+    if (finished.current) return;
+    finished.current = true;
+    setError(null);
+    try {
+      const res = await fetch("/api/player", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identity, kind }),
+      });
+      const body = (await res.json()) as {
+        player?: PlayerRecord | null;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(body?.error ?? "Could not sign you in.");
+      setStoredPlayer({ identity, kind, player: body.player ?? null });
+      router.push("/match");
+    } catch (err) {
+      finished.current = false;
+      setBusy(null);
+      setError(err instanceof Error ? err.message : "Could not sign you in.");
+    }
+  }
+
+  // --- Wallet flow: select Phantom, connect, then log in with the address ---
+
+  function onConnectWallet() {
+    setError(null);
+    setBusy("wallet");
+    walletFlow.current = true;
+    if (publicKey) {
+      void finishLogin(publicKey.toBase58(), "wallet");
+      return;
+    }
+    select(PhantomWalletName);
+  }
+
+  useEffect(() => {
+    if (!walletFlow.current || !wallet || publicKey || connecting) return;
+    if (wallet.readyState !== WalletReadyState.Installed) {
+      walletFlow.current = false;
+      setBusy(null);
+      setError("Phantom isn’t installed. Get it at phantom.app, then try again.");
+      return;
+    }
+    connect().catch((err: unknown) => {
+      walletFlow.current = false;
+      setBusy(null);
+      setError(
+        err instanceof Error && err.name === "WalletConnectionError"
+          ? "Connection was cancelled in Phantom."
+          : err instanceof Error
+            ? err.message
+            : "Could not connect to Phantom.",
+      );
+    });
+  }, [wallet, publicKey, connecting, connect]);
+
+  useEffect(() => {
+    if (walletFlow.current && publicKey) {
+      walletFlow.current = false;
+      void finishLogin(publicKey.toBase58(), "wallet");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publicKey]);
+
+  // --- Guest flow -----------------------------------------------------------
+
+  function onGuestSubmit() {
+    const name = nickname.trim();
+    if (name.length < 2 || name.length > 20) {
+      setError("Nickname needs to be 2–20 characters.");
+      return;
+    }
+    setBusy("guest");
+    void finishLogin(name, "guest");
   }
 
   return (
-    <main style={mainStyle}>
-      <h1 style={{ margin: 0 }}>GetIN!!!</h1>
-      <p style={{ color: "#555" }}>World Cup fixtures via the server-side TxLINE route.</p>
-      {status}
-      <p>
-        Raw JSON: <a href="/api/worldcup">/api/worldcup</a>
-      </p>
+    <main className="shell" style={{ justifyContent: "center", gap: 32 }}>
+      <header style={{ textAlign: "center", display: "grid", gap: 10 }}>
+        <p className="caption section-label">World Cup 2026 · Live Predictions</p>
+        <h1 className="display">
+          GetIN<span style={{ color: "var(--color-ember-orange)" }}>!!!</span>
+        </h1>
+        <p className="muted" style={{ fontSize: 15 }}>
+          Call the result before the whistle. Climb the board.
+        </p>
+      </header>
+
+      <section className="card" style={{ display: "grid", gap: 16 }}>
+        <button
+          className="btn btn-primary"
+          onClick={onConnectWallet}
+          disabled={busy !== null}
+        >
+          {busy === "wallet" ? "Connecting…" : "Connect Wallet"}
+        </button>
+        <p className="muted" style={{ fontSize: 12, textAlign: "center", marginTop: -8 }}>
+          Phantom · Solana devnet
+        </p>
+
+        <div className="divider">or</div>
+
+        {!guestOpen ? (
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              setGuestOpen(true);
+              setError(null);
+            }}
+            disabled={busy !== null}
+          >
+            Play as guest
+          </button>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            <input
+              className="input"
+              placeholder="Pick a nickname"
+              value={nickname}
+              maxLength={20}
+              autoFocus
+              onChange={(e) => setNickname(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && onGuestSubmit()}
+              disabled={busy !== null}
+            />
+            <button
+              className="btn btn-ghost"
+              onClick={onGuestSubmit}
+              disabled={busy !== null || nickname.trim().length < 2}
+            >
+              {busy === "guest" ? "Getting you in…" : "Let’s go"}
+            </button>
+          </div>
+        )}
+
+        {error && <p className="error-text">{error}</p>}
+      </section>
+
+      <footer style={{ textAlign: "center" }}>
+        <p className="caption muted">Live data · TxLINE</p>
+      </footer>
     </main>
   );
 }
-
-const mainStyle = {
-  fontFamily: "system-ui, sans-serif",
-  padding: 24,
-  maxWidth: 640,
-  margin: "0 auto",
-  lineHeight: 1.5,
-} as const;
-
-const preStyle = {
-  background: "#f4f4f5",
-  padding: 12,
-  borderRadius: 8,
-  overflowX: "auto",
-  fontSize: 13,
-} as const;
