@@ -34,8 +34,57 @@ async function getGuestJwt(origin: string): Promise<string> {
 }
 
 /**
+ * Read a response body, but stop after `maxMs` if the server keeps the
+ * connection open (live SSE streams for in-play matches never "end").
+ * Whatever arrived before the cutoff is returned.
+ */
+async function readBodyWithTimeLimit(res: Response, maxMs: number): Promise<string> {
+  const reader = res.body?.getReader();
+  if (!reader) return res.text();
+
+  const decoder = new TextDecoder();
+  let out = "";
+  const deadline = Date.now() + maxMs;
+
+  while (true) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    const chunk = await Promise.race([
+      reader.read(),
+      new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), remaining)),
+    ]);
+    if (chunk === "timeout") break;
+    if (chunk.done) return out + decoder.decode();
+    out += decoder.decode(chunk.value, { stream: true });
+  }
+  await reader.cancel().catch(() => {});
+  return out;
+}
+
+/**
+ * Some TxLINE endpoints (e.g. /scores/updates/{fixtureId}) respond as a
+ * Server-Sent Events stream: one "data: {...}" line per update, not a JSON
+ * array. Parse those lines into an array of objects.
+ */
+function parseSseEvents(text: string): unknown[] {
+  const events: unknown[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.startsWith("data:")) continue;
+    const payload = line.slice(5).trim();
+    if (!payload) continue;
+    try {
+      events.push(JSON.parse(payload));
+    } catch {
+      // Ignore a trailing half-received event from a live stream cutoff.
+    }
+  }
+  return events;
+}
+
+/**
  * GET a TxLINE data endpoint (path is relative to the API base, e.g.
- * "/fixtures/snapshot"). Returns the parsed JSON body.
+ * "/fixtures/snapshot"). Returns parsed JSON — and if the endpoint responds
+ * as an SSE stream, returns the parsed events as an array instead.
  */
 export async function txlineGet<T = unknown>(pathAndQuery: string): Promise<T> {
   const { apiBase, apiToken } = requireEnv();
@@ -50,9 +99,20 @@ export async function txlineGet<T = unknown>(pathAndQuery: string): Promise<T> {
     cache: "no-store", // sports data is live — never cache it
   });
 
-  const text = await res.text();
+  const contentType = res.headers.get("content-type") ?? "";
+  const isStream = contentType.includes("text/event-stream");
+
+  // For live streams, collect up to 5s of events; normal responses read fully.
+  const text = isStream ? await readBodyWithTimeLimit(res, 5_000) : await res.text();
+
   if (!res.ok) {
     throw new Error(`TxLINE ${pathAndQuery} failed: HTTP ${res.status} — ${text.slice(0, 300)}`);
   }
-  return (text ? JSON.parse(text) : null) as T;
+
+  const trimmed = text.trim();
+  if (!trimmed) return null as T;
+  if (isStream || trimmed.startsWith("data:")) {
+    return parseSseEvents(trimmed) as T;
+  }
+  return JSON.parse(trimmed) as T;
 }
