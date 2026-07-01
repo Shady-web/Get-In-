@@ -34,7 +34,6 @@ import {
   LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
 import {
-  TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
   getAccount,
@@ -211,6 +210,15 @@ async function main() {
   const programId = new PublicKey(cfg.programId);
   const tokenMint = new PublicKey(cfg.txlMint);
 
+  // The TxL mint may be a classic SPL Token OR a Token-2022 mint (devnet uses
+  // Token-2022). Read the mint's owning program from chain and use THAT program
+  // everywhere, so account addresses and instructions match what the mint needs.
+  const mintInfo = await connection.getAccountInfo(tokenMint);
+  if (!mintInfo) {
+    fail(`TxL mint ${cfg.txlMint} was not found on ${network}. Check NETWORK/RPC.`);
+  }
+  const tokenProgramId = mintInfo!.owner;
+
   const [tokenTreasuryPda] = PublicKey.findProgramAddressSync(
     [Buffer.from(TREASURY_SEED)],
     programId,
@@ -219,11 +227,17 @@ async function main() {
     [Buffer.from(PRICING_MATRIX_SEED)],
     programId,
   );
-  const userTokenAccount = getAssociatedTokenAddressSync(tokenMint, wallet);
+  const userTokenAccount = getAssociatedTokenAddressSync(
+    tokenMint,
+    wallet,
+    false,
+    tokenProgramId,
+  );
   const tokenTreasuryVault = getAssociatedTokenAddressSync(
     tokenMint,
     tokenTreasuryPda,
     true, // owner is a PDA (off-curve)
+    tokenProgramId,
   );
 
   const anchorWallet = new anchor.Wallet(keypair);
@@ -234,7 +248,7 @@ async function main() {
   // The free tier costs 0 TxL, but the program still references the user's
   // token account — make sure it exists so the instruction can't fail on it.
   try {
-    await getAccount(connection, userTokenAccount);
+    await getAccount(connection, userTokenAccount, undefined, tokenProgramId);
   } catch {
     log("  Creating your token account (one-time, small rent)...");
     const ix = createAssociatedTokenAccountIdempotentInstruction(
@@ -242,6 +256,7 @@ async function main() {
       userTokenAccount,
       wallet, // owner
       tokenMint,
+      tokenProgramId,
     );
     const tx = new anchor.web3.Transaction().add(ix);
     await provider.sendAndConfirm(tx, []);
@@ -268,7 +283,7 @@ async function main() {
         userTokenAccount,
         tokenTreasuryVault,
         tokenTreasuryPda,
-        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenProgram: tokenProgramId,
         systemProgram: SystemProgram.programId,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       })

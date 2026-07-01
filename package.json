@@ -5,6 +5,9 @@
   "type": "module",
   "description": "GetIN!!! — one-time TxLINE data API token setup script.",
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "setup:txline": "tsx scripts/setup-txline.ts"
   },
   "dependencies": {
@@ -12,10 +15,15 @@
     "@solana/spl-token": "^0.4.9",
     "@solana/web3.js": "^1.95.4",
     "dotenv": "^16.4.5",
+    "next": "^14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "@types/node": "^22.20.0",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }
