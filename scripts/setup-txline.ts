@@ -302,13 +302,35 @@ async function main() {
     nacl.sign.detached(new TextEncoder().encode(message), keypair.secretKey),
   ).toString("base64");
 
-  const activated = await postJson(
-    `${cfg.apiBase}/token/activate`,
-    { txSig, walletSignature, leagues },
-    { Authorization: `Bearer ${jwt}` },
-  );
-  const apiToken: string | undefined = activated?.token;
-  if (!apiToken) fail(`/api/token/activate did not return a "token" field.`);
+  // Note: this endpoint returns the API token as a PLAIN-TEXT string, not JSON,
+  // so we read the raw body ourselves instead of using the JSON helper.
+  const activateUrl = `${cfg.apiBase}/token/activate`;
+  let activateRes: Response;
+  try {
+    activateRes = await fetch(activateUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+      body: JSON.stringify({ txSig, walletSignature, leagues }),
+    });
+  } catch (e) {
+    return fail(`Network error calling ${activateUrl}\n  ${(e as Error).message}`);
+  }
+  const activateBody = (await activateRes.text()).trim();
+  if (!activateRes.ok) {
+    return fail(
+      `${activateUrl} returned HTTP ${activateRes.status} ${activateRes.statusText}\n  ${activateBody.slice(0, 500)}`,
+    );
+  }
+  // Accept either a raw token string or a JSON object with a "token" field.
+  let apiToken = activateBody;
+  if (activateBody.startsWith("{")) {
+    try {
+      apiToken = JSON.parse(activateBody)?.token ?? "";
+    } catch {
+      /* fall through to the emptiness check below */
+    }
+  }
+  if (!apiToken) fail(`/api/token/activate did not return a token.`);
 
   // --- Done -------------------------------------------------------------
   log("\n================ SUCCESS ================");
