@@ -1,0 +1,13 @@
+# Secrets — never commit these
+.env
+.env.local
+.env.*.local
+
+# The Solana keypair this setup script generates
+.txline-keypair.json
+*.keypair.json
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
