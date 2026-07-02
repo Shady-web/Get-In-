@@ -1,1 +1,119 @@
-# Get-In-
+# GetIN!!!
+
+A mobile-first (and desktop-friendly) World Cup live prediction game.
+Watch live matches, call what happens next before it happens, earn points
+scaled by the real odds, build streaks, and climb a global leaderboard.
+Finished matches can be replayed on a timeline and played like they're live.
+
+Built for a World Cup hackathon with **Next.js (App Router) + TypeScript +
+Supabase + Vercel**, on live data from the **TxLINE** sports API (free
+on-chain World Cup tier, Solana).
+
+## How it works
+
+- **Identity without auth**: connect a Phantom wallet or just pick a
+  nickname. The players table keys on `wallet_or_nickname`; there is no
+  Supabase Auth.
+- **Live matches**: score, match clock, and a win-probability bar derived
+  from the TxLINE 1X2 market (margin normalized away), updating every ~7s.
+- **The game**: every minute of match time deals a prediction card
+  (full-time result, goal-before-minute-X, corner-before-minute-X).
+  Points = round(odds x 10), so unlikely calls pay more. Picks store the
+  odds snapshot; settlement is automatic (correct picks add points and
+  extend your streak, a miss resets it to 0).
+- **Replay Mode**: finished matches (started 6h-2w ago) replay on a
+  timeline with a scrubber and x1/x10/x60 speed. Cards price from the odds
+  as they stood at that moment; scoring works exactly like live.
+- **Leaderboard**: global top 20, live via Supabase Realtime (or polling
+  fallback), plus a downloadable streak share card.
+
+## Security model
+
+- TxLINE tokens live ONLY on the server (`.env.local` / Vercel env vars).
+  The browser talks to our own `/api/*` routes; those routes talk to TxLINE.
+- Supabase RLS is enabled with a single read-only policy on `players`
+  (for the realtime leaderboard). All writes go through server routes
+  using the service-role key.
+
+## Setup
+
+### 1. Install
+
+```bash
+npm install
+```
+
+### 2. Get a TxLINE API token (one time)
+
+```bash
+cp .env.example .env      # set NETWORK=devnet (or mainnet)
+npm run setup:txline
+```
+
+The script generates a Solana keypair (gitignored), pauses while you fund
+it (devnet faucet or a little real SOL), subscribes on-chain to the free
+World Cup tier (service level 12 on mainnet, 1 on devnet), activates and
+prints your API token.
+
+### 3. Supabase
+
+Create a project at supabase.com, then run in the SQL editor:
+
+1. `supabase/schema.sql`
+2. `supabase/schema-v2.sql`
+
+### 4. Environment
+
+Create `.env.local`:
+
+```bash
+# TxLINE (printed by the setup script)
+TXLINE_NETWORK=devnet
+TXLINE_API_TOKEN=...
+TXLINE_API_BASE=https://txline-dev.txodds.com/api
+
+# Supabase (Project Settings -> API)
+SUPABASE_URL=https://<ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=...
+
+# Optional: realtime leaderboard (public anon key is browser-safe)
+NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+```
+
+### 5. Run
+
+```bash
+npm run dev
+```
+
+## Deploy to Vercel
+
+1. Push the repo to GitHub and import it in Vercel (framework preset:
+   Next.js; no special build settings needed).
+2. Add the same variables from `.env.local` in Project Settings ->
+   Environment Variables. Keep `TXLINE_API_TOKEN` and
+   `SUPABASE_SERVICE_ROLE_KEY` server-side only (never prefix them with
+   `NEXT_PUBLIC_`).
+3. Deploy. The `/api/*` routes run as serverless functions, so tokens stay
+   server-side in production too.
+
+## API routes (browser -> our server -> TxLINE)
+
+| Route | What it does |
+|---|---|
+| `GET /api/worldcup` | Fixtures schedule (optional `?competitionId=`) |
+| `GET /api/live/{fixtureId}` | Live score/clock/probabilities, cached ~7s |
+| `GET /api/replay/{fixtureId}` | Full historical timeline for playback |
+| `GET /api/game/card` | Current prediction card (+ settles due picks) |
+| `POST /api/game/pick` | Save a pick with its odds snapshot |
+| `GET /api/leaderboard` | Top 20 players |
+| `POST /api/player` | Upsert player by wallet/nickname |
+| `GET /api/test` | End-to-end TxLINE health check |
+
+## Stack notes
+
+- Styling: Fey design system tokens (via the refero-ui-styles workflow),
+  one typeface (Inter Tight), matte-on-matte dark surfaces, no shadows.
+- Probability bar palette validated for colorblind safety and contrast.
+- `scripts/setup-txline.ts` handles Token-2022 mints and SSE responses.

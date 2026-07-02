@@ -940,6 +940,22 @@ interface LeaderRow {
 function Leaders({ player }: { player: StoredPlayer }) {
   const [rows, setRows] = useState<LeaderRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
+
+  async function onDownloadCard() {
+    setShareError(null);
+    try {
+      const { downloadStreakCard } = await import("@/lib/share-card");
+      await downloadStreakCard({
+        name: displayName(player),
+        streak: player.player?.current_streak ?? 0,
+        points: player.player?.total_points ?? 0,
+        bestStreak: player.player?.best_streak ?? 0,
+      });
+    } catch (err) {
+      setShareError(err instanceof Error ? err.message : "Could not create the image.");
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -994,9 +1010,10 @@ function Leaders({ player }: { player: StoredPlayer }) {
             World Cup 2026
           </p>
         </section>
-        <p className="caption muted" style={{ textAlign: "center" }}>
-          Screenshot the card to share it
-        </p>
+        <button className="btn btn-ghost" onClick={onDownloadCard}>
+          Download share card
+        </button>
+        {shareError && <p className="error-text">{shareError}</p>}
       </div>
 
       <section style={{ display: "grid", gap: "var(--element-gap)", alignSelf: "start" }}>
