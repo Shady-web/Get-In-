@@ -1,6 +1,6 @@
 // Server-only Supabase client using the service-role key.
-// There is NO Supabase Auth in this app — identity is just a wallet address
-// or nickname — so RLS stays locked and every DB access goes through our own
+// There is NO Supabase Auth in this app - identity is just a wallet address
+// or nickname - so RLS stays locked and every DB access goes through our own
 // API routes with this admin client. Never import this from client code.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
  * POST /api/player   { identity: string, kind: "wallet" | "guest" }
  *
  * Upserts the player by wallet_or_nickname and returns the row. If Supabase
- * isn't configured yet, sign-in still works locally — we return player: null
+ * isn't configured yet, sign-in still works locally - we return player: null
  * with a warning so the shell stays usable before the DB exists.
  */
 export async function POST(request: Request) {
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   }
   if (kind === "guest" && (identity.length < 2 || identity.length > 20)) {
     return NextResponse.json(
-      { error: "Nickname needs to be 2–20 characters." },
+      { error: "Nickname needs to be 2-20 characters." },
       { status: 400 },
     );
   }
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       player: null,
       warning:
-        "Supabase is not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing) — player not persisted.",
+        "Supabase is not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing) - player not persisted.",
     });
   }
 

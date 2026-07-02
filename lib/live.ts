@@ -8,11 +8,13 @@ import { txlineGet } from "@/lib/txline";
 export interface LiveState {
   fixtureId: number;
   score: { home: number; away: number } | null;
-  phase: string; // human label: "1st half", "HT", "FT", …
-  statusId: string | null; // raw TxLINE status: NS/H1/HT/H2/F/…
+  phase: string; // human label: "1st half", "HT", "FT", ...
+  statusId: string | null; // raw TxLINE status: NS/H1/HT/H2/F/...
   clockSeconds: number | null;
   clockRunning: boolean;
+  corners: number | null; // total corners so far, both teams
   prob: { home: number; draw: number; away: number } | null; // percents, sum 100
+  odds: { home: number; draw: number; away: number } | null; // decimal odds
   bookmaker: string | null;
   fetchedAt: number; // ms epoch, when we read TxLINE
 }
@@ -22,7 +24,7 @@ const cache = new Map<number, { at: number; state: LiveState }>();
 
 // --- Scores normalization ---------------------------------------------------
 
-/** statusSoccerId serializes as "H1" or {"H1": {}} — accept both. */
+/** statusSoccerId serializes as "H1" or {"H1": {}} - accept both. */
 function statusToString(raw: unknown): string | null {
   if (typeof raw === "string") return raw;
   if (raw && typeof raw === "object") {
@@ -57,6 +59,7 @@ interface ParsedScores {
   statusId: string | null;
   clockSeconds: number | null;
   clockRunning: boolean;
+  corners: number | null;
 }
 
 function parseScores(raw: unknown): ParsedScores {
@@ -65,6 +68,7 @@ function parseScores(raw: unknown): ParsedScores {
     statusId: null,
     clockSeconds: null,
     clockRunning: false,
+    corners: null,
   };
   if (!Array.isArray(raw)) return out;
 
@@ -87,6 +91,12 @@ function parseScores(raw: unknown): ParsedScores {
     if (typeof goals1 === "number" && typeof goals2 === "number") {
       out.score = { home: goals1, away: goals2 };
     }
+
+    const c1 = u.scoreSoccer?.Participant1?.Total?.Corners;
+    const c2 = u.scoreSoccer?.Participant2?.Total?.Corners;
+    if (typeof c1 === "number" && typeof c2 === "number") {
+      out.corners = c1 + c2;
+    }
   }
   return out;
 }
@@ -99,11 +109,14 @@ const AWAY_NAMES = new Set(["2", "away", "a"]);
 
 interface ParsedOdds {
   prob: { home: number; draw: number; away: number } | null;
+  odds: { home: number; draw: number; away: number } | null;
   bookmaker: string | null;
 }
 
+const NO_ODDS: ParsedOdds = { prob: null, odds: null, bookmaker: null };
+
 function parseOdds(raw: unknown): ParsedOdds {
-  if (!Array.isArray(raw)) return { prob: null, bookmaker: null };
+  if (!Array.isArray(raw)) return NO_ODDS;
 
   // Latest 3-way (1X2) payload wins; prefer full-time-looking markets.
   let best: any = null;
@@ -115,7 +128,7 @@ function parseOdds(raw: unknown): ParsedOdds {
     if (!isFullTime) continue;
     if (!best || (p.Ts ?? 0) >= (best.Ts ?? 0)) best = p;
   }
-  if (!best) return { prob: null, bookmaker: null };
+  if (!best) return NO_ODDS;
 
   // Map outcomes by name; fall back to positional [home, draw, away].
   const idx = { home: 0, draw: 1, away: 2 };
@@ -140,7 +153,7 @@ function parseOdds(raw: unknown): ParsedOdds {
     });
     if (vals.every((v: number) => Number.isFinite(v) && v > 0)) implied = vals;
   }
-  if (!implied) return { prob: null, bookmaker: best.Bookmaker ?? null };
+  if (!implied) return { prob: null, odds: null, bookmaker: best.Bookmaker ?? null };
 
   // Normalize away the bookmaker margin so the three sum to 100.
   const sum = implied[0] + implied[1] + implied[2];
@@ -149,7 +162,21 @@ function parseOdds(raw: unknown): ParsedOdds {
   const draw = pct(idx.draw);
   const away = Math.round((100 - home - draw) * 10) / 10;
 
-  return { prob: { home, draw, away }, bookmaker: best.Bookmaker ?? null };
+  // Decimal odds: real book prices when sane (int32, x1000), else fair odds
+  // reconstructed from the implied percentages.
+  const decimal = (i: number): number => {
+    const p = Array.isArray(best.Prices) ? Number(best.Prices[i]) : NaN;
+    if (Number.isFinite(p) && p >= 1010 && p <= 1_000_000) {
+      return Math.round(p) / 1000;
+    }
+    return Math.round((100 / implied![i]) * 100) / 100;
+  };
+
+  return {
+    prob: { home, draw, away },
+    odds: { home: decimal(idx.home), draw: decimal(idx.draw), away: decimal(idx.away) },
+    bookmaker: best.Bookmaker ?? null,
+  };
 }
 
 // --- Public API -----------------------------------------------------------------
@@ -163,7 +190,7 @@ export async function getLiveState(fixtureId: number): Promise<LiveState> {
     txlineGet(`/odds/snapshot/${fixtureId}`),
   ]);
 
-  // A fixture can have scores before odds (or vice versa) — one failing
+  // A fixture can have scores before odds (or vice versa) - one failing
   // shouldn't blank the other. Both failing is a real error.
   if (scoresRaw.status === "rejected" && oddsRaw.status === "rejected") {
     throw new Error(
@@ -181,7 +208,9 @@ export async function getLiveState(fixtureId: number): Promise<LiveState> {
     phase: PHASE_LABELS[s.statusId ?? ""] ?? (s.score ? "In play" : "Kickoff soon"),
     clockSeconds: s.clockSeconds,
     clockRunning: s.clockRunning,
+    corners: s.corners,
     prob: o.prob,
+    odds: o.odds,
     bookmaker: o.bookmaker,
     fetchedAt: Date.now(),
   };

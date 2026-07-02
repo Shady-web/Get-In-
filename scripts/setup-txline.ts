@@ -1,5 +1,5 @@
 /**
- * GetIN!!! — one-time TxLINE data API token setup.
+ * GetIN!!! - one-time TxLINE data API token setup.
  *
  * Run this ONCE from your terminal. It will:
  *   1. Generate (or reuse) a Solana keypair, saved to a gitignored file.
@@ -14,7 +14,7 @@
  *   6. Print your TxLINE data API token.
  *
  * IMPORTANT: this is a *terminal* script. The token it prints is a server-side
- * secret — put it in .env.local (server-only) and never ship it to the browser.
+ * secret - put it in .env.local (server-only) and never ship it to the browser.
  *
  * Run it with:   npm run setup:txline
  * (or directly:  NETWORK=devnet npx tsx scripts/setup-txline.ts)
@@ -166,7 +166,7 @@ async function main() {
   const rpcUrl = process.env.SOLANA_RPC_URL ?? cfg.rpcUrl;
   const weeks = Number(process.env.DURATION_WEEKS ?? 48); // 48 weeks = ~12 months
 
-  log(`GetIN!!! TxLINE setup — network: ${network}`);
+  log(`GetIN!!! TxLINE setup - network: ${network}`);
   log(`  RPC:        ${rpcUrl}`);
   log(`  API origin: ${cfg.apiOrigin}`);
   log(`  Service level (free World Cup tier): ${cfg.freeServiceLevel}`);
@@ -195,7 +195,7 @@ async function main() {
   const funded = await connection.getBalance(wallet);
   log(`  Balance now: ${(funded / LAMPORTS_PER_SOL).toFixed(4)} SOL`);
   if (funded === 0) {
-    fail("Wallet still has 0 SOL — fund it and re-run this script.");
+    fail("Wallet still has 0 SOL - fund it and re-run this script.");
   }
 
   // --- Step 3: guest JWT ------------------------------------------------
@@ -246,7 +246,7 @@ async function main() {
   });
 
   // The free tier costs 0 TxL, but the program still references the user's
-  // token account — make sure it exists so the instruction can't fail on it.
+  // token account - make sure it exists so the instruction can't fail on it.
   try {
     await getAccount(connection, userTokenAccount, undefined, tokenProgramId);
   } catch {
@@ -336,7 +336,7 @@ async function main() {
   log("\n================ SUCCESS ================");
   log("Your TxLINE data API token:\n");
   log(`  ${apiToken}`);
-  log("\nAdd it to .env.local (SERVER-ONLY — never expose to the browser):");
+  log("\nAdd it to .env.local (SERVER-ONLY - never expose to the browser):");
   log(`  TXLINE_NETWORK=${network}`);
   log(`  TXLINE_API_TOKEN=${apiToken}`);
   log(`  TXLINE_API_BASE=${cfg.apiBase}`);

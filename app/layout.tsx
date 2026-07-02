@@ -12,7 +12,7 @@ const interTight = Inter_Tight({
 
 export const metadata = {
   title: "GetIN!!!",
-  description: "World Cup live predictions — call it before the whistle.",
+  description: "World Cup live predictions - call it before the whistle.",
 };
 
 export const viewport = {
