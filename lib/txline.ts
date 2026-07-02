@@ -14,10 +14,10 @@ function requireEnv() {
   const apiBase = process.env.TXLINE_API_BASE; // e.g. https://txline-dev.txodds.com/api
   const apiToken = process.env.TXLINE_API_TOKEN; // printed by scripts/setup-txline.ts
   if (!apiBase) {
-    throw new Error("TXLINE_API_BASE is not set — see .env.example (put it in .env.local).");
+    throw new Error("TXLINE_API_BASE is not set - see .env.example (put it in .env.local).");
   }
   if (!apiToken) {
-    throw new Error("TXLINE_API_TOKEN is not set — run `npm run setup:txline`, then add it to .env.local.");
+    throw new Error("TXLINE_API_TOKEN is not set - run `npm run setup:txline`, then add it to .env.local.");
   }
   return { apiBase, apiToken };
 }
@@ -83,7 +83,7 @@ function parseSseEvents(text: string): unknown[] {
 
 /**
  * GET a TxLINE data endpoint (path is relative to the API base, e.g.
- * "/fixtures/snapshot"). Returns parsed JSON — and if the endpoint responds
+ * "/fixtures/snapshot"). Returns parsed JSON - and if the endpoint responds
  * as an SSE stream, returns the parsed events as an array instead.
  */
 export async function txlineGet<T = unknown>(pathAndQuery: string): Promise<T> {
@@ -96,7 +96,7 @@ export async function txlineGet<T = unknown>(pathAndQuery: string): Promise<T> {
       Authorization: `Bearer ${jwt}`,
       "X-Api-Token": apiToken,
     },
-    cache: "no-store", // sports data is live — never cache it
+    cache: "no-store", // sports data is live - never cache it
   });
 
   const contentType = res.headers.get("content-type") ?? "";
@@ -106,7 +106,7 @@ export async function txlineGet<T = unknown>(pathAndQuery: string): Promise<T> {
   const text = isStream ? await readBodyWithTimeLimit(res, 5_000) : await res.text();
 
   if (!res.ok) {
-    throw new Error(`TxLINE ${pathAndQuery} failed: HTTP ${res.status} — ${text.slice(0, 300)}`);
+    throw new Error(`TxLINE ${pathAndQuery} failed: HTTP ${res.status} - ${text.slice(0, 300)}`);
   }
 
   const trimmed = text.trim();

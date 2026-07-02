@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { txlineGet } from "@/lib/txline";
 
-// Live sports data — never statically cache this route.
+// Live sports data - never statically cache this route.
 export const dynamic = "force-dynamic";
 
 /**

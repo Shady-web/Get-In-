@@ -89,7 +89,7 @@ export default function Landing() {
   function onGuestSubmit() {
     const name = nickname.trim();
     if (name.length < 2 || name.length > 20) {
-      setError("Nickname needs to be 2–20 characters.");
+      setError("Nickname needs to be 2-20 characters.");
       return;
     }
     setBusy("guest");

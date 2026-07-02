@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { txlineGet } from "@/lib/txline";
 
-// Live diagnostics — never cache.
+// Live diagnostics - never cache.
 export const dynamic = "force-dynamic";
 
 interface Fixture {

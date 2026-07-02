@@ -1,4 +1,4 @@
--- GetIN!!! schema — run this once in the Supabase SQL editor.
+-- GetIN!!! schema - run this once in the Supabase SQL editor.
 --
 -- No Supabase Auth: identity is just a wallet address or nickname, and ALL
 -- database access goes through our Next.js API routes using the service-role

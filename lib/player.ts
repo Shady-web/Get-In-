@@ -1,4 +1,4 @@
-// Client-side identity storage. No Supabase Auth — identity is just the
+// Client-side identity storage. No Supabase Auth - identity is just the
 // wallet address or a nickname, remembered in localStorage.
 
 export interface PlayerRecord {
@@ -6,6 +6,7 @@ export interface PlayerRecord {
   wallet_or_nickname: string;
   total_points: number;
   best_streak: number;
+  current_streak?: number;
 }
 
 export interface StoredPlayer {

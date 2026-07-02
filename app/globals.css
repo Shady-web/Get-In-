@@ -1,9 +1,9 @@
-/* GetIN!!! — Fey design system tokens (styles.refero.design)
+/* GetIN!!! - Fey design system tokens (styles.refero.design)
    Obsidian trading-terminal look: matte-on-matte surfaces, no card shadows,
    chromatic accents as punctuation only, aggressive negative tracking. */
 
 :root {
-  /* Accents — stroke/text only, never filled backgrounds */
+  /* Accents - stroke/text only, never filled backgrounds */
   --color-ember-orange: #ffa16c;
   --color-signal-blue: #479ffa;
   --color-tape-green: #4ebe96;
@@ -24,7 +24,7 @@
   --surface-card: var(--color-graphite);
   --surface-elevated-card: #191919;
 
-  /* Radii — three-tier system */
+  /* Radii - three-tier system */
   --radius-buttons: 6px;
   --radius-cards: 16px;
   --radius-modals: 10px;
@@ -263,7 +263,7 @@ a {
 
 /* ---- Live match view ------------------------------------------------------ */
 
-/* Series colors — validated categorical palette (dataviz six checks, dark) */
+/* Series colors - validated categorical palette (dataviz six checks, dark) */
 :root {
   --series-home: #3178d4;
   --series-draw: #c77f3a;
@@ -376,6 +376,95 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ---- Tabs ------------------------------------------------------------------ */
+
+.pill.tab {
+  cursor: pointer;
+  color: var(--color-fog);
+}
+
+.pill.tab.active {
+  color: var(--color-snow);
+  border-color: var(--color-platinum);
+}
+
+/* ---- Prediction game --------------------------------------------------------- */
+
+.option-btn {
+  appearance: none;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--surface-elevated-card);
+  border: 1px solid transparent;
+  border-radius: var(--radius-buttons);
+  color: var(--color-snow);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.742px;
+  cursor: pointer;
+  transition: border-color 120ms ease, opacity 120ms ease;
+}
+
+.option-btn:not(:disabled):hover,
+.option-btn:not(:disabled):active {
+  border-color: var(--color-platinum);
+}
+
+.option-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.option-btn.chosen {
+  opacity: 1;
+  border-color: var(--color-tape-green);
+}
+
+.option-btn .team {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.points-badge {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ember-orange);
+  border: 1px solid var(--color-slate);
+  border-radius: var(--radius-pill);
+  padding: 3px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Share-my-streak card ------------------------------------------------------ */
+
+.share-card {
+  background: var(--surface-card);
+  border: 1px solid #1f1f1f;
+  border-radius: var(--radius-cards);
+  padding: 28px 24px;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  text-align: center;
+}
+
+.share-streak {
+  font-size: 84px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -6px;
+  color: var(--color-snow);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---- Skeleton fixture rows (empty state) -------------------------------- */
