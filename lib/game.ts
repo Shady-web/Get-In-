@@ -1,128 +1,29 @@
-// Server-only prediction game engine.
+// Server-only prediction game persistence: saving picks and settling them.
+// The pure card/odds logic lives in lib/game-core.ts (shared with the
+// browser); this file adds Supabase reads/writes on top.
 //
-// A new prediction card appears every ~60 seconds of MATCH clock (a "round").
-// Question types rotate by round number so every client computes the same
-// card for the same round. Point values come from odds: points = round(odds * 10),
-// so less likely picks pay more. Picks store the odds snapshot; settlement
-// happens lazily on later polls, comparing against the live TxLINE feed.
+// Live matches use matchId = String(fixtureId). Replay sessions use
+// matchId = "r{fixtureId}-{nonce}" so replaying a match (even twice)
+// never collides with live picks, while scoring the same way.
 
 import type { LiveState } from "@/lib/live";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import {
+  buildCard,
+  isFinal,
+  toPoints,
+  type GameCard,
+  type GameOption,
+  type SettledResult,
+} from "@/lib/game-core";
 
-export const ROUND_SECONDS = 60;
-
-export type QuestionKind = "result" | "nextgoal" | "corner";
-
-export interface GameOption {
-  id: string; // "home" | "draw" | "away" | "yes" | "no"
-  label: string;
-  odds: number; // decimal odds backing this option
-  points: number; // round(odds * 10)
-}
-
-export interface GameCard {
-  fixtureId: number;
-  round: number;
-  kind: QuestionKind;
-  question: string;
-  options: GameOption[];
-  // Snapshot the settlement needs later:
-  baseline: {
-    goals: number;
-    corners: number;
-    clockSeconds: number;
-    deadlineSeconds: number | null; // null settles at full time
-  };
-}
-
-const FINAL_STATUSES = new Set(["F", "FET", "FPE", "A", "C"]);
-
-export function isFinal(statusId: string | null): boolean {
-  return statusId !== null && FINAL_STATUSES.has(statusId);
-}
-
-const toPoints = (odds: number) => Math.max(10, Math.round(odds * 10));
-const opt = (id: string, label: string, odds: number): GameOption => ({
-  id,
-  label,
-  odds: Math.round(odds * 100) / 100,
-  points: toPoints(odds),
-});
-
-/**
- * Build the card for the fixture's current round, or null when there is no
- * live clock / the match is over. Deterministic given the same live state.
- */
-export function buildCard(
-  live: LiveState,
-  names: { home: string; away: string },
-): GameCard | null {
-  if (live.clockSeconds === null || isFinal(live.statusId)) return null;
-
-  const round = Math.floor(live.clockSeconds / ROUND_SECONDS);
-  const minute = Math.floor(live.clockSeconds / 60);
-  const goals = live.score ? live.score.home + live.score.away : 0;
-  const corners = live.corners ?? 0;
-
-  const kinds: QuestionKind[] = ["result", "nextgoal", "corner"];
-  const kind = kinds[round % kinds.length];
-
-  const baseline = {
-    goals,
-    corners,
-    clockSeconds: live.clockSeconds,
-    deadlineSeconds: null as number | null,
-  };
-
-  if (kind === "result") {
-    // Straight from the TxLINE 1X2 market. Needs odds to exist.
-    if (!live.odds) return null;
-    return {
-      fixtureId: live.fixtureId,
-      round,
-      kind,
-      question: "Who takes it at full time?",
-      options: [
-        opt("home", names.home, live.odds.home),
-        opt("draw", "Draw", live.odds.draw),
-        opt("away", names.away, live.odds.away),
-      ],
-      baseline, // deadlineSeconds null: settles at FT
-    };
-  }
-
-  if (kind === "nextgoal") {
-    const targetMinute = minute + 10;
-    // Goal intensity derived from the current TxLINE market: a live draw
-    // price falling means an open game. liveliness in [0..1].
-    const liveliness = live.prob ? 1 - live.prob.draw / 100 : 0.65;
-    const lambdaPerMin = 0.03 * (0.6 + 1.2 * liveliness); // goals per minute
-    const pYes = Math.min(0.85, Math.max(0.12, 1 - Math.exp(-lambdaPerMin * 10)));
-    return {
-      fixtureId: live.fixtureId,
-      round,
-      kind,
-      question: `Goal before ${targetMinute}'?`,
-      options: [opt("yes", "Yes", 1 / pYes), opt("no", "No", 1 / (1 - pYes))],
-      baseline: { ...baseline, deadlineSeconds: targetMinute * 60 },
-    };
-  }
-
-  // corner: another corner within 10 minutes, priced off the corner rate so far.
-  const targetMinute = minute + 10;
-  const ratePerMin = minute > 0 ? corners / minute : 0.15;
-  const pYes = Math.min(0.9, Math.max(0.2, ratePerMin * 10 * 0.75));
-  return {
-    fixtureId: live.fixtureId,
-    round,
-    kind,
-    question: `Corner before ${targetMinute}'?`,
-    options: [opt("yes", "Yes", 1 / pYes), opt("no", "No", 1 / (1 - pYes))],
-    baseline: { ...baseline, deadlineSeconds: targetMinute * 60 },
-  };
-}
-
-// --- Persistence ------------------------------------------------------------------
+export type {
+  GameCard,
+  GameOption,
+  SettledResult,
+  QuestionKind,
+} from "@/lib/game-core";
+export { buildCard, isFinal, ROUND_SECONDS } from "@/lib/game-core";
 
 export interface PlayerRow {
   id: string;
@@ -150,6 +51,7 @@ export async function savePick(args: {
   identity: string;
   live: LiveState;
   names: { home: string; away: string };
+  matchId: string;
   round: number;
   choice: string;
 }): Promise<{ pick: GameOption; card: GameCard }> {
@@ -167,7 +69,7 @@ export async function savePick(args: {
   const player = await getOrCreatePlayer(args.identity);
   const { error } = await supabase.from("predictions").insert({
     player: player.id,
-    match_id: String(card.fixtureId),
+    match_id: args.matchId,
     round: card.round,
     kind: card.kind,
     question: card.question,
@@ -182,23 +84,15 @@ export async function savePick(args: {
   return { pick: option, card };
 }
 
-// --- Settlement ---------------------------------------------------------------------
-
-export interface SettledResult {
-  question: string;
-  choice: string;
-  result: "won" | "lost";
-  points: number;
-}
-
 /**
- * Settle every due prediction for this player+fixture against the live feed.
- * "Due" means: match finished (result questions), or a goal/corner arrived,
- * or the clock passed the deadline. Awards points, bumps or resets streaks.
+ * Settle every due prediction for this player+match against the given state
+ * (live TxLINE state, or a synthesized historical state during replay).
+ * Awards points, bumps or resets streaks.
  */
 export async function settleDue(
   identity: string,
   live: LiveState,
+  matchId: string,
 ): Promise<{ settled: SettledResult[]; player: PlayerRow | null }> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return { settled: [], player: null };
@@ -208,7 +102,7 @@ export async function settleDue(
     .from("predictions")
     .select("*")
     .eq("player", player.id)
-    .eq("match_id", String(live.fixtureId))
+    .eq("match_id", matchId)
     .is("result", null)
     .order("round", { ascending: true });
   if (error) throw new Error(`Could not read predictions: ${error.message}`);
@@ -257,7 +151,7 @@ export async function settleDue(
 
     if (outcome === null) continue; // not due yet
 
-    const points = outcome ? Math.max(10, Math.round(Number(row.odds_at_pick) * 10)) : 0;
+    const points = outcome ? toPoints(Number(row.odds_at_pick)) : 0;
     const { error: upErr } = await supabase
       .from("predictions")
       .update({

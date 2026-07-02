@@ -6,6 +6,7 @@
   "description": "GetIN!!! — one-time TxLINE data API token setup script.",
   "scripts": {
     "dev": "next dev",
+    "dev:mock": "node scripts/dev-mock.mjs",
     "build": "next build",
     "start": "next start",
     "setup:txline": "tsx scripts/setup-txline.ts"
