@@ -1,15 +1,20 @@
 import { NextResponse } from "next/server";
 import { getLiveState } from "@/lib/live";
 import { savePick } from "@/lib/game";
+import { getReplayTimeline, stateAt } from "@/lib/replay";
 
 export const dynamic = "force-dynamic";
+
+const SESSION_RE = /^r\d+-[a-z0-9]{4,24}$/;
 
 /**
  * POST /api/game/pick
  *   { identity, fixtureId, round, choice, home, away }
+ *   Replay mode adds: { session: "r{fixtureId}-{nonce}", vt: seconds }
  *
  * Validates the choice against a freshly built card (server recomputes the
- * odds at pick time) and stores the prediction with that odds snapshot.
+ * odds at pick time, live or at the replay's virtual clock) and stores the
+ * prediction with that odds snapshot.
  */
 export async function POST(request: Request) {
   let body: any;
@@ -25,6 +30,7 @@ export async function POST(request: Request) {
   const choice = String(body?.choice ?? "");
   const home = String(body?.home ?? "Home");
   const away = String(body?.away ?? "Away");
+  const session = body?.session ? String(body.session) : null;
 
   if (!identity || !Number.isFinite(fixtureId) || !Number.isFinite(round) || !choice) {
     return NextResponse.json(
@@ -32,13 +38,28 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (session && !SESSION_RE.test(session)) {
+    return NextResponse.json({ ok: false, error: "Invalid replay session." }, { status: 400 });
+  }
 
   try {
-    const live = await getLiveState(fixtureId);
+    let state;
+    let matchId: string;
+    if (session) {
+      const vt = Math.max(0, Number.parseFloat(String(body?.vt ?? "0")) || 0);
+      const timeline = await getReplayTimeline(fixtureId);
+      state = stateAt(timeline, vt);
+      matchId = session;
+    } else {
+      state = await getLiveState(fixtureId);
+      matchId = String(fixtureId);
+    }
+
     const { pick, card } = await savePick({
       identity,
-      live,
+      live: state,
       names: { home, away },
+      matchId,
       round,
       choice,
     });
