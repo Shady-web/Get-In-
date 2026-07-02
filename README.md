@@ -87,6 +87,27 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 npm run dev
 ```
 
+## Testing without a live match
+
+Most features (goals, settlement, streaks) normally need a match in play.
+Two ways around that:
+
+- **Replay Mode** (real data): open any finished match from the Replay
+  section; the full game loop (cards, picks, settlement, points,
+  leaderboard) runs against its real history.
+- **Mock mode** (no TxLINE needed):
+
+  ```bash
+  npm run dev:mock
+  ```
+
+  Starts a fake TxLINE server plus the app pointed at it. "Testland vs
+  Mockovia" is always live (kicked off 15 minutes before you started, with
+  goals at 18', 27', 51', 74'), there's an upcoming fixture with pre-match
+  odds, and "Ghana vs Japan" is replayable. Your Supabase env still
+  applies, so picks settle and score for real. Only TXLINE_* is
+  overridden; your real token is untouched.
+
 ## Deploy to Vercel
 
 1. Push the repo to GitHub and import it in Vercel (framework preset:
