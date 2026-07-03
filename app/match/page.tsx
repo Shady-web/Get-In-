@@ -24,20 +24,18 @@ interface Fixture {
   Participant2: string;
   FixtureId: number;
   Participant1IsHome: boolean;
+  // Real status from the server (drawn from the scores feed, not the clock):
+  LiveStatus?: "live" | "upcoming" | "finished";
+  Phase?: string | null;
+  LiveScore?: { home: number; away: number } | null;
 }
 
-/** A match counts as "live" from kickoff until ~3h after (ET + pens headroom). */
-const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
 /** Replay window per TxLINE: started between 2 weeks and 6 hours ago. */
 const REPLAY_MIN_AGE_MS = 6 * 60 * 60 * 1000;
 const REPLAY_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const POLL_MS = 7_000;
 
 type Selection = { fixture: Fixture; mode: "live" | "replay" };
-
-function isLive(f: Fixture, now: number): boolean {
-  return f.StartTime <= now && now - f.StartTime < LIVE_WINDOW_MS;
-}
 
 function isReplayable(f: Fixture, now: number): boolean {
   const age = now - f.StartTime;
@@ -214,9 +212,14 @@ function FixtureList({
   }, []);
 
   const now = Date.now();
-  const live = (fixtures ?? []).filter((f) => isLive(f, now));
+  // Trust the server's LiveStatus (drawn from the real scores feed). A match
+  // deep in extra time or penalties is LIVE no matter what the clock says.
+  const live = (fixtures ?? []).filter((f) => f.LiveStatus === "live");
+  const justFinished = (fixtures ?? []).filter(
+    (f) => f.LiveStatus === "finished" && now - f.StartTime < REPLAY_MIN_AGE_MS,
+  );
   const upcoming = (fixtures ?? [])
-    .filter((f) => f.StartTime > now)
+    .filter((f) => (f.LiveStatus ? f.LiveStatus === "upcoming" : f.StartTime > now))
     .sort((a, b) => a.StartTime - b.StartTime);
   const replayable = (fixtures ?? [])
     .filter((f) => isReplayable(f, now))
@@ -248,7 +251,7 @@ function FixtureList({
           </div>
         )}
 
-        {fixtures && live.length === 0 && (
+        {fixtures && live.length === 0 && justFinished.length === 0 && (
           <div className="card fade-in" style={{ textAlign: "center", display: "grid", gap: 6 }}>
             <h2 className="heading-sm">Nothing in play right now</h2>
             <p className="muted" style={{ fontSize: 14 }}>
@@ -266,8 +269,32 @@ function FixtureList({
               onClick={() => onPick({ fixture: f, mode: "live" })}
               left={<span className="live-dot" />}
               right={
-                <span style={{ color: "var(--color-tape-green)", fontSize: 12, fontWeight: 500 }}>
-                  LIVE
+                <span style={{ display: "grid", gap: 2, justifyItems: "end" }}>
+                  <span
+                    style={{ color: "var(--color-tape-green)", fontSize: 12, fontWeight: 600 }}
+                  >
+                    {f.LiveScore ? `${f.LiveScore.home}:${f.LiveScore.away}` : "LIVE"}
+                  </span>
+                  <span className="muted" style={{ fontSize: 11 }}>
+                    {f.Phase ?? "LIVE"}
+                  </span>
+                </span>
+              }
+            />
+          ))}
+          {justFinished.map((f) => (
+            <FixtureRow
+              key={f.FixtureId}
+              fixture={f}
+              onClick={() => onPick({ fixture: f, mode: "live" })}
+              right={
+                <span style={{ display: "grid", gap: 2, justifyItems: "end" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>
+                    {f.LiveScore ? `${f.LiveScore.home}:${f.LiveScore.away}` : "FT"}
+                  </span>
+                  <span className="muted" style={{ fontSize: 11 }}>
+                    {f.Phase ?? "Full time"}
+                  </span>
                 </span>
               }
             />
@@ -553,7 +580,9 @@ function PredictionPanel({
         <p className="caption section-label">Prediction</p>
         {card && (
           <span className="muted" style={{ fontSize: 12 }}>
-            Round {card.round} · new card every minute
+            {card.round === -1
+              ? "Pre-match · settles at full time"
+              : `Round ${card.round} · new card every minute`}
           </span>
         )}
       </div>
@@ -588,7 +617,8 @@ function PredictionPanel({
         </>
       ) : (
         <p className="muted" style={{ fontSize: 13 }}>
-          Cards open once the match clock is running.
+          Picks open as soon as the market prices this match (pre-match calls
+          included). Check back shortly.
         </p>
       )}
 
@@ -637,7 +667,13 @@ function LiveMatch({
   const [clockText, setClockText] = useState<string | null>(null);
   const stateRef = useRef<LiveState | null>(null);
 
-  const matchStarted = fixture.StartTime <= Date.now();
+  // Started = the FEED says so, not the fixture clock (kickoffs shift, and
+  // extra time / penalties run long past any window).
+  const matchStarted = state
+    ? state.statusId !== null && state.statusId !== "NS"
+    : fixture.LiveStatus === "live" ||
+      fixture.LiveStatus === "finished" ||
+      (!fixture.LiveStatus && fixture.StartTime <= Date.now());
 
   const poll = useCallback(async () => {
     if (document.hidden) return;
@@ -707,13 +743,11 @@ function LiveMatch({
           }
         />
 
-        {matchStarted && (
-          <PredictionPanel
-            fixture={fixture}
-            player={player}
-            onPlayerUpdate={onPlayerUpdate}
-          />
-        )}
+        <PredictionPanel
+          fixture={fixture}
+          player={player}
+          onPlayerUpdate={onPlayerUpdate}
+        />
       </div>
 
       {error && <p className="error-text">{error}</p>}
