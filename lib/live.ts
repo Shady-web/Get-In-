@@ -7,6 +7,7 @@
 // shapes (verified against production data), not just the published spec.
 
 import { txlineGet } from "@/lib/txline";
+import { getOddsSnapshot } from "@/lib/odds-snapshot";
 import {
   foldScores,
   latest1X2,
@@ -59,7 +60,7 @@ export async function getLiveState(fixtureId: number): Promise<LiveState> {
 
   const [scoresRaw, oddsRaw] = await Promise.allSettled([
     txlineGet(`/scores/snapshot/${fixtureId}`),
-    txlineGet(`/odds/snapshot/${fixtureId}`),
+    getOddsSnapshot(fixtureId), // shared cache with the Markets tab
   ]);
 
   // A fixture can have scores before odds (or vice versa) - one failing

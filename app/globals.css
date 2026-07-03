@@ -445,6 +445,69 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---- Markets tab (trading-terminal rows) ---------------------------------------- */
+
+.market-chip {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-fog);
+  border: 1px solid #1f1f1f;
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.outcome-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-elevated-card);
+  border-radius: var(--radius-buttons);
+  padding: 8px 12px;
+  min-height: 40px;
+}
+
+.spark-empty {
+  display: inline-block;
+  width: 64px;
+  height: 22px;
+}
+
+.price-num {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.53px;
+  font-variant-numeric: tabular-nums;
+  min-width: 64px;
+  text-align: right;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+/* Flash on drift: green up, red down (validated >= 3:1 on this surface).
+   The row also carries a direction glyph, so color is never the only cue. */
+.flash-up {
+  animation: price-up 900ms ease-out;
+  color: var(--color-tape-green);
+}
+
+.flash-down {
+  animation: price-down 900ms ease-out;
+  color: #d9776a;
+}
+
+@keyframes price-up {
+  0% { background: rgba(78, 190, 150, 0.28); }
+  100% { background: transparent; }
+}
+
+@keyframes price-down {
+  0% { background: rgba(217, 119, 106, 0.28); }
+  100% { background: transparent; }
+}
+
 /* ---- Share-my-streak card ------------------------------------------------------ */
 
 .share-card {
