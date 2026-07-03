@@ -52,15 +52,37 @@ const opt = (id: string, label: string, odds: number): GameOption => ({
   points: toPoints(odds),
 });
 
+/** The pre-kickoff round: pick the winner before the match starts. */
+export const PREMATCH_ROUND = -1;
+
 /**
- * Build the card for the fixture's current round, or null when there is no
- * clock yet / the match is over. Deterministic given the same state.
+ * Build the card for the fixture's current round. Before kickoff this is a
+ * pre-match winner pick (round -1) whenever odds exist; after the final
+ * whistle there is no card. Deterministic given the same state.
  */
 export function buildCard(
   live: LiveState,
   names: { home: string; away: string },
 ): GameCard | null {
-  if (live.clockSeconds === null || isFinal(live.statusId)) return null;
+  if (isFinal(live.statusId)) return null;
+
+  // Pre-match: no clock yet (or explicitly not started). Lock in a winner
+  // call before kickoff, priced from the pre-match 1X2 market.
+  if (live.clockSeconds === null || live.statusId === null || live.statusId === "NS") {
+    if (!live.odds) return null;
+    return {
+      fixtureId: live.fixtureId,
+      round: PREMATCH_ROUND,
+      kind: "result",
+      question: "Call it before kickoff: who wins?",
+      options: [
+        opt("home", names.home, live.odds.home),
+        opt("draw", "Draw", live.odds.draw),
+        opt("away", names.away, live.odds.away),
+      ],
+      baseline: { goals: 0, corners: 0, clockSeconds: 0, deadlineSeconds: null },
+    };
+  }
 
   const round = Math.floor(live.clockSeconds / ROUND_SECONDS);
   const minute = Math.floor(live.clockSeconds / 60);
