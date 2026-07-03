@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getLiveState } from "@/lib/live";
 import { buildCard, settleDue } from "@/lib/game";
 import { getReplayTimeline, stateAt } from "@/lib/replay";
+import { settleSlipsForMatch } from "@/lib/betting";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,7 @@ export async function GET(request: Request) {
     const card = buildCard(state, { home, away });
 
     let settled: unknown[] = [];
+    let slipResults: unknown[] = [];
     let player: unknown = null;
     let warning: string | undefined;
     if (identity) {
@@ -54,13 +56,18 @@ export async function GET(request: Request) {
         const res = await settleDue(identity, state, matchId);
         settled = res.settled;
         player = res.player;
+        // Coin slips settle from the same state; replay virtual time drives
+        // this too, since `state` is synthesized at vt during replays.
+        const slips = await settleSlipsForMatch(identity, matchId, state);
+        slipResults = slips.results;
+        if (slips.player) player = slips.player;
       } catch (err) {
         // Settlement needs Supabase; the card itself does not. Degrade politely.
         warning = err instanceof Error ? err.message : "Settlement unavailable.";
       }
     }
 
-    return NextResponse.json({ ok: true, card, settled, player, warning });
+    return NextResponse.json({ ok: true, card, settled, slipResults, player, warning });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ ok: false, error: message }, { status: 502 });

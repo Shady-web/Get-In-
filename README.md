@@ -24,8 +24,13 @@ on-chain World Cup tier, Solana).
 - **Replay Mode**: finished matches (started 6h-2w ago) replay on a
   timeline with a scrubber and x1/x10/x60 speed. Cards price from the odds
   as they stood at that moment; scoring works exactly like live.
-- **Leaderboard**: global top 20, live via Supabase Realtime (or polling
-  fallback), plus a downloadable streak share card.
+- **Coin economy**: every player starts with 1,000 coins and can claim 500
+  daily. Tap any full-time price (Markets tab, or the winner odds in a
+  replay) to build a Bet Slip: one selection = single, several (across
+  matches) = accumulator at the product of leg odds. Slips settle
+  automatically from the scores data - in live matches and in Replay Mode.
+- **Leaderboard**: global top 20 ranked by coin bankroll, live via Supabase
+  Realtime (or polling fallback), plus a downloadable streak share card.
 
 ## Security model
 
@@ -61,6 +66,7 @@ Create a project at supabase.com, then run in the SQL editor:
 
 1. `supabase/schema.sql`
 2. `supabase/schema-v2.sql`
+3. `supabase/schema-v3.sql`
 
 ### 4. Environment
 

@@ -7,6 +7,8 @@ export interface PlayerRecord {
   total_points: number;
   best_streak: number;
   current_streak?: number;
+  coins?: number;
+  last_claim?: string | null;
 }
 
 export interface StoredPlayer {

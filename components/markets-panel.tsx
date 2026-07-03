@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LineChart, Line, YAxis } from "recharts";
+import { useBetSlip } from "@/components/bet-slip";
 import type { Market } from "@/lib/markets";
 
 const POLL_MS = 7_000;
@@ -68,6 +69,7 @@ function Sparkline({ points }: { points: number[] }) {
 export function MarketsPanel({ fixture }: { fixture: FixtureNames }) {
   const [markets, setMarkets] = useState<Market[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { toggle, isSelected } = useBetSlip();
   // Per-outcome price history + last flash direction, kept across polls.
   const historyRef = useRef<Map<string, number[]>>(new Map());
   const flashRef = useRef<Map<string, "up" | "down">>(new Map());
@@ -148,9 +150,33 @@ export function MarketsPanel({ fixture }: { fixture: FixtureNames }) {
             {m.outcomes.map((o) => {
               const id = `${m.key}|${o.name}`;
               const dir = flashRef.current.get(id) ?? null;
+              // Only full-time markets are bettable (halves settle mid-match).
+              const bettable = m.period === null || m.period === "";
+              const selId = `${fixture.FixtureId}|${m.key}|${o.name}`;
+              const selected = bettable && isSelected(selId);
+              const Row = (bettable ? "button" : "div") as "button";
               return (
-                <div key={o.name} className="outcome-row">
+                <Row
+                  key={o.name}
+                  className={`outcome-row ${bettable ? "bettable" : ""} ${selected ? "selected" : ""}`}
+                  onClick={
+                    bettable
+                      ? () =>
+                          toggle({
+                            id: selId,
+                            fixtureId: fixture.FixtureId,
+                            matchLabel: `${fixture.Participant1} vs ${fixture.Participant2}`,
+                            marketKey: m.key,
+                            marketLabel: m.label,
+                            outcomeName: o.name,
+                            outcomeLabel: outcomeLabel(o.name, fixture),
+                            odds: o.price,
+                          })
+                      : undefined
+                  }
+                >
                   <span className="team" style={{ flex: 1, minWidth: 0, fontSize: 14 }}>
+                    {selected ? "✓ " : ""}
                     {outcomeLabel(o.name, fixture)}
                   </span>
                   {o.pct !== null && (
@@ -166,12 +192,17 @@ export function MarketsPanel({ fixture }: { fixture: FixtureNames }) {
                     {dir === "up" ? "▲ " : dir === "down" ? "▼ " : ""}
                     {o.price.toFixed(o.price >= 100 ? 0 : 2)}
                   </span>
-                </div>
+                </Row>
               );
             })}
           </div>
         </section>
       ))}
+      {markets && markets.length > 0 && (
+        <p className="muted" style={{ fontSize: 11, textAlign: "center" }}>
+          Tap a full-time price to add it to your bet slip
+        </p>
+      )}
     </div>
   );
 }

@@ -553,6 +553,66 @@ a {
   100% { background: transparent; }
 }
 
+/* ---- Bet slip -------------------------------------------------------------------- */
+
+.outcome-row.bettable {
+  cursor: pointer;
+  border: 1px solid transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  transition: border-color 120ms ease;
+}
+
+.outcome-row.bettable:hover {
+  border-color: var(--color-slate);
+}
+
+.outcome-row.selected {
+  border-color: var(--color-ember-orange);
+}
+
+.slip-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  width: min(480px, calc(100vw - 32px));
+  z-index: 40;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-elevated-card);
+  border: 1px solid var(--color-ember-orange);
+  border-radius: var(--radius-cards);
+  padding: 14px 18px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--color-snow);
+  cursor: pointer;
+  box-shadow: var(--shadow-xl);
+}
+
+.slip-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  bottom: 0;
+  width: min(520px, 100vw);
+  z-index: 41;
+  display: grid;
+  gap: 14px;
+  background: var(--surface-card);
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  border-radius: var(--radius-cards) var(--radius-cards) 0 0;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-xl);
+}
+
 /* ---- Share-my-streak card ------------------------------------------------------ */
 
 .share-card {
