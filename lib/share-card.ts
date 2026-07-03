@@ -9,12 +9,12 @@ interface ShareCardData {
 }
 
 const C = {
-  canvas: "#0b0b0b",
-  card: "#131313",
-  border: "#1f1f1f",
+  canvas: "#0e1233",
+  card: "#171c44",
+  border: "#262d5e",
   snow: "#ffffff",
-  fog: "#868f97",
-  ember: "#ffa16c",
+  fog: "#9aa3c7",
+  ember: "#ffc247",
 };
 
 export async function downloadStreakCard(data: ShareCardData): Promise<void> {
