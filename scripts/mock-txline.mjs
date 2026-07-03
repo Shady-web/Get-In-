@@ -61,21 +61,36 @@ function liveAt(t) {
   return { h, a, corners, status };
 }
 
-/** Odds drift with the score: leader shortens, chasing team drifts. */
+/** Build one odds payload in the REAL TxLINE shape. */
+function payload(superType, period, params, names, pcts) {
+  return {
+    FixtureId: 90001, MessageId: `m${superType}${params ?? ""}${Date.now()}`,
+    Ts: Date.now(), Bookmaker: "MockPrice", BookmakerId: 7,
+    SuperOddsType: superType, InRunning: true,
+    MarketPeriod: period, MarketParameters: params,
+    PriceNames: names,
+    Prices: pcts.map((p) => Math.round(100000 / p)),
+    Pct: pcts.map((p) => p.toFixed(3)),
+  };
+}
+
+/** Odds drift with the score (plus jitter so Markets prices tick visibly). */
 function oddsAt(t) {
   const { h, a } = liveAt(t);
   const lead = h - a;
-  const pHome = Math.min(88, Math.max(8, 44 + lead * 18 - t / 600));
-  const pDraw = Math.min(40, Math.max(6, 28 - Math.abs(lead) * 9 + t / 900));
+  const jit = (k) => Math.sin(Date.now() / 9000 + k) * 2.5;
+  const pHome = Math.min(88, Math.max(8, 44 + lead * 18 - t / 600 + jit(1)));
+  const pDraw = Math.min(40, Math.max(6, 28 - Math.abs(lead) * 9 + t / 900 + jit(2)));
   const pAway = Math.max(4, 100 - pHome - pDraw);
-  const pct = (v) => v.toFixed(3);
-  return {
-    FixtureId: 90001, MessageId: `m${Math.floor(t)}`, Ts: Date.now(),
-    Bookmaker: "MockPrice", BookmakerId: 7, SuperOddsType: "1x2", InRunning: true,
-    MarketPeriod: "FT", PriceNames: ["1", "X", "2"],
-    Prices: [pHome, pDraw, pAway].map((p) => Math.round(100000 / p)),
-    Pct: [pct(pHome), pct(pDraw), pct(pAway)],
-  };
+  const pOver = Math.min(90, Math.max(10, 55 - t / 200 + jit(3)));
+  const pPart1 = Math.min(92, Math.max(8, 52 + lead * 14 + jit(4)));
+  return [
+    payload("1X2_PARTICIPANT_RESULT", null, null, ["part1", "draw", "part2"], [pHome, pDraw, pAway]),
+    payload("OVERUNDER_PARTICIPANT_GOALS", null, "line=2.5", ["over", "under"], [pOver, 100 - pOver]),
+    payload("OVERUNDER_PARTICIPANT_GOALS", null, "line=3.5", ["over", "under"], [pOver * 0.6, 100 - pOver * 0.6]),
+    payload("ASIANHANDICAP_PARTICIPANT_GOALS", null, "line=-0.5", ["part1", "part2"], [pPart1, 100 - pPart1]),
+    payload("OVERUNDER_PARTICIPANT_GOALS", "half=1", "line=1.5", ["over", "under"], [pOver * 0.8, 100 - pOver * 0.8]),
+  ];
 }
 
 // --- Replay history for 90003 (fixed script) --------------------------------
@@ -138,7 +153,7 @@ const server = http.createServer((req, res) => {
   }
   if (req.url.startsWith("/api/odds/snapshot/90001")) {
     const t = Math.min((Date.now() - kickoffLive) / 1000, FT_SECONDS);
-    return json([oddsAt(t)]);
+    return json(oddsAt(t));
   }
 
   // Upcoming fixture: no scores yet, pre-match odds only.

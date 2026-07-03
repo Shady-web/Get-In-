@@ -12,6 +12,7 @@ import {
   type StoredPlayer,
 } from "@/lib/player";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { MarketsPanel } from "@/components/markets-panel";
 import type { LiveState } from "@/lib/live";
 import { buildCard, type GameCard, type GameOption, type SettledResult } from "@/lib/game-core";
 import { stateAt, type ReplayTimeline } from "@/lib/replay-core";
@@ -665,6 +666,7 @@ function LiveMatch({
   const [state, setState] = useState<LiveState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [clockText, setClockText] = useState<string | null>(null);
+  const [view, setView] = useState<"game" | "markets">("game");
   const stateRef = useRef<LiveState | null>(null);
 
   // Started = the FEED says so, not the fixture clock (kickoffs shift, and
@@ -713,13 +715,28 @@ function LiveMatch({
 
   return (
     <section style={{ display: "grid", gap: "var(--element-gap)" }}>
-      <button
-        className="pill"
-        onClick={onBack}
-        style={{ cursor: "pointer", justifySelf: "start", color: "var(--color-fog)" }}
-      >
-        ← Matches
-      </button>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <button
+          className="pill"
+          onClick={onBack}
+          style={{ cursor: "pointer", color: "var(--color-fog)" }}
+        >
+          ← Matches
+        </button>
+        <span style={{ flex: 1 }} />
+        <button
+          className={`pill tab ${view === "game" ? "active" : ""}`}
+          onClick={() => setView("game")}
+        >
+          Game
+        </button>
+        <button
+          className={`pill tab ${view === "markets" ? "active" : ""}`}
+          onClick={() => setView("markets")}
+        >
+          Markets
+        </button>
+      </div>
 
       <div className="match-grid">
         <ScoreCard
@@ -743,11 +760,15 @@ function LiveMatch({
           }
         />
 
-        <PredictionPanel
-          fixture={fixture}
-          player={player}
-          onPlayerUpdate={onPlayerUpdate}
-        />
+        {view === "game" ? (
+          <PredictionPanel
+            fixture={fixture}
+            player={player}
+            onPlayerUpdate={onPlayerUpdate}
+          />
+        ) : (
+          <MarketsPanel fixture={fixture} />
+        )}
       </div>
 
       {error && <p className="error-text">{error}</p>}
