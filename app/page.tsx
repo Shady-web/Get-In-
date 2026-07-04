@@ -97,13 +97,14 @@ export default function Landing() {
   }
 
   return (
-    <main className="shell" style={{ justifyContent: "center", gap: 32 }}>
+    <main className="shell confetti" style={{ justifyContent: "center", gap: 32 }}>
       <header style={{ textAlign: "center", display: "grid", gap: 10 }}>
-        <p className="caption section-label">World Cup 2026 · Live Predictions</p>
+        <p className="caption section-label">⚽ World Cup 2026 · Live Predictions</p>
         <h1 className="display">
-          GetIN<span style={{ color: "var(--color-ember-orange)" }}>!!!</span>
+          <span className="brand-gradient">GetIN</span>
+          <span style={{ color: "var(--color-ember-orange)" }}>!!!</span>
         </h1>
-        <p className="muted" style={{ fontSize: 15 }}>
+        <p style={{ fontSize: 15, color: "var(--color-ash)" }}>
           Call the result before the whistle. Climb the board.
         </p>
       </header>

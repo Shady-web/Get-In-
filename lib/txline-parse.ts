@@ -32,7 +32,13 @@ export const STATUS_CODES: Record<number, string> = {
   17: "TXCC",
   18: "TXCS",
   19: "P",
+  100: "F", // undocumented archive/terminal status seen in production
 };
+
+/** Statuses that mean the match is over. */
+const FINAL_CODES = new Set(["F", "FET", "FPE", "A", "C", "TXCC"]);
+/** Prefer the most specific final label when several appear. */
+const FINAL_PRIORITY = ["FPE", "FET", "A", "C", "TXCC", "F"];
 
 /** Normalize any status representation to a code string like "H1"/"PE". */
 export function statusCode(raw: unknown): string | null {
@@ -118,7 +124,9 @@ function sortedScoreEntries(raw: unknown): NormalizedScoreEntry[] {
   const entries = raw
     .map(normalizeScoreEntry)
     .filter((e): e is NormalizedScoreEntry => e !== null);
-  entries.sort((a, b) => a.seq - b.seq || a.ts - b.ts);
+  // Ts is the only cross-connection order: Seq resets per ConnectionId and
+  // stale events can be re-emitted, so sort by wall clock first.
+  entries.sort((a, b) => a.ts - b.ts || a.seq - b.seq);
   return entries;
 }
 
@@ -131,8 +139,12 @@ export function foldScores(raw: unknown): FoldedScores {
     clockSeconds: null,
     clockRunning: false,
   };
+  const finalsSeen = new Set<string>();
   for (const e of sortedScoreEntries(raw)) {
-    if (e.status) out.statusId = e.status;
+    if (e.status) {
+      out.statusId = e.status;
+      if (FINAL_CODES.has(e.status)) finalsSeen.add(e.status);
+    }
     // Some event types (e.g. amendments) carry a zeroed Clock; never let a
     // 0 overwrite a real in-play clock.
     if (e.clockSeconds !== null && (e.clockSeconds > 0 || out.clockSeconds === null)) {
@@ -141,6 +153,14 @@ export function foldScores(raw: unknown): FoldedScores {
     }
     if (e.score) out.score = e.score;
     if (e.corners !== null) out.corners = e.corners;
+  }
+
+  // Finality latches: stale in-play events can be re-emitted after the final
+  // whistle (seen in production), but a match never un-finishes. Prefer the
+  // most specific final label observed.
+  if (finalsSeen.size > 0) {
+    out.statusId = FINAL_PRIORITY.find((c) => finalsSeen.has(c)) ?? "F";
+    out.clockRunning = false;
   }
   return out;
 }

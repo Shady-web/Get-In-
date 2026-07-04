@@ -3,26 +3,29 @@
    chromatic accents as punctuation only, aggressive negative tracking. */
 
 :root {
-  /* Accents - stroke/text only, never filled backgrounds */
-  --color-ember-orange: #ffa16c;
-  --color-signal-blue: #479ffa;
-  --color-tape-green: #4ebe96;
+  /* World Cup celebration accents: trophy gold, pitch green, festival red,
+     sky blue - on a stadium-night navy so the colors GLOW, not gloom. */
+  --color-ember-orange: #ffc247; /* trophy gold: labels, brand, CTAs */
+  --color-signal-blue: #3b8fe0;
+  --color-tape-green: #35c56f; /* pitch green: live, wins */
+  --color-festival-red: #ff5d47;
 
-  /* Neutrals, canvas → text */
-  --color-void: #000000;
-  --color-obsidian: #0b0b0b;
-  --color-graphite: #131313;
-  --color-slate: #525252;
-  --color-iron: #828282;
-  --color-fog: #868f97;
-  --color-smoke: #999999;
-  --color-ash: #cccccc;
-  --color-platinum: #e6e6e6;
+  /* Neutrals, canvas → text (navy family) */
+  --color-void: #060819;
+  --color-obsidian: #0e1233;
+  --color-graphite: #171c44;
+  --color-slate: #3a4180;
+  --color-iron: #8089b0;
+  --color-fog: #9aa3c7;
+  --color-smoke: #8089b0;
+  --color-ash: #c7cde8;
+  --color-platinum: #e6eaff;
   --color-snow: #ffffff;
+  --color-border: #262d5e;
 
   --surface-canvas: var(--color-obsidian);
   --surface-card: var(--color-graphite);
-  --surface-elevated-card: #191919;
+  --surface-elevated-card: #1f2554;
 
   /* Radii - three-tier system */
   --radius-buttons: 6px;
@@ -57,6 +60,44 @@ body {
   line-height: 1.4;
   letter-spacing: -0.742px;
   min-height: 100dvh;
+}
+
+/* Celebration ribbon: pitch green - trophy gold - festival red - sky blue */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  z-index: 50;
+  background: linear-gradient(
+    90deg,
+    var(--color-tape-green),
+    var(--color-ember-orange),
+    var(--color-festival-red),
+    var(--color-signal-blue)
+  );
+}
+
+/* Confetti field for hero sections: tiny festival dots, no images needed */
+.confetti {
+  background-image:
+    radial-gradient(circle 3px at 12% 20%, rgba(255, 194, 71, 0.5) 0 3px, transparent 3px),
+    radial-gradient(circle 2px at 78% 12%, rgba(53, 197, 111, 0.5) 0 2px, transparent 2px),
+    radial-gradient(circle 2px at 30% 70%, rgba(255, 93, 71, 0.45) 0 2px, transparent 2px),
+    radial-gradient(circle 3px at 88% 55%, rgba(59, 143, 224, 0.45) 0 3px, transparent 3px),
+    radial-gradient(circle 2px at 55% 30%, rgba(255, 194, 71, 0.35) 0 2px, transparent 2px),
+    radial-gradient(circle 2px at 8% 85%, rgba(59, 143, 224, 0.4) 0 2px, transparent 2px),
+    radial-gradient(circle 3px at 65% 82%, rgba(53, 197, 111, 0.4) 0 3px, transparent 3px);
+}
+
+/* Brand gradient: gold into festival red, like a trophy in the sun */
+.brand-gradient {
+  background: linear-gradient(100deg, var(--color-ember-orange), var(--color-festival-red));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 a {
@@ -139,7 +180,7 @@ a {
 
 .card {
   background: var(--surface-card);
-  border: 1px solid #1f1f1f;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-cards);
   padding: var(--card-padding);
 }
@@ -180,12 +221,16 @@ a {
 }
 
 .btn-primary {
-  background: var(--color-snow);
-  color: var(--color-obsidian);
+  background: var(--color-ember-orange);
+  color: var(--color-void);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: #ffd071;
 }
 
 .btn-primary:not(:disabled):active {
-  background: var(--color-ash);
+  background: #e8ab32;
 }
 
 .btn-ghost {
@@ -253,7 +298,7 @@ a {
   content: "";
   flex: 1;
   height: 1px;
-  background: #1f1f1f;
+  background: var(--color-border);
 }
 
 .error-text {
@@ -265,9 +310,9 @@ a {
 
 /* Series colors - validated categorical palette (dataviz six checks, dark) */
 :root {
-  --series-home: #3178d4;
-  --series-draw: #c77f3a;
-  --series-away: #2f9d78;
+  --series-home: #3b8fe0;
+  --series-draw: #bd8425;
+  --series-away: #2da35f;
 }
 
 .live-dot {
@@ -313,7 +358,7 @@ a {
 
 @keyframes score-pop {
   0% { transform: scale(1); }
-  35% { transform: scale(1.35); color: var(--color-tape-green); }
+  35% { transform: scale(1.35); color: var(--color-ember-orange); }
   100% { transform: scale(1); }
 }
 
@@ -451,7 +496,7 @@ a {
   font-size: 10px;
   font-weight: 500;
   color: var(--color-fog);
-  border: 1px solid #1f1f1f;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
   padding: 2px 8px;
   text-transform: uppercase;
@@ -495,24 +540,84 @@ a {
 
 .flash-down {
   animation: price-down 900ms ease-out;
-  color: #d9776a;
+  color: #ff6b57;
 }
 
 @keyframes price-up {
-  0% { background: rgba(78, 190, 150, 0.28); }
+  0% { background: rgba(53, 197, 111, 0.26); }
   100% { background: transparent; }
 }
 
 @keyframes price-down {
-  0% { background: rgba(217, 119, 106, 0.28); }
+  0% { background: rgba(255, 93, 71, 0.26); }
   100% { background: transparent; }
+}
+
+/* ---- Bet slip -------------------------------------------------------------------- */
+
+.outcome-row.bettable {
+  cursor: pointer;
+  border: 1px solid transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  transition: border-color 120ms ease;
+}
+
+.outcome-row.bettable:hover {
+  border-color: var(--color-slate);
+}
+
+.outcome-row.selected {
+  border-color: var(--color-ember-orange);
+}
+
+.slip-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  width: min(480px, calc(100vw - 32px));
+  z-index: 40;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-elevated-card);
+  border: 1px solid var(--color-ember-orange);
+  border-radius: var(--radius-cards);
+  padding: 14px 18px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--color-snow);
+  cursor: pointer;
+  box-shadow: var(--shadow-xl);
+}
+
+.slip-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  bottom: 0;
+  width: min(520px, 100vw);
+  z-index: 41;
+  display: grid;
+  gap: 14px;
+  background: var(--surface-card);
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  border-radius: var(--radius-cards) var(--radius-cards) 0 0;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-xl);
 }
 
 /* ---- Share-my-streak card ------------------------------------------------------ */
 
 .share-card {
   background: var(--surface-card);
-  border: 1px solid #1f1f1f;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-cards);
   padding: 28px 24px;
   display: grid;
@@ -544,7 +649,7 @@ a {
 .scrubber::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 2px;
-  background: #1f1f1f;
+  background: var(--color-border);
 }
 
 .scrubber::-webkit-slider-thumb {
@@ -564,7 +669,7 @@ a {
 .scrubber::-moz-range-track {
   height: 4px;
   border-radius: 2px;
-  background: #1f1f1f;
+  background: var(--color-border);
 }
 
 .scrubber::-moz-range-thumb {

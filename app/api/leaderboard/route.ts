@@ -13,11 +13,22 @@ export async function GET() {
     );
   }
 
-  const { data, error } = await supabase
+  // Rank by coin bankroll (schema v3); fall back to points if the coins
+  // column doesn't exist yet so the board never goes dark mid-migration.
+  let data: unknown[] | null;
+  let error: { message: string } | null;
+  ({ data, error } = await supabase
     .from("players")
-    .select("wallet_or_nickname, total_points, best_streak, current_streak")
-    .order("total_points", { ascending: false })
-    .limit(20);
+    .select("wallet_or_nickname, total_points, best_streak, current_streak, coins")
+    .order("coins", { ascending: false })
+    .limit(20));
+  if (error) {
+    ({ data, error } = await supabase
+      .from("players")
+      .select("wallet_or_nickname, total_points, best_streak, current_streak")
+      .order("total_points", { ascending: false })
+      .limit(20));
+  }
 
   if (error) {
     return NextResponse.json(

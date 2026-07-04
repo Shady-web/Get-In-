@@ -64,11 +64,12 @@ export async function GET(request: Request) {
         status = isFinal(s.statusId) ? "finished" : "live";
       } else if (f.StartTime > now) {
         status = "upcoming";
-      } else if (now - f.StartTime <= CHECK_AFTER_MS && s?.statusId === "NS") {
-        // Listed as started but the feed says not kicked off yet.
+      } else if (s?.statusId === "NS" && now - f.StartTime <= 60 * 60_000) {
+        // Listed as started but the feed says not kicked off yet (delays).
         status = "upcoming";
       } else {
-        status = now - f.StartTime > CHECK_AFTER_MS ? "finished" : "upcoming";
+        // No live status from the feed: anything past ~4h is over.
+        status = now - f.StartTime > 4 * 60 * 60_000 ? "finished" : "upcoming";
       }
       return {
         ...f,

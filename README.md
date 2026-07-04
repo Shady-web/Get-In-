@@ -24,8 +24,13 @@ on-chain World Cup tier, Solana).
 - **Replay Mode**: finished matches (started 6h-2w ago) replay on a
   timeline with a scrubber and x1/x10/x60 speed. Cards price from the odds
   as they stood at that moment; scoring works exactly like live.
-- **Leaderboard**: global top 20, live via Supabase Realtime (or polling
-  fallback), plus a downloadable streak share card.
+- **Coin economy**: every player starts with 1,000 coins and can claim 500
+  daily. Tap any full-time price (Markets tab, or the winner odds in a
+  replay) to build a Bet Slip: one selection = single, several (across
+  matches) = accumulator at the product of leg odds. Slips settle
+  automatically from the scores data - in live matches and in Replay Mode.
+- **Leaderboard**: global top 20 ranked by coin bankroll, live via Supabase
+  Realtime (or polling fallback), plus a downloadable streak share card.
 
 ## Security model
 
@@ -61,6 +66,7 @@ Create a project at supabase.com, then run in the SQL editor:
 
 1. `supabase/schema.sql`
 2. `supabase/schema-v2.sql`
+3. `supabase/schema-v3.sql`
 
 ### 4. Environment
 
@@ -126,9 +132,12 @@ Two ways around that:
 | `GET /api/worldcup` | Fixtures schedule (optional `?competitionId=`) |
 | `GET /api/live/{fixtureId}` | Live score/clock/probabilities, cached ~7s |
 | `GET /api/replay/{fixtureId}` | Full historical timeline for playback |
-| `GET /api/game/card` | Current prediction card (+ settles due picks) |
+| `GET /api/game/card` | Current prediction card (+ settles picks & slips) |
 | `POST /api/game/pick` | Save a pick with its odds snapshot |
-| `GET /api/leaderboard` | Top 20 players |
+| `GET /api/markets/{fixtureId}` | Every priced market, normalized |
+| `POST /api/coins/claim` | Claim 500 daily coins |
+| `POST /api/slips` / `GET /api/slips` | Place bet slips / list + settle them |
+| `GET /api/leaderboard` | Top 20 players by coin bankroll |
 | `POST /api/player` | Upsert player by wallet/nickname |
 | `GET /api/test` | End-to-end TxLINE health check |
 

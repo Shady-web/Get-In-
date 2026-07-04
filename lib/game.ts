@@ -31,9 +31,11 @@ export interface PlayerRow {
   total_points: number;
   best_streak: number;
   current_streak: number;
+  coins?: number; // schema v3
+  last_claim?: string | null;
 }
 
-async function getOrCreatePlayer(identity: string): Promise<PlayerRow> {
+export async function getOrCreatePlayer(identity: string): Promise<PlayerRow> {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error("Supabase is not configured on the server.");
   const { data, error } = await supabase

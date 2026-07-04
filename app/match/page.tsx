@@ -13,6 +13,7 @@ import {
 } from "@/lib/player";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { MarketsPanel } from "@/components/markets-panel";
+import { BetSlipProvider, BetSlipTray, useBetSlip } from "@/components/bet-slip";
 import type { LiveState } from "@/lib/live";
 import { buildCard, type GameCard, type GameOption, type SettledResult } from "@/lib/game-core";
 import { stateAt, type ReplayTimeline } from "@/lib/replay-core";
@@ -94,13 +95,21 @@ export default function MatchScreen() {
 
   if (!checked || !player) return null;
 
+  const coins = player.player?.coins;
+
   return (
+    <BetSlipProvider>
     <main className="shell" style={{ gap: 24 }}>
       <header className="topbar">
         <div className="brand">
           GetIN<span className="bang">!!!</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {coins !== undefined && (
+            <span className="pill" title="Coin bankroll">
+              <span aria-hidden>🪙</span> {coins.toLocaleString()}
+            </span>
+          )}
           <span className="pill" title={player.identity}>
             {displayName(player)}
           </span>
@@ -150,9 +159,12 @@ export default function MatchScreen() {
       ) : tab === "matches" ? (
         <FixtureList player={player} onPick={setSelected} />
       ) : (
-        <Leaders player={player} />
+        <Leaders player={player} onPlayerUpdate={updatePlayerRecord} />
       )}
+
+      <BetSlipTray player={player} onPlayerUpdate={updatePlayerRecord} />
     </main>
+    </BetSlipProvider>
   );
 }
 
@@ -864,6 +876,28 @@ function ReplayMatch({
   );
 
   const ended = timeline !== null && vt >= timeline.duration;
+  const { toggle, isSelected } = useBetSlip();
+
+  // Tap-to-bet on the replay's match-winner odds (settles at the replay's FT).
+  const replayOddsChips =
+    state?.odds && !ended
+      ? (["part1", "draw", "part2"] as const).map((name) => {
+          const odds =
+            name === "part1"
+              ? state.odds!.home
+              : name === "part2"
+                ? state.odds!.away
+                : state.odds!.draw;
+          const label =
+            name === "part1"
+              ? fixture.Participant1
+              : name === "part2"
+                ? fixture.Participant2
+                : "Draw";
+          const selId = `${session}|1X2_PARTICIPANT_RESULT|||${name}`;
+          return { name, odds, label, selId };
+        })
+      : null;
 
   return (
     <section style={{ display: "grid", gap: "var(--element-gap)" }}>
@@ -918,6 +952,44 @@ function ReplayMatch({
                 </span>
               }
             />
+
+            {/* Tap-to-bet on the winner at the replay's current odds */}
+            {replayOddsChips && (
+              <div className="card fade-in" style={{ display: "grid", gap: 8 }}>
+                <p className="caption muted">Back the winner (coins)</p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {replayOddsChips.map((c) => (
+                    <button
+                      key={c.name}
+                      className={`outcome-row bettable ${isSelected(c.selId) ? "selected" : ""}`}
+                      style={{ flex: 1, justifyContent: "space-between" }}
+                      onClick={() =>
+                        toggle({
+                          id: c.selId,
+                          fixtureId: fixture.FixtureId,
+                          matchLabel: `${fixture.Participant1} vs ${fixture.Participant2}`,
+                          marketKey: "1X2_PARTICIPANT_RESULT||",
+                          marketLabel: "Match winner",
+                          outcomeName: c.name,
+                          outcomeLabel: c.label,
+                          odds: c.odds,
+                          session,
+                          vt: Math.floor(vt),
+                        })
+                      }
+                    >
+                      <span className="team" style={{ fontSize: 12 }}>
+                        {isSelected(c.selId) ? "✓ " : ""}
+                        {c.label}
+                      </span>
+                      <span className="price-num" style={{ minWidth: 0 }}>
+                        {c.odds.toFixed(2)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Playback controls */}
             <div className="card fade-in" style={{ display: "grid", gap: 12 }}>
@@ -990,12 +1062,80 @@ interface LeaderRow {
   total_points: number;
   best_streak: number;
   current_streak: number;
+  coins?: number;
 }
 
-function Leaders({ player }: { player: StoredPlayer }) {
+interface SlipView {
+  id: string;
+  stake: number;
+  combined_odds: number;
+  potential_return: number;
+  status: string;
+  bet_legs: {
+    id: string;
+    outcome_label: string;
+    market_label: string;
+    odds: number;
+    result: string;
+  }[];
+}
+
+function Leaders({
+  player,
+  onPlayerUpdate,
+}: {
+  player: StoredPlayer;
+  onPlayerUpdate: (p: PlayerRecord) => void;
+}) {
   const [rows, setRows] = useState<LeaderRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
+  const [slips, setSlips] = useState<SlipView[] | null>(null);
+  const [claimMsg, setClaimMsg] = useState<string | null>(null);
+  const [claiming, setClaiming] = useState(false);
+
+  async function claim() {
+    setClaiming(true);
+    setClaimMsg(null);
+    try {
+      const res = await fetch("/api/coins/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identity: player.identity }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.ok) {
+        if (body?.nextClaimAt) {
+          const hrs = Math.ceil((body.nextClaimAt - Date.now()) / 3600_000);
+          throw new Error(`Already claimed. Next 500 coins in ~${hrs}h.`);
+        }
+        throw new Error(body?.error ?? "Claim failed.");
+      }
+      onPlayerUpdate(body.player as PlayerRecord);
+      setClaimMsg("+500 coins claimed! 🎉");
+    } catch (err) {
+      setClaimMsg(err instanceof Error ? err.message : "Claim failed.");
+    } finally {
+      setClaiming(false);
+    }
+  }
+
+  const loadSlips = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/slips?identity=${encodeURIComponent(player.identity)}`);
+      const body = await res.json();
+      if (res.ok && body.ok) {
+        setSlips(body.slips as SlipView[]);
+        if (body.player) onPlayerUpdate(body.player as PlayerRecord);
+      }
+    } catch {
+      /* slips are optional garnish here */
+    }
+  }, [player.identity, onPlayerUpdate]);
+
+  useEffect(() => {
+    void loadSlips();
+  }, [loadSlips]);
 
   async function onDownloadCard() {
     setShareError(null);
@@ -1065,10 +1205,55 @@ function Leaders({ player }: { player: StoredPlayer }) {
             World Cup 2026
           </p>
         </section>
+        <button className="btn btn-primary" onClick={claim} disabled={claiming}>
+          {claiming ? "Claiming..." : "Claim 500 daily coins 🪙"}
+        </button>
+        {claimMsg && (
+          <p style={{ fontSize: 13, textAlign: "center", color: "var(--color-ash)" }}>
+            {claimMsg}
+          </p>
+        )}
         <button className="btn btn-ghost" onClick={onDownloadCard}>
           Download share card
         </button>
         {shareError && <p className="error-text">{shareError}</p>}
+
+        {slips && slips.length > 0 && (
+          <section style={{ display: "grid", gap: 8, marginTop: 8 }}>
+            <p className="caption section-label">My bets</p>
+            {slips.slice(0, 6).map((s) => (
+              <div key={s.id} className="row" style={{ alignItems: "flex-start" }}>
+                <span style={{ flex: 1, minWidth: 0, display: "grid", gap: 2 }}>
+                  {s.bet_legs.map((l) => (
+                    <span key={l.id} className="team" style={{ fontSize: 12 }}>
+                      {l.result === "won" ? "✓" : l.result === "lost" ? "✗" : "·"}{" "}
+                      {l.outcome_label} @ {Number(l.odds).toFixed(2)}
+                    </span>
+                  ))}
+                  <span className="muted" style={{ fontSize: 11 }}>
+                    {s.stake} coins @ {Number(s.combined_odds).toFixed(2)}
+                  </span>
+                </span>
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color:
+                      s.status === "won"
+                        ? "var(--color-tape-green)"
+                        : s.status === "lost"
+                          ? "var(--color-festival-red)"
+                          : "var(--color-fog)",
+                  }}
+                >
+                  {s.status === "pending"
+                    ? `pays ${Number(s.potential_return).toLocaleString()}`
+                    : s.status.toUpperCase()}
+                </span>
+              </div>
+            ))}
+          </section>
+        )}
       </div>
 
       <section style={{ display: "grid", gap: "var(--element-gap)", alignSelf: "start" }}>
@@ -1107,7 +1292,7 @@ function Leaders({ player }: { player: StoredPlayer }) {
                 streak {r.current_streak}
               </span>
               <span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                {r.total_points}
+                {r.coins !== undefined ? `🪙 ${r.coins.toLocaleString()}` : r.total_points}
               </span>
             </div>
           );
