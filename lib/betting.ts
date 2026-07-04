@@ -97,6 +97,23 @@ export function legOutcome(
 
 const SESSION_RE = /^r\d+-[a-z0-9]{4,24}$/;
 
+/** Full-time period values seen in the wild: null, "", "null", "FT", "full". */
+function isFullTimePeriod(period: string | undefined | null): boolean {
+  const p = String(period ?? "").toLowerCase();
+  return p === "" || p === "null" || p === "ft" || p.includes("full");
+}
+
+function pick1X2Odds(
+  odds: { home: number; draw: number; away: number },
+  outcomeName: string,
+): number {
+  return outcomeName === "part1" || outcomeName === "1" || outcomeName === "home"
+    ? odds.home
+    : outcomeName === "part2" || outcomeName === "2" || outcomeName === "away"
+      ? odds.away
+      : odds.draw;
+}
+
 /** Resolve a leg's CURRENT odds server-side; the client never sets prices. */
 async function resolveLeg(input: LegInput): Promise<{
   matchId: string;
@@ -104,7 +121,7 @@ async function resolveLeg(input: LegInput): Promise<{
   marketLabel: string;
 }> {
   const [superType, period] = input.marketKey.split("|");
-  if (period && period !== "null" && period !== "") {
+  if (!isFullTimePeriod(period)) {
     throw new Error("Only full-time markets are bettable for now.");
   }
 
@@ -115,15 +132,15 @@ async function resolveLeg(input: LegInput): Promise<{
     }
     const timeline = await getReplayTimeline(input.fixtureId);
     const state = stateAt(timeline, Math.max(0, input.vt ?? 0));
-    if (isFinal(state.statusId)) throw new Error("That replay has already finished.");
-    if (!state.odds) throw new Error("No odds at this point of the replay.");
-    const odds =
-      input.outcomeName === "part1"
-        ? state.odds.home
-        : input.outcomeName === "part2"
-          ? state.odds.away
-          : state.odds.draw;
-    return { matchId: input.session, odds, marketLabel: "Match winner" };
+    if (isFinal(state.statusId)) {
+      throw new Error("That replay already reached full time. Restart it to bet.");
+    }
+    if (!state.odds) throw new Error("No odds at this point of the replay yet.");
+    return {
+      matchId: input.session,
+      odds: pick1X2Odds(state.odds, input.outcomeName),
+      marketLabel: "Match winner",
+    };
   }
 
   const [live, markets] = await Promise.all([
@@ -131,11 +148,29 @@ async function resolveLeg(input: LegInput): Promise<{
     getMarkets(input.fixtureId),
   ]);
   if (isFinal(live.statusId)) throw new Error("That match has already finished.");
+
   const market = markets.find((m) => m.key === input.marketKey);
-  if (!market) throw new Error("That market just closed.");
-  const outcome = market.outcomes.find((o) => o.name === input.outcomeName);
-  if (!outcome) throw new Error("That price is no longer available.");
-  return { matchId: String(input.fixtureId), odds: outcome.price, marketLabel: market.label };
+  const outcome = market?.outcomes.find((o) => o.name === input.outcomeName);
+  if (market && outcome) {
+    return { matchId: String(input.fixtureId), odds: outcome.price, marketLabel: market.label };
+  }
+
+  // Match-winner fallback: even if the snapshot momentarily misses the exact
+  // market key, the 1X2 prices come straight from the live state. Pre-match
+  // and in-play bets on the winner should basically never bounce.
+  if (superType.includes("1X2") && live.odds) {
+    return {
+      matchId: String(input.fixtureId),
+      odds: pick1X2Odds(live.odds, input.outcomeName),
+      marketLabel: "Match winner",
+    };
+  }
+
+  throw new Error(
+    market
+      ? "That price was pulled. Refresh Markets and re-add the pick."
+      : "That line moved since you picked it. Refresh Markets and re-add the pick.",
+  );
 }
 
 export async function placeSlip(args: {
