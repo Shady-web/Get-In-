@@ -97,6 +97,23 @@ export function legOutcome(
 
 const SESSION_RE = /^r\d+-[a-z0-9]{4,24}$/;
 
+/** Full-time period values seen in the wild: null, "", "null", "FT", "full". */
+function isFullTimePeriod(period: string | undefined | null): boolean {
+  const p = String(period ?? "").toLowerCase();
+  return p === "" || p === "null" || p === "ft" || p.includes("full");
+}
+
+function pick1X2Odds(
+  odds: { home: number; draw: number; away: number },
+  outcomeName: string,
+): number {
+  return outcomeName === "part1" || outcomeName === "1" || outcomeName === "home"
+    ? odds.home
+    : outcomeName === "part2" || outcomeName === "2" || outcomeName === "away"
+      ? odds.away
+      : odds.draw;
+}
+
 /** Resolve a leg's CURRENT odds server-side; the client never sets prices. */
 async function resolveLeg(input: LegInput): Promise<{
   matchId: string;
@@ -104,7 +121,7 @@ async function resolveLeg(input: LegInput): Promise<{
   marketLabel: string;
 }> {
   const [superType, period] = input.marketKey.split("|");
-  if (period && period !== "null" && period !== "") {
+  if (!isFullTimePeriod(period)) {
     throw new Error("Only full-time markets are bettable for now.");
   }
 
@@ -115,15 +132,15 @@ async function resolveLeg(input: LegInput): Promise<{
     }
     const timeline = await getReplayTimeline(input.fixtureId);
     const state = stateAt(timeline, Math.max(0, input.vt ?? 0));
-    if (isFinal(state.statusId)) throw new Error("That replay has already finished.");
-    if (!state.odds) throw new Error("No odds at this point of the replay.");
-    const odds =
-      input.outcomeName === "part1"
-        ? state.odds.home
-        : input.outcomeName === "part2"
-          ? state.odds.away
-          : state.odds.draw;
-    return { matchId: input.session, odds, marketLabel: "Match winner" };
+    if (isFinal(state.statusId)) {
+      throw new Error("That replay already reached full time. Restart it to bet.");
+    }
+    if (!state.odds) throw new Error("No odds at this point of the replay yet.");
+    return {
+      matchId: input.session,
+      odds: pick1X2Odds(state.odds, input.outcomeName),
+      marketLabel: "Match winner",
+    };
   }
 
   const [live, markets] = await Promise.all([
@@ -131,11 +148,29 @@ async function resolveLeg(input: LegInput): Promise<{
     getMarkets(input.fixtureId),
   ]);
   if (isFinal(live.statusId)) throw new Error("That match has already finished.");
+
   const market = markets.find((m) => m.key === input.marketKey);
-  if (!market) throw new Error("That market just closed.");
-  const outcome = market.outcomes.find((o) => o.name === input.outcomeName);
-  if (!outcome) throw new Error("That price is no longer available.");
-  return { matchId: String(input.fixtureId), odds: outcome.price, marketLabel: market.label };
+  const outcome = market?.outcomes.find((o) => o.name === input.outcomeName);
+  if (market && outcome) {
+    return { matchId: String(input.fixtureId), odds: outcome.price, marketLabel: market.label };
+  }
+
+  // Match-winner fallback: even if the snapshot momentarily misses the exact
+  // market key, the 1X2 prices come straight from the live state. Pre-match
+  // and in-play bets on the winner should basically never bounce.
+  if (superType.includes("1X2") && live.odds) {
+    return {
+      matchId: String(input.fixtureId),
+      odds: pick1X2Odds(live.odds, input.outcomeName),
+      marketLabel: "Match winner",
+    };
+  }
+
+  throw new Error(
+    market
+      ? "That price was pulled. Refresh Markets and re-add the pick."
+      : "That line moved since you picked it. Refresh Markets and re-add the pick.",
+  );
 }
 
 export async function placeSlip(args: {
@@ -317,6 +352,136 @@ export async function settleSlipsForMatch(
     updated = (data as PlayerRow) ?? player;
   }
   return { results, player: updated };
+}
+
+// --- Cash out ---------------------------------------------------------------------
+
+const CASHOUT_MARGIN = 0.95;
+
+/**
+ * Live cash-out value of an open slip:
+ *   potential_return x PRODUCT(current implied prob of each pending leg) x 0.95
+ * where implied prob = 1 / current decimal odds. Decided legs count as prob 1
+ * (won) or kill the value (lost). Returns null when unpriceable: a pending
+ * leg's market is gone, or the leg belongs to a replay session (replays
+ * settle in minutes; no cash out there).
+ */
+export function slipCashValue(
+  slip: { stake: number | string; potential_return: number | string },
+  legs: Pick<LegRow, "result" | "session" | "market_key" | "outcome_name" | "fixture_id">[],
+  currentOddsOf: (
+    leg: Pick<LegRow, "market_key" | "outcome_name" | "fixture_id">,
+  ) => number | null,
+): number | null {
+  let probProduct = 1;
+  for (const leg of legs) {
+    if (leg.result === "lost") return 0;
+    if (leg.result === "won" || leg.result === "void") continue;
+    if (leg.session) return null; // replay legs: no cash out
+    const current = currentOddsOf(leg);
+    if (current === null || current <= 1) return null;
+    probProduct *= 1 / current;
+  }
+  return Math.floor(Number(slip.potential_return) * probProduct * CASHOUT_MARGIN);
+}
+
+/** Build a current-odds resolver over the fixtures a slip touches. */
+async function oddsResolverFor(
+  legs: Pick<LegRow, "fixture_id" | "result" | "session">[],
+): Promise<Map<number, Awaited<ReturnType<typeof getMarkets>>>> {
+  const fixtureIds = [
+    ...new Set(
+      legs.filter((l) => l.result === "pending" && !l.session).map((l) => l.fixture_id),
+    ),
+  ];
+  const entries: [number, Awaited<ReturnType<typeof getMarkets>>][] =
+    await Promise.all(
+      fixtureIds.map(async (id): Promise<[number, Awaited<ReturnType<typeof getMarkets>>]> => {
+        try {
+          return [id, await getMarkets(id)];
+        } catch {
+          return [id, []];
+        }
+      }),
+    );
+  return new Map(entries);
+}
+
+function currentOddsLookup(
+  marketsByFixture: Map<number, Awaited<ReturnType<typeof getMarkets>>>,
+) {
+  return (leg: Pick<LegRow, "market_key" | "outcome_name" | "fixture_id">) => {
+    const markets = marketsByFixture.get(leg.fixture_id) ?? [];
+    const market = markets.find((m) => m.key === leg.market_key);
+    const outcome = market?.outcomes.find((o) => o.name === leg.outcome_name);
+    return outcome ? outcome.price : null;
+  };
+}
+
+/** Attach a live cashValue to each pending slip (null = not cashable now). */
+export async function withCashValues(slips: SlipRow[]): Promise<
+  (SlipRow & { cashValue: number | null })[]
+> {
+  const pendingLegs = slips
+    .filter((s) => s.status === "pending")
+    .flatMap((s) => s.bet_legs ?? []);
+  const marketsByFixture = await oddsResolverFor(pendingLegs);
+  const lookup = currentOddsLookup(marketsByFixture);
+
+  return slips.map((s) => ({
+    ...s,
+    cashValue:
+      s.status === "pending" ? slipCashValue(s, s.bet_legs ?? [], lookup) : null,
+  }));
+}
+
+/** Cash a slip out at its freshly computed value. */
+export async function cashOutSlip(
+  identity: string,
+  slipId: string,
+): Promise<{ amount: number; player: PlayerRow }> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Supabase is not configured on the server.");
+
+  const player = await getOrCreatePlayer(identity);
+  const { data: slip } = await supabase
+    .from("bet_slips")
+    .select("*, bet_legs(*)")
+    .eq("id", slipId)
+    .eq("player", player.id)
+    .eq("status", "pending")
+    .single();
+  if (!slip) throw new Error("That slip is no longer open.");
+
+  const legs = (slip.bet_legs ?? []) as LegRow[];
+  const marketsByFixture = await oddsResolverFor(legs);
+  const lookup = currentOddsLookup(marketsByFixture);
+  const amount = slipCashValue(slip, legs, lookup);
+  if (amount === null) {
+    throw new Error("Cash out is unavailable right now (a market is unpriced).");
+  }
+
+  // pending -> cashed transition guards double cash-outs.
+  const { data: updated, error } = await supabase
+    .from("bet_slips")
+    .update({
+      status: "cashed",
+      cashout_amount: amount,
+      settled_at: new Date().toISOString(),
+    })
+    .eq("id", slipId)
+    .eq("status", "pending")
+    .select("id")
+    .single();
+  if (error || !updated) throw new Error("That slip just settled. No cash out needed.");
+
+  const { data: paid } = await supabase
+    .from("players")
+    .update({ coins: (player.coins ?? 0) + amount })
+    .eq("id", player.id)
+    .select("*")
+    .single();
+  return { amount, player: (paid as PlayerRow) ?? player };
 }
 
 /** Void + refund replay legs stuck pending for over 24h (abandoned replays). */

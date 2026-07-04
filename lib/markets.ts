@@ -41,10 +41,11 @@ function marketLabel(superType: string, params: string | null): string {
 }
 
 function periodLabel(period: string | null): string {
-  if (period === null || period === "" || String(period) === "null") return "Full time";
-  if (period === "half=1") return "1st half";
-  if (period === "half=2") return "2nd half";
-  if (period === "penalties") return "Penalties";
+  const p = String(period ?? "").toLowerCase();
+  if (p === "" || p === "null" || p === "ft" || p.includes("full")) return "Full time";
+  if (p === "half=1") return "1st half";
+  if (p === "half=2") return "2nd half";
+  if (p === "penalties") return "Penalties";
   return String(period);
 }
 

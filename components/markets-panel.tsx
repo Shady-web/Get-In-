@@ -133,8 +133,8 @@ export function MarketsPanel({ fixture }: { fixture: FixtureNames }) {
 
       {markets && markets.length === 0 && (
         <p className="muted" style={{ fontSize: 13 }}>
-          No markets are open for this match right now. They reopen when
-          trading resumes.
+          No markets priced yet. Books usually open closer to kickoff, so
+          check back nearer the match.
         </p>
       )}
 
@@ -151,7 +151,9 @@ export function MarketsPanel({ fixture }: { fixture: FixtureNames }) {
               const id = `${m.key}|${o.name}`;
               const dir = flashRef.current.get(id) ?? null;
               // Only full-time markets are bettable (halves settle mid-match).
-              const bettable = m.period === null || m.period === "";
+              const periodStr = String(m.period ?? "").toLowerCase();
+              const bettable =
+                periodStr === "" || periodStr === "ft" || periodStr.includes("full");
               const selId = `${fixture.FixtureId}|${m.key}|${o.name}`;
               const selected = bettable && isSelected(selId);
               const Row = (bettable ? "button" : "div") as "button";
