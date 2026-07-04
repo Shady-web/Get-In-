@@ -31,6 +31,11 @@ on-chain World Cup tier, Solana).
   automatically from the scores data - in live matches and in Replay Mode.
   Open slips show a live Cash Out value (potential return x current implied
   probability of the pending legs x 0.95) that animates as odds move.
+- **My Bets tab**: every slip with live cash-out values; open and settled
+  history in one place.
+- **Private rooms**: create a room, get a 6-char code + share link, friends
+  join and compete on a live per-room leaderboard ranked by coin profit
+  since joining, with rank-change animations.
 - **Leaderboard**: global top 20 ranked by coin bankroll, live via Supabase
   Realtime (or polling fallback), plus a downloadable streak share card.
 
@@ -70,6 +75,7 @@ Create a project at supabase.com, then run in the SQL editor:
 2. `supabase/schema-v2.sql`
 3. `supabase/schema-v3.sql`
 4. `supabase/schema-v4.sql`
+5. `supabase/schema-v5.sql`
 
 ### 4. Environment
 
@@ -141,6 +147,8 @@ Two ways around that:
 | `POST /api/coins/claim` | Claim 500 daily coins |
 | `POST /api/slips` / `GET /api/slips` | Place bet slips / list + settle them |
 | `POST /api/slips/cashout` | Cash an open slip out at current value |
+| `POST /api/rooms` / `GET /api/rooms` | Create/join rooms / list mine |
+| `GET /api/rooms/{code}` | Room standings by profit since joining |
 | `GET /api/leaderboard` | Top 20 players by coin bankroll |
 | `POST /api/player` | Upsert player by wallet/nickname |
 | `GET /api/test` | End-to-end TxLINE health check |

@@ -686,6 +686,40 @@ a {
   100% { background: transparent; }
 }
 
+/* ---- Private rooms ----------------------------------------------------------------- */
+
+.room-code {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 4px;
+  color: var(--color-ember-orange);
+  background: var(--surface-elevated-card);
+  border: 1px dashed var(--color-slate);
+  border-radius: var(--radius-buttons);
+  padding: 8px 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Rank-change flashes on room standings */
+.rank-up {
+  animation: rank-up 900ms ease-out;
+}
+
+.rank-down {
+  animation: rank-down 900ms ease-out;
+}
+
+@keyframes rank-up {
+  0% { background: rgba(53, 197, 111, 0.22); transform: translateY(6px); }
+  100% { background: var(--surface-card); transform: translateY(0); }
+}
+
+@keyframes rank-down {
+  0% { background: rgba(255, 93, 71, 0.2); transform: translateY(-6px); }
+  100% { background: var(--surface-card); transform: translateY(0); }
+}
+
 /* ---- Share-my-streak card ------------------------------------------------------ */
 
 .share-card {

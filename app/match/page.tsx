@@ -67,7 +67,7 @@ export default function MatchScreen() {
   const [player, setPlayer] = useState<StoredPlayer | null>(null);
   const [checked, setChecked] = useState(false);
   const [selected, setSelected] = useState<Selection | null>(null);
-  const [tab, setTab] = useState<"matches" | "leaders">("matches");
+  const [tab, setTab] = useState<"matches" | "bets" | "rooms" | "leaders">("matches");
 
   useEffect(() => {
     const stored = getStoredPlayer();
@@ -125,19 +125,23 @@ export default function MatchScreen() {
       </header>
 
       {!selected && (
-        <nav style={{ display: "flex", gap: 8 }}>
-          <button
-            className={`pill tab ${tab === "matches" ? "active" : ""}`}
-            onClick={() => setTab("matches")}
-          >
-            Matches
-          </button>
-          <button
-            className={`pill tab ${tab === "leaders" ? "active" : ""}`}
-            onClick={() => setTab("leaders")}
-          >
-            Leaders
-          </button>
+        <nav style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+          {(
+            [
+              ["matches", "Matches"],
+              ["bets", "My Bets"],
+              ["rooms", "Rooms"],
+              ["leaders", "Leaders"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              className={`pill tab ${tab === key ? "active" : ""}`}
+              onClick={() => setTab(key)}
+            >
+              {label}
+            </button>
+          ))}
         </nav>
       )}
 
@@ -159,6 +163,10 @@ export default function MatchScreen() {
         )
       ) : tab === "matches" ? (
         <FixtureList player={player} onPick={setSelected} />
+      ) : tab === "bets" ? (
+        <MyBets player={player} onPlayerUpdate={updatePlayerRecord} />
+      ) : tab === "rooms" ? (
+        <Rooms player={player} />
       ) : (
         <Leaders player={player} onPlayerUpdate={updatePlayerRecord} />
       )}
@@ -1114,14 +1122,8 @@ function Leaders({
   const [rows, setRows] = useState<LeaderRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
-  const [slips, setSlips] = useState<SlipView[] | null>(null);
   const [claimMsg, setClaimMsg] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
-  const [confirmCash, setConfirmCash] = useState<SlipView | null>(null);
-  const [cashing, setCashing] = useState(false);
-  const [cashMsg, setCashMsg] = useState<string | null>(null);
-  const prevCashRef = useRef<Map<string, number>>(new Map());
-  const cashDirRef = useRef<Map<string, "up" | "down">>(new Map());
 
   async function claim() {
     setClaiming(true);
@@ -1146,60 +1148,6 @@ function Leaders({
       setClaimMsg(err instanceof Error ? err.message : "Claim failed.");
     } finally {
       setClaiming(false);
-    }
-  }
-
-  const loadSlips = useCallback(async () => {
-    if (document.hidden) return;
-    try {
-      const res = await fetch(`/api/slips?identity=${encodeURIComponent(player.identity)}`);
-      const body = await res.json();
-      if (res.ok && body.ok) {
-        const next = body.slips as SlipView[];
-        // Track cash-value drift so the number can flash like a price.
-        for (const s of next) {
-          if (s.status === "pending" && typeof s.cashValue === "number") {
-            const prev = prevCashRef.current.get(s.id);
-            if (prev !== undefined && prev !== s.cashValue) {
-              cashDirRef.current.set(s.id, s.cashValue > prev ? "up" : "down");
-            }
-            prevCashRef.current.set(s.id, s.cashValue);
-          }
-        }
-        setSlips(next);
-        if (body.player) onPlayerUpdate(body.player as PlayerRecord);
-      }
-    } catch {
-      /* slips are optional garnish here */
-    }
-  }, [player.identity, onPlayerUpdate]);
-
-  useEffect(() => {
-    void loadSlips();
-    const id = window.setInterval(() => void loadSlips(), 8_000);
-    return () => window.clearInterval(id);
-  }, [loadSlips]);
-
-  async function cashOut(slip: SlipView) {
-    setCashing(true);
-    setCashMsg(null);
-    try {
-      const res = await fetch("/api/slips/cashout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identity: player.identity, slipId: slip.id }),
-      });
-      const body = await res.json();
-      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Cash out failed.");
-      onPlayerUpdate(body.player as PlayerRecord);
-      setCashMsg(`Cashed out for ${Number(body.amount).toLocaleString()} coins 🪙`);
-      setConfirmCash(null);
-      void loadSlips();
-    } catch (err) {
-      setCashMsg(err instanceof Error ? err.message : "Cash out failed.");
-      setConfirmCash(null);
-    } finally {
-      setCashing(false);
     }
   }
 
@@ -1284,100 +1232,6 @@ function Leaders({
         </button>
         {shareError && <p className="error-text">{shareError}</p>}
 
-        {cashMsg && (
-          <p style={{ fontSize: 13, textAlign: "center", color: "var(--color-ash)" }}>
-            {cashMsg}
-          </p>
-        )}
-
-        {slips && slips.length > 0 && (
-          <section style={{ display: "grid", gap: 8, marginTop: 8 }}>
-            <p className="caption section-label">My bets</p>
-            {slips.slice(0, 6).map((s) => {
-              const dir = cashDirRef.current.get(s.id) ?? null;
-              return (
-                <div key={s.id} className="row" style={{ alignItems: "flex-start" }}>
-                  <span style={{ flex: 1, minWidth: 0, display: "grid", gap: 2 }}>
-                    {s.bet_legs.map((l) => (
-                      <span key={l.id} className="team" style={{ fontSize: 12 }}>
-                        {l.result === "won" ? "✓" : l.result === "lost" ? "✗" : "·"}{" "}
-                        {l.outcome_label} @ {Number(l.odds).toFixed(2)}
-                      </span>
-                    ))}
-                    <span className="muted" style={{ fontSize: 11 }}>
-                      {s.stake} coins @ {Number(s.combined_odds).toFixed(2)} · pays{" "}
-                      {Number(s.potential_return).toLocaleString()}
-                    </span>
-                  </span>
-                  {s.status === "pending" && typeof s.cashValue === "number" ? (
-                    <button
-                      className="cashout-btn"
-                      onClick={() => setConfirmCash(s)}
-                      aria-label={`Cash out for ${s.cashValue} coins`}
-                    >
-                      <span className="caption" style={{ color: "var(--color-void)", opacity: 0.75 }}>
-                        Cash out
-                      </span>
-                      <span
-                        key={`${s.id}:${s.cashValue}`}
-                        className={`cash-value ${dir ? `flash-${dir}` : ""}`}
-                      >
-                        {dir === "up" ? "▲" : dir === "down" ? "▼" : ""}{" "}
-                        {s.cashValue.toLocaleString()}
-                      </span>
-                    </button>
-                  ) : (
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color:
-                          s.status === "won"
-                            ? "var(--color-tape-green)"
-                            : s.status === "lost"
-                              ? "var(--color-festival-red)"
-                              : s.status === "cashed"
-                                ? "var(--color-ember-orange)"
-                                : "var(--color-fog)",
-                      }}
-                    >
-                      {s.status === "pending"
-                        ? "open"
-                        : s.status === "cashed"
-                          ? `CASHED +${Number(s.cashout_amount ?? 0).toLocaleString()}`
-                          : s.status.toUpperCase()}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </section>
-        )}
-
-        {/* Cash-out confirm sheet */}
-        {confirmCash && (
-          <div className="slip-sheet fade-in" role="dialog" aria-label="Confirm cash out">
-            <p className="caption section-label">Cash out</p>
-            <p style={{ fontSize: 14 }}>
-              Cash this slip out now for about{" "}
-              <strong style={{ color: "var(--color-ember-orange)" }}>
-                {Number(confirmCash.cashValue ?? 0).toLocaleString()} coins
-              </strong>
-              ? The final amount is repriced at confirm (odds move), and the
-              slip closes for good.
-            </p>
-            <button
-              className="btn btn-primary"
-              disabled={cashing}
-              onClick={() => void cashOut(confirmCash)}
-            >
-              {cashing ? "Cashing out..." : "Confirm cash out"}
-            </button>
-            <button className="btn btn-ghost" disabled={cashing} onClick={() => setConfirmCash(null)}>
-              Keep the bet running
-            </button>
-          </div>
-        )}
       </div>
 
       <section style={{ display: "grid", gap: "var(--element-gap)", alignSelf: "start" }}>
@@ -1421,6 +1275,504 @@ function Leaders({
             </div>
           );
         })}
+      </section>
+    </div>
+  );
+}
+
+// --- My Bets ---------------------------------------------------------------------
+
+function MyBets({
+  player,
+  onPlayerUpdate,
+}: {
+  player: StoredPlayer;
+  onPlayerUpdate: (p: PlayerRecord) => void;
+}) {
+  const [slips, setSlips] = useState<SlipView[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmCash, setConfirmCash] = useState<SlipView | null>(null);
+  const [cashing, setCashing] = useState(false);
+  const [cashMsg, setCashMsg] = useState<string | null>(null);
+  const prevCashRef = useRef<Map<string, number>>(new Map());
+  const cashDirRef = useRef<Map<string, "up" | "down">>(new Map());
+
+  const loadSlips = useCallback(async () => {
+    if (document.hidden) return;
+    try {
+      const res = await fetch(`/api/slips?identity=${encodeURIComponent(player.identity)}`);
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Could not load your bets.");
+      const next = body.slips as SlipView[];
+      // Track cash-value drift so the number can flash like a price.
+      for (const s of next) {
+        if (s.status === "pending" && typeof s.cashValue === "number") {
+          const prev = prevCashRef.current.get(s.id);
+          if (prev !== undefined && prev !== s.cashValue) {
+            cashDirRef.current.set(s.id, s.cashValue > prev ? "up" : "down");
+          }
+          prevCashRef.current.set(s.id, s.cashValue);
+        }
+      }
+      setSlips(next);
+      setError(null);
+      if (body.player) onPlayerUpdate(body.player as PlayerRecord);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load your bets.");
+    }
+  }, [player.identity, onPlayerUpdate]);
+
+  useEffect(() => {
+    void loadSlips();
+    const id = window.setInterval(() => void loadSlips(), 8_000);
+    return () => window.clearInterval(id);
+  }, [loadSlips]);
+
+  async function cashOut(slip: SlipView) {
+    setCashing(true);
+    setCashMsg(null);
+    try {
+      const res = await fetch("/api/slips/cashout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identity: player.identity, slipId: slip.id }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Cash out failed.");
+      onPlayerUpdate(body.player as PlayerRecord);
+      setCashMsg(`Cashed out for ${Number(body.amount).toLocaleString()} coins 🪙`);
+      setConfirmCash(null);
+      void loadSlips();
+    } catch (err) {
+      setCashMsg(err instanceof Error ? err.message : "Cash out failed.");
+      setConfirmCash(null);
+    } finally {
+      setCashing(false);
+    }
+  }
+
+  const open = (slips ?? []).filter((s) => s.status === "pending");
+  const settled = (slips ?? []).filter((s) => s.status !== "pending");
+
+  const slipRow = (s: SlipView) => {
+    const dir = cashDirRef.current.get(s.id) ?? null;
+    return (
+      <div key={s.id} className="row fade-in" style={{ alignItems: "flex-start" }}>
+        <span style={{ flex: 1, minWidth: 0, display: "grid", gap: 2 }}>
+          {s.bet_legs.map((l) => (
+            <span key={l.id} className="team" style={{ fontSize: 12 }}>
+              {l.result === "won" ? "✓" : l.result === "lost" ? "✗" : "·"}{" "}
+              {l.outcome_label} @ {Number(l.odds).toFixed(2)}
+            </span>
+          ))}
+          <span className="muted" style={{ fontSize: 11 }}>
+            {s.stake} coins @ {Number(s.combined_odds).toFixed(2)} · pays{" "}
+            {Number(s.potential_return).toLocaleString()}
+          </span>
+        </span>
+        {s.status === "pending" && typeof s.cashValue === "number" ? (
+          <button
+            className="cashout-btn"
+            onClick={() => setConfirmCash(s)}
+            aria-label={`Cash out for ${s.cashValue} coins`}
+          >
+            <span className="caption" style={{ color: "var(--color-void)", opacity: 0.75 }}>
+              Cash out
+            </span>
+            <span
+              key={`${s.id}:${s.cashValue}`}
+              className={`cash-value ${dir ? `flash-${dir}` : ""}`}
+            >
+              {dir === "up" ? "▲" : dir === "down" ? "▼" : ""} {s.cashValue.toLocaleString()}
+            </span>
+          </button>
+        ) : (
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color:
+                s.status === "won"
+                  ? "var(--color-tape-green)"
+                  : s.status === "lost"
+                    ? "var(--color-festival-red)"
+                    : s.status === "cashed"
+                      ? "var(--color-ember-orange)"
+                      : "var(--color-fog)",
+            }}
+          >
+            {s.status === "pending"
+              ? "open"
+              : s.status === "cashed"
+                ? `CASHED +${Number(s.cashout_amount ?? 0).toLocaleString()}`
+                : s.status.toUpperCase()}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ display: "grid", gap: "var(--element-gap)" }}>
+      {cashMsg && (
+        <p style={{ fontSize: 13, textAlign: "center", color: "var(--color-ash)" }}>
+          {cashMsg}
+        </p>
+      )}
+      {error && <p className="error-text">{error}</p>}
+
+      {!slips && !error && (
+        <>
+          <div className="skeleton" style={{ height: 64 }} />
+          <div className="skeleton" style={{ height: 64, opacity: 0.6 }} />
+        </>
+      )}
+
+      {slips && slips.length === 0 && (
+        <div className="card fade-in" style={{ textAlign: "center", display: "grid", gap: 6 }}>
+          <h2 className="heading-sm">No bets yet</h2>
+          <p className="muted" style={{ fontSize: 14 }}>
+            Open any match, tap a price in Markets (or the winner odds in a
+            replay) and place your first slip. It shows up here with a live
+            cash-out value.
+          </p>
+        </div>
+      )}
+
+      {open.length > 0 && (
+        <section style={{ display: "grid", gap: 8 }}>
+          <p className="caption section-label">Open ({open.length})</p>
+          {open.map(slipRow)}
+        </section>
+      )}
+
+      {settled.length > 0 && (
+        <section style={{ display: "grid", gap: 8 }}>
+          <p className="caption muted">Settled</p>
+          {settled.slice(0, 12).map(slipRow)}
+        </section>
+      )}
+
+      {confirmCash && (
+        <div className="slip-sheet fade-in" role="dialog" aria-label="Confirm cash out">
+          <p className="caption section-label">Cash out</p>
+          <p style={{ fontSize: 14 }}>
+            Cash this slip out now for about{" "}
+            <strong style={{ color: "var(--color-ember-orange)" }}>
+              {Number(confirmCash.cashValue ?? 0).toLocaleString()} coins
+            </strong>
+            ? The final amount is repriced at confirm (odds move), and the slip
+            closes for good.
+          </p>
+          <button
+            className="btn btn-primary"
+            disabled={cashing}
+            onClick={() => void cashOut(confirmCash)}
+          >
+            {cashing ? "Cashing out..." : "Confirm cash out"}
+          </button>
+          <button className="btn btn-ghost" disabled={cashing} onClick={() => setConfirmCash(null)}>
+            Keep the bet running
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Private rooms ------------------------------------------------------------------
+
+interface RoomInfo {
+  id: string;
+  code: string;
+  name: string;
+  members: number;
+}
+
+interface RoomStanding {
+  name: string;
+  coins: number;
+  profit: number;
+}
+
+function Rooms({ player }: { player: StoredPlayer }) {
+  const [rooms, setRooms] = useState<RoomInfo[] | null>(null);
+  const [active, setActive] = useState<RoomInfo | null>(null);
+  const [standings, setStandings] = useState<RoomStanding[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [joinCode, setJoinCode] = useState("");
+  const [newName, setNewName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  // Rank tracking for the change animations.
+  const prevRankRef = useRef<Map<string, number>>(new Map());
+  const rankDirRef = useRef<Map<string, "up" | "down">>(new Map());
+
+  const loadRooms = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/rooms?identity=${encodeURIComponent(player.identity)}`);
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Rooms unavailable.");
+      setRooms(body.rooms as RoomInfo[]);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Rooms unavailable.");
+    }
+  }, [player.identity]);
+
+  const loadStandings = useCallback(async (code: string) => {
+    try {
+      const res = await fetch(`/api/rooms/${code}`);
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Room unavailable.");
+      const next = body.standings as RoomStanding[];
+      next.forEach((s, i) => {
+        const prev = prevRankRef.current.get(s.name);
+        if (prev !== undefined && prev !== i) {
+          rankDirRef.current.set(s.name, i < prev ? "up" : "down");
+        }
+        prevRankRef.current.set(s.name, i);
+      });
+      setStandings(next);
+      setActive(body.room as RoomInfo);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Room unavailable.");
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadRooms();
+  }, [loadRooms]);
+
+  // Share links land on /match?room=CODE: auto-join once identity exists.
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("room");
+    if (!code || !/^[A-Za-z0-9]{6}$/.test(code)) return;
+    window.history.replaceState(null, "", "/match");
+    void (async () => {
+      try {
+        const res = await fetch("/api/rooms", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identity: player.identity, code }),
+        });
+        const body = await res.json();
+        if (res.ok && body.ok) {
+          await loadRooms();
+          await loadStandings(body.room.code);
+        }
+      } catch {
+        /* bad link: the rooms list still renders */
+      }
+    })();
+  }, [player.identity, loadRooms, loadStandings]);
+
+  // Live standings: refetch on any players change (realtime) or every 10s.
+  useEffect(() => {
+    if (!active) return;
+    const supabase = getSupabaseBrowser();
+    if (supabase) {
+      const channel = supabase
+        .channel(`room-${active.code}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "players" }, () => {
+          void loadStandings(active.code);
+        })
+        .subscribe();
+      return () => {
+        void supabase.removeChannel(channel);
+      };
+    }
+    const id = window.setInterval(() => void loadStandings(active.code), 10_000);
+    return () => window.clearInterval(id);
+  }, [active, loadStandings]);
+
+  async function act(payload: Record<string, string>) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identity: player.identity, ...payload }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Room action failed.");
+      setJoinCode("");
+      setNewName("");
+      await loadRooms();
+      await loadStandings(body.room.code);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Room action failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyLink() {
+    if (!active) return;
+    const link = `${window.location.origin}/match?room=${active.code}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2500);
+    } catch {
+      window.prompt("Copy the invite link:", link);
+    }
+  }
+
+  const shortName = (n: string) =>
+    /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(n) ? `${n.slice(0, 4)}...${n.slice(-4)}` : n;
+
+  // --- Room detail view ---
+  if (active) {
+    return (
+      <div style={{ display: "grid", gap: "var(--element-gap)" }}>
+        <button
+          className="pill"
+          onClick={() => {
+            setActive(null);
+            setStandings(null);
+            prevRankRef.current.clear();
+            rankDirRef.current.clear();
+          }}
+          style={{ cursor: "pointer", justifySelf: "start", color: "var(--color-fog)" }}
+        >
+          ← My rooms
+        </button>
+
+        <div className="card fade-in" style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <p className="caption section-label">{active.name}</p>
+            <span className="muted" style={{ fontSize: 12 }}>
+              {active.members} {active.members === 1 ? "player" : "players"}
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span className="room-code">{active.code}</span>
+            <button className="btn btn-ghost" style={{ width: "auto", minHeight: 40 }} onClick={copyLink}>
+              {copied ? "Link copied ✓" : "Copy invite link"}
+            </button>
+          </div>
+          <p className="muted" style={{ fontSize: 12 }}>
+            Friends join with the code or the link. Ranked by coin profit since
+            joining this room.
+          </p>
+        </div>
+
+        <section style={{ display: "grid", gap: 8 }}>
+          <p className="caption section-label">Room standings</p>
+          {!standings && <div className="skeleton" style={{ height: 120 }} />}
+          {standings?.map((s, i) => {
+            const mine = s.name === player.identity;
+            const dir = rankDirRef.current.get(s.name) ?? null;
+            return (
+              <div
+                key={`${s.name}:${i}`}
+                className={`row fade-in ${dir ? `rank-${dir}` : ""}`}
+                style={mine ? { border: "1px solid var(--color-slate)" } : undefined}
+              >
+                <span className="muted" style={{ width: 26, fontVariantNumeric: "tabular-nums" }}>
+                  {i === 0 ? "🏆" : i + 1}
+                </span>
+                <span style={{ flex: 1, fontWeight: mine ? 600 : 400, minWidth: 0 }} className="team">
+                  {shortName(s.name)}
+                  {dir === "up" ? " ▲" : dir === "down" ? " ▼" : ""}
+                </span>
+                <span
+                  style={{
+                    fontWeight: 700,
+                    fontVariantNumeric: "tabular-nums",
+                    color:
+                      s.profit > 0
+                        ? "var(--color-tape-green)"
+                        : s.profit < 0
+                          ? "var(--color-festival-red)"
+                          : "var(--color-fog)",
+                  }}
+                >
+                  {s.profit > 0 ? "+" : ""}
+                  {s.profit.toLocaleString()}
+                </span>
+              </div>
+            );
+          })}
+        </section>
+        {error && <p className="error-text">{error}</p>}
+      </div>
+    );
+  }
+
+  // --- Rooms list / create / join ---
+  return (
+    <div style={{ display: "grid", gap: "var(--element-gap)" }}>
+      <div className="card fade-in" style={{ display: "grid", gap: 10 }}>
+        <p className="caption section-label">Create a room</p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            className="input"
+            placeholder="Room name (optional)"
+            value={newName}
+            maxLength={40}
+            onChange={(e) => setNewName(e.target.value)}
+          />
+          <button
+            className="btn btn-primary"
+            style={{ width: "auto", flex: "none" }}
+            disabled={busy}
+            onClick={() => void act({ name: newName })}
+          >
+            Create
+          </button>
+        </div>
+        <div className="divider">or join with a code</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            className="input"
+            placeholder="6-char code"
+            value={joinCode}
+            maxLength={6}
+            style={{ textTransform: "uppercase", letterSpacing: 2 }}
+            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+            onKeyDown={(e) => e.key === "Enter" && joinCode.length === 6 && void act({ code: joinCode })}
+          />
+          <button
+            className="btn btn-ghost"
+            style={{ width: "auto", flex: "none" }}
+            disabled={busy || joinCode.length !== 6}
+            onClick={() => void act({ code: joinCode })}
+          >
+            Join
+          </button>
+        </div>
+        {error && <p className="error-text">{error}</p>}
+      </div>
+
+      <section style={{ display: "grid", gap: 8 }}>
+        <p className="caption section-label">My rooms</p>
+        {!rooms && !error && <div className="skeleton" style={{ height: 64 }} />}
+        {rooms && rooms.length === 0 && (
+          <p className="muted fade-in" style={{ fontSize: 14 }}>
+            No rooms yet. Create one and send your friends the code.
+          </p>
+        )}
+        {rooms?.map((r) => (
+          <button
+            key={r.id}
+            className="row fixture-row fade-in"
+            onClick={() => void loadStandings(r.code)}
+          >
+            <span style={{ flex: 1, display: "grid", gap: 2, minWidth: 0 }}>
+              <span style={{ fontWeight: 600, fontSize: 15 }}>{r.name}</span>
+              <span className="muted" style={{ fontSize: 12 }}>
+                {r.members} {r.members === 1 ? "player" : "players"}
+              </span>
+            </span>
+            <span className="room-code" style={{ fontSize: 13 }}>
+              {r.code}
+            </span>
+          </button>
+        ))}
       </section>
     </div>
   );

@@ -141,9 +141,9 @@ export function BetSlipTray({
       if (body.player) onPlayerUpdate(body.player as PlayerRecord);
       clear();
       setPlaced(
-        `Placed! ${stakeNum} coins at ${combined.toFixed(2)} pays ${potential} if it lands.`,
+        `Placed! ${stakeNum} coins at ${combined.toFixed(2)} pays ${potential}. Track it in the My Bets tab.`,
       );
-      window.setTimeout(() => setPlaced(null), 5000);
+      window.setTimeout(() => setPlaced(null), 6000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not place the bet.");
     } finally {
