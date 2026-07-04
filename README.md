@@ -132,9 +132,12 @@ Two ways around that:
 | `GET /api/worldcup` | Fixtures schedule (optional `?competitionId=`) |
 | `GET /api/live/{fixtureId}` | Live score/clock/probabilities, cached ~7s |
 | `GET /api/replay/{fixtureId}` | Full historical timeline for playback |
-| `GET /api/game/card` | Current prediction card (+ settles due picks) |
+| `GET /api/game/card` | Current prediction card (+ settles picks & slips) |
 | `POST /api/game/pick` | Save a pick with its odds snapshot |
-| `GET /api/leaderboard` | Top 20 players |
+| `GET /api/markets/{fixtureId}` | Every priced market, normalized |
+| `POST /api/coins/claim` | Claim 500 daily coins |
+| `POST /api/slips` / `GET /api/slips` | Place bet slips / list + settle them |
+| `GET /api/leaderboard` | Top 20 players by coin bankroll |
 | `POST /api/player` | Upsert player by wallet/nickname |
 | `GET /api/test` | End-to-end TxLINE health check |
 
