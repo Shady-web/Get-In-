@@ -13,7 +13,6 @@ import {
 } from "@/lib/player";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { MarketsPanel } from "@/components/markets-panel";
-import { WorldCupBanner } from "@/components/wc-banner";
 import { Flag } from "@/components/flag";
 import { BetSlipProvider, BetSlipTray, useBetSlip } from "@/components/bet-slip";
 import type { LiveState } from "@/lib/live";
@@ -260,8 +259,6 @@ function FixtureList({
 
   return (
     <>
-      <WorldCupBanner />
-
       <section style={{ display: "flex", gap: 10 }}>
         <span className="pill">
           <span className="k">Points</span> {points}

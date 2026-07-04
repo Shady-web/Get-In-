@@ -573,62 +573,6 @@ a {
   vertical-align: -2px;
 }
 
-/* ---- World Cup 26 promo banner --------------------------------------------------- */
-
-.wc-banner {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border-radius: var(--radius-cards);
-  border: 1px solid var(--color-border);
-  padding: 18px 20px;
-  overflow: hidden;
-  background:
-    radial-gradient(120% 140% at 85% 20%, rgba(53, 197, 111, 0.18) 0%, transparent 55%),
-    radial-gradient(120% 140% at 10% 90%, rgba(59, 143, 224, 0.16) 0%, transparent 55%),
-    linear-gradient(120deg, #131842 0%, #171c44 55%, #12234a 100%);
-}
-
-.wc-banner-art {
-  width: 132px;
-  height: 86px;
-  flex: none;
-  filter: drop-shadow(0 0 14px rgba(255, 194, 71, 0.35));
-}
-
-.wc-banner-text {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.wc-banner-title {
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: -0.954px;
-  line-height: 1.15;
-  color: var(--color-snow);
-}
-
-.wc-banner-26 {
-  background: linear-gradient(100deg, var(--color-ember-orange), var(--color-festival-red));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  font-size: 26px;
-}
-
-@media (min-width: 720px) {
-  .wc-banner-art {
-    width: 170px;
-    height: 110px;
-  }
-  .wc-banner-title {
-    font-size: 26px;
-  }
-}
-
 /* ---- Bet slip -------------------------------------------------------------------- */
 
 .outcome-row.bettable {
