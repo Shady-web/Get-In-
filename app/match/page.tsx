@@ -1074,6 +1074,8 @@ interface SlipView {
   combined_odds: number;
   potential_return: number;
   status: string;
+  cashValue?: number | null;
+  cashout_amount?: number | null;
   bet_legs: {
     id: string;
     outcome_label: string;
@@ -1096,6 +1098,11 @@ function Leaders({
   const [slips, setSlips] = useState<SlipView[] | null>(null);
   const [claimMsg, setClaimMsg] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
+  const [confirmCash, setConfirmCash] = useState<SlipView | null>(null);
+  const [cashing, setCashing] = useState(false);
+  const [cashMsg, setCashMsg] = useState<string | null>(null);
+  const prevCashRef = useRef<Map<string, number>>(new Map());
+  const cashDirRef = useRef<Map<string, "up" | "down">>(new Map());
 
   async function claim() {
     setClaiming(true);
@@ -1124,11 +1131,23 @@ function Leaders({
   }
 
   const loadSlips = useCallback(async () => {
+    if (document.hidden) return;
     try {
       const res = await fetch(`/api/slips?identity=${encodeURIComponent(player.identity)}`);
       const body = await res.json();
       if (res.ok && body.ok) {
-        setSlips(body.slips as SlipView[]);
+        const next = body.slips as SlipView[];
+        // Track cash-value drift so the number can flash like a price.
+        for (const s of next) {
+          if (s.status === "pending" && typeof s.cashValue === "number") {
+            const prev = prevCashRef.current.get(s.id);
+            if (prev !== undefined && prev !== s.cashValue) {
+              cashDirRef.current.set(s.id, s.cashValue > prev ? "up" : "down");
+            }
+            prevCashRef.current.set(s.id, s.cashValue);
+          }
+        }
+        setSlips(next);
         if (body.player) onPlayerUpdate(body.player as PlayerRecord);
       }
     } catch {
@@ -1138,7 +1157,32 @@ function Leaders({
 
   useEffect(() => {
     void loadSlips();
+    const id = window.setInterval(() => void loadSlips(), 8_000);
+    return () => window.clearInterval(id);
   }, [loadSlips]);
+
+  async function cashOut(slip: SlipView) {
+    setCashing(true);
+    setCashMsg(null);
+    try {
+      const res = await fetch("/api/slips/cashout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identity: player.identity, slipId: slip.id }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Cash out failed.");
+      onPlayerUpdate(body.player as PlayerRecord);
+      setCashMsg(`Cashed out for ${Number(body.amount).toLocaleString()} coins 🪙`);
+      setConfirmCash(null);
+      void loadSlips();
+    } catch (err) {
+      setCashMsg(err instanceof Error ? err.message : "Cash out failed.");
+      setConfirmCash(null);
+    } finally {
+      setCashing(false);
+    }
+  }
 
   async function onDownloadCard() {
     setShareError(null);
@@ -1221,41 +1265,99 @@ function Leaders({
         </button>
         {shareError && <p className="error-text">{shareError}</p>}
 
+        {cashMsg && (
+          <p style={{ fontSize: 13, textAlign: "center", color: "var(--color-ash)" }}>
+            {cashMsg}
+          </p>
+        )}
+
         {slips && slips.length > 0 && (
           <section style={{ display: "grid", gap: 8, marginTop: 8 }}>
             <p className="caption section-label">My bets</p>
-            {slips.slice(0, 6).map((s) => (
-              <div key={s.id} className="row" style={{ alignItems: "flex-start" }}>
-                <span style={{ flex: 1, minWidth: 0, display: "grid", gap: 2 }}>
-                  {s.bet_legs.map((l) => (
-                    <span key={l.id} className="team" style={{ fontSize: 12 }}>
-                      {l.result === "won" ? "✓" : l.result === "lost" ? "✗" : "·"}{" "}
-                      {l.outcome_label} @ {Number(l.odds).toFixed(2)}
+            {slips.slice(0, 6).map((s) => {
+              const dir = cashDirRef.current.get(s.id) ?? null;
+              return (
+                <div key={s.id} className="row" style={{ alignItems: "flex-start" }}>
+                  <span style={{ flex: 1, minWidth: 0, display: "grid", gap: 2 }}>
+                    {s.bet_legs.map((l) => (
+                      <span key={l.id} className="team" style={{ fontSize: 12 }}>
+                        {l.result === "won" ? "✓" : l.result === "lost" ? "✗" : "·"}{" "}
+                        {l.outcome_label} @ {Number(l.odds).toFixed(2)}
+                      </span>
+                    ))}
+                    <span className="muted" style={{ fontSize: 11 }}>
+                      {s.stake} coins @ {Number(s.combined_odds).toFixed(2)} · pays{" "}
+                      {Number(s.potential_return).toLocaleString()}
                     </span>
-                  ))}
-                  <span className="muted" style={{ fontSize: 11 }}>
-                    {s.stake} coins @ {Number(s.combined_odds).toFixed(2)}
                   </span>
-                </span>
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color:
-                      s.status === "won"
-                        ? "var(--color-tape-green)"
-                        : s.status === "lost"
-                          ? "var(--color-festival-red)"
-                          : "var(--color-fog)",
-                  }}
-                >
-                  {s.status === "pending"
-                    ? `pays ${Number(s.potential_return).toLocaleString()}`
-                    : s.status.toUpperCase()}
-                </span>
-              </div>
-            ))}
+                  {s.status === "pending" && typeof s.cashValue === "number" ? (
+                    <button
+                      className="cashout-btn"
+                      onClick={() => setConfirmCash(s)}
+                      aria-label={`Cash out for ${s.cashValue} coins`}
+                    >
+                      <span className="caption" style={{ color: "var(--color-void)", opacity: 0.75 }}>
+                        Cash out
+                      </span>
+                      <span
+                        key={`${s.id}:${s.cashValue}`}
+                        className={`cash-value ${dir ? `flash-${dir}` : ""}`}
+                      >
+                        {dir === "up" ? "▲" : dir === "down" ? "▼" : ""}{" "}
+                        {s.cashValue.toLocaleString()}
+                      </span>
+                    </button>
+                  ) : (
+                    <span
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color:
+                          s.status === "won"
+                            ? "var(--color-tape-green)"
+                            : s.status === "lost"
+                              ? "var(--color-festival-red)"
+                              : s.status === "cashed"
+                                ? "var(--color-ember-orange)"
+                                : "var(--color-fog)",
+                      }}
+                    >
+                      {s.status === "pending"
+                        ? "open"
+                        : s.status === "cashed"
+                          ? `CASHED +${Number(s.cashout_amount ?? 0).toLocaleString()}`
+                          : s.status.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </section>
+        )}
+
+        {/* Cash-out confirm sheet */}
+        {confirmCash && (
+          <div className="slip-sheet fade-in" role="dialog" aria-label="Confirm cash out">
+            <p className="caption section-label">Cash out</p>
+            <p style={{ fontSize: 14 }}>
+              Cash this slip out now for about{" "}
+              <strong style={{ color: "var(--color-ember-orange)" }}>
+                {Number(confirmCash.cashValue ?? 0).toLocaleString()} coins
+              </strong>
+              ? The final amount is repriced at confirm (odds move), and the
+              slip closes for good.
+            </p>
+            <button
+              className="btn btn-primary"
+              disabled={cashing}
+              onClick={() => void cashOut(confirmCash)}
+            >
+              {cashing ? "Cashing out..." : "Confirm cash out"}
+            </button>
+            <button className="btn btn-ghost" disabled={cashing} onClick={() => setConfirmCash(null)}>
+              Keep the bet running
+            </button>
+          </div>
         )}
       </div>
 

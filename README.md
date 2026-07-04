@@ -29,6 +29,8 @@ on-chain World Cup tier, Solana).
   replay) to build a Bet Slip: one selection = single, several (across
   matches) = accumulator at the product of leg odds. Slips settle
   automatically from the scores data - in live matches and in Replay Mode.
+  Open slips show a live Cash Out value (potential return x current implied
+  probability of the pending legs x 0.95) that animates as odds move.
 - **Leaderboard**: global top 20 ranked by coin bankroll, live via Supabase
   Realtime (or polling fallback), plus a downloadable streak share card.
 
@@ -67,6 +69,7 @@ Create a project at supabase.com, then run in the SQL editor:
 1. `supabase/schema.sql`
 2. `supabase/schema-v2.sql`
 3. `supabase/schema-v3.sql`
+4. `supabase/schema-v4.sql`
 
 ### 4. Environment
 
@@ -137,6 +140,7 @@ Two ways around that:
 | `GET /api/markets/{fixtureId}` | Every priced market, normalized |
 | `POST /api/coins/claim` | Claim 500 daily coins |
 | `POST /api/slips` / `GET /api/slips` | Place bet slips / list + settle them |
+| `POST /api/slips/cashout` | Cash an open slip out at current value |
 | `GET /api/leaderboard` | Top 20 players by coin bankroll |
 | `POST /api/player` | Upsert player by wallet/nickname |
 | `GET /api/test` | End-to-end TxLINE health check |

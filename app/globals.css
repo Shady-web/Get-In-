@@ -669,6 +669,59 @@ a {
   box-shadow: var(--shadow-xl);
 }
 
+/* ---- Cash out --------------------------------------------------------------------- */
+
+.cashout-btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  display: grid;
+  gap: 0;
+  justify-items: center;
+  background: var(--color-ember-orange);
+  color: var(--color-void);
+  border-radius: var(--radius-buttons);
+  padding: 6px 12px;
+  min-width: 88px;
+  font: inherit;
+  transition: background 120ms ease;
+}
+
+.cashout-btn:hover {
+  background: #ffd071;
+}
+
+.cash-value {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.53px;
+  color: var(--color-void);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+/* On the gold button the flash needs dark, saturated tints */
+.cash-value.flash-up {
+  animation: cash-up 900ms ease-out;
+  color: #0c4d27;
+}
+
+.cash-value.flash-down {
+  animation: cash-down 900ms ease-out;
+  color: #7a1608;
+}
+
+@keyframes cash-up {
+  0% { background: rgba(12, 77, 39, 0.25); }
+  100% { background: transparent; }
+}
+
+@keyframes cash-down {
+  0% { background: rgba(122, 22, 8, 0.22); }
+  100% { background: transparent; }
+}
+
 /* ---- Share-my-streak card ------------------------------------------------------ */
 
 .share-card {

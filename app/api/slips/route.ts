@@ -6,7 +6,9 @@ import {
   placeSlip,
   settleSlipsForMatch,
   voidStaleReplayLegs,
+  withCashValues,
   type LegInput,
+  type SlipRow,
 } from "@/lib/betting";
 
 export const dynamic = "force-dynamic";
@@ -96,8 +98,11 @@ export async function GET(request: Request) {
       .limit(20);
     if (error) throw new Error(error.message);
 
+    // Live cash-out value on every open slip, priced from current markets.
+    const priced = await withCashValues((slips ?? []) as SlipRow[]);
+
     const fresh = await getOrCreatePlayer(identity);
-    return NextResponse.json({ ok: true, slips: slips ?? [], player: fresh });
+    return NextResponse.json({ ok: true, slips: priced, player: fresh });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not load slips.";
     return NextResponse.json({ ok: false, error: message }, { status: 502 });
