@@ -14,6 +14,7 @@ import {
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { MarketsPanel } from "@/components/markets-panel";
 import { WorldCupBanner } from "@/components/wc-banner";
+import { Flag } from "@/components/flag";
 import { BetSlipProvider, BetSlipTray, useBetSlip } from "@/components/bet-slip";
 import type { LiveState } from "@/lib/live";
 import { buildCard, type GameCard, type GameOption, type SettledResult } from "@/lib/game-core";
@@ -186,8 +187,23 @@ function FixtureRow({
     <button className="row fixture-row fade-in" onClick={onClick}>
       {left}
       <span style={{ flex: 1, display: "grid", gap: 2, minWidth: 0 }}>
-        <span style={{ fontWeight: 600, fontSize: 15 }}>
-          {fixture.Participant1} vs {fixture.Participant2}
+        <span
+          style={{
+            fontWeight: 600,
+            fontSize: 15,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            flexWrap: "wrap",
+          }}
+        >
+          <Flag country={fixture.Participant1} />
+          {fixture.Participant1}
+          <span className="muted" style={{ fontWeight: 400 }}>
+            vs
+          </span>
+          <Flag country={fixture.Participant2} />
+          {fixture.Participant2}
         </span>
         <span className="muted" style={{ fontSize: 12 }}>
           {fixture.Competition}
@@ -399,9 +415,12 @@ function ScoreCard({
           gap: 12,
         }}
       >
-        <p style={{ fontWeight: 600, fontSize: 16, textAlign: "left" }}>
-          {fixture.Participant1}
-        </p>
+        <div style={{ display: "grid", gap: 6, justifyItems: "start" }}>
+          <Flag country={fixture.Participant1} size={26} />
+          <p style={{ fontWeight: 600, fontSize: 16, textAlign: "left" }}>
+            {fixture.Participant1}
+          </p>
+        </div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
           {score ? (
             <>
@@ -421,9 +440,12 @@ function ScoreCard({
             </span>
           )}
         </div>
-        <p style={{ fontWeight: 600, fontSize: 16, textAlign: "right" }}>
-          {fixture.Participant2}
-        </p>
+        <div style={{ display: "grid", gap: 6, justifyItems: "end" }}>
+          <Flag country={fixture.Participant2} size={26} />
+          <p style={{ fontWeight: 600, fontSize: 16, textAlign: "right" }}>
+            {fixture.Participant2}
+          </p>
+        </div>
       </div>
 
       {clockText !== null && (
