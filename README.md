@@ -36,6 +36,10 @@ on-chain World Cup tier, Solana).
 - **Private rooms**: create a room, get a 6-char code + share link, friends
   join and compete on a live per-room leaderboard ranked by coin profit
   since joining, with rank-change animations.
+- **Pundit ticker**: a scrolling feed of one-line AI hot takes on the match
+  screen. A take is generated ONLY when a goal, a red card, or a >15-point
+  win-probability swing happens (Gemini, gemini-2.0-flash, free tier), max
+  12 per match, cached in Supabase so replays never re-call the AI.
 - **Leaderboard**: global top 20 ranked by coin bankroll, live via Supabase
   Realtime (or polling fallback), plus a downloadable streak share card.
 
@@ -76,6 +80,7 @@ Create a project at supabase.com, then run in the SQL editor:
 3. `supabase/schema-v3.sql`
 4. `supabase/schema-v4.sql`
 5. `supabase/schema-v5.sql`
+6. `supabase/schema-v6.sql`
 
 ### 4. Environment
 
@@ -94,6 +99,10 @@ SUPABASE_SERVICE_ROLE_KEY=...
 # Optional: realtime leaderboard (public anon key is browser-safe)
 NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+
+# Optional: Pundit ticker (free key: aistudio.google.com -> Get API key).
+# Server-side only. If unset, the ticker simply hides itself.
+GEMINI_API_KEY=...
 ```
 
 ### 5. Run
@@ -144,6 +153,7 @@ Two ways around that:
 | `GET /api/game/card` | Current prediction card (+ settles picks & slips) |
 | `POST /api/game/pick` | Save a pick with its odds snapshot |
 | `GET /api/markets/{fixtureId}` | Every priced market, normalized |
+| `GET /api/pundit/{fixtureId}` | Pundit ticker takes (live, or `?vt=` for replay) |
 | `POST /api/coins/claim` | Claim 500 daily coins |
 | `POST /api/slips` / `GET /api/slips` | Place bet slips / list + settle them |
 | `POST /api/slips/cashout` | Cash an open slip out at current value |

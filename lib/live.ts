@@ -6,8 +6,8 @@
 // Payload parsing lives in lib/txline-parse.ts, matched to the REAL feed
 // shapes (verified against production data), not just the published spec.
 
-import { txlineGet } from "@/lib/txline";
 import { getOddsSnapshot } from "@/lib/odds-snapshot";
+import { getScoresSnapshot } from "@/lib/scores-snapshot";
 import {
   foldScores,
   latest1X2,
@@ -59,7 +59,7 @@ export async function getLiveState(fixtureId: number): Promise<LiveState> {
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.state;
 
   const [scoresRaw, oddsRaw] = await Promise.allSettled([
-    txlineGet(`/scores/snapshot/${fixtureId}`),
+    getScoresSnapshot(fixtureId), // shared cache with the Pundit ticker
     getOddsSnapshot(fixtureId), // shared cache with the Markets tab
   ]);
 

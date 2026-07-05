@@ -47,9 +47,11 @@ const fixtures = [
   },
 ];
 
-const sc = (h, a, ch, ca) => ({
-  Participant1: { Total: { Goals: h, YellowCards: 0, RedCards: 0, Corners: ch } },
-  Participant2: { Total: { Goals: a, YellowCards: 0, RedCards: 0, Corners: ca } },
+const RED_CARD_AT = 60 * 60; // Mockovia see red at 60'
+
+const sc = (h, a, ch, ca, rh = 0, ra = 0) => ({
+  Participant1: { Total: { Goals: h, YellowCards: 0, RedCards: rh, Corners: ch } },
+  Participant2: { Total: { Goals: a, YellowCards: 0, RedCards: ra, Corners: ca } },
 });
 
 /** Live match state as a pure function of the match clock. */
@@ -58,7 +60,57 @@ function liveAt(t) {
   for (const [gt, gh, ga] of GOALS) if (t >= gt) { h = gh; a = ga; }
   const corners = Math.floor(t / CORNER_EVERY);
   const status = t >= FT_SECONDS ? "F" : t >= 46 * 60 ? "H2" : t >= 45 * 60 ? "HT" : "H1";
-  return { h, a, corners, status };
+  const ra = t >= RED_CARD_AT ? 1 : 0;
+  return { h, a, corners, status, ra };
+}
+
+/**
+ * Score snapshot as a HISTORY of updates (like the real feed): one entry per
+ * event so far plus a current heartbeat. The Pundit ticker derives goal and
+ * red-card events from this history.
+ */
+function liveScoreEntries(tNow) {
+  const checkpoints = [
+    0,
+    ...GOALS.map(([gt]) => gt).filter((gt) => gt <= tNow),
+    ...(tNow >= RED_CARD_AT ? [RED_CARD_AT] : []),
+    Math.floor(tNow),
+  ].sort((x, y) => x - y);
+  return checkpoints.map((t, i) => {
+    const { h, a, corners, status, ra } = liveAt(t);
+    return {
+      fixtureId: 90001, ts: kickoffLive + t * 1000, seq: i + 1,
+      statusSoccerId: status,
+      clock: { running: status === "H1" || status === "H2", seconds: t },
+      scoreSoccer: sc(h, a, Math.ceil(corners / 2), Math.floor(corners / 2), 0, ra),
+    };
+  });
+}
+
+// Deterministic 1X2 history for /odds/updates/90001: same data every call,
+// so the Pundit swing keys are stable. Home prob path has 4 swings > 15pts.
+const LIVE_ODDS_SCRIPT = [
+  [0, 44, 28],
+  [18 * 60, 62, 22],
+  [27 * 60, 40, 32],
+  [40 * 60, 58, 26],
+  [51 * 60, 63, 22],
+  [RED_CARD_AT, 74, 16],
+  [74 * 60, 84, 10],
+];
+function liveOddsUpdates(tNow) {
+  return LIVE_ODDS_SCRIPT.filter(([t]) => t <= tNow).map(([t, ph, pd], i) => {
+    const pcts = [ph, pd, 100 - ph - pd];
+    return {
+      FixtureId: 90001, MessageId: `u${i}`, Ts: kickoffLive + t * 1000,
+      Bookmaker: "MockPrice", BookmakerId: 7,
+      SuperOddsType: "1X2_PARTICIPANT_RESULT", InRunning: t > 0,
+      MarketPeriod: null, MarketParameters: null,
+      PriceNames: ["part1", "draw", "part2"],
+      Prices: pcts.map((p) => Math.round(100000 / p)),
+      Pct: pcts.map((p) => p.toFixed(3)),
+    };
+  });
 }
 
 /** Build one odds payload in the REAL TxLINE shape. */
@@ -95,23 +147,25 @@ function oddsAt(t) {
 
 // --- Replay history for 90003 (fixed script) --------------------------------
 
+// [t, status, homeGoals, awayGoals, homeCorners, awayCorners, awayReds]
+// Japan (away) pick up a red card at 60'.
 const replayScript = [
-  [0, "H1", 0, 0, 0, 0],
-  [300, "H1", 0, 0, 1, 0],
-  [720, "H1", 1, 0, 1, 0],
-  [1500, "H1", 1, 0, 2, 1],
-  [2580, "H1", 1, 1, 3, 1],
-  [2700, "HT", 1, 1, 3, 1],
-  [2700, "H2", 1, 1, 3, 1],
-  [3600, "H2", 1, 1, 4, 2],
-  [4680, "H2", 2, 1, 5, 2],
-  [5400, "H2", 2, 1, 5, 3],
-  [5640, "F", 2, 1, 5, 3],
+  [0, "H1", 0, 0, 0, 0, 0],
+  [300, "H1", 0, 0, 1, 0, 0],
+  [720, "H1", 1, 0, 1, 0, 0],
+  [1500, "H1", 1, 0, 2, 1, 0],
+  [2580, "H1", 1, 1, 3, 1, 0],
+  [2700, "HT", 1, 1, 3, 1, 0],
+  [2700, "H2", 1, 1, 3, 1, 0],
+  [3600, "H2", 1, 1, 4, 2, 1],
+  [4680, "H2", 2, 1, 5, 2, 1],
+  [5400, "H2", 2, 1, 5, 3, 1],
+  [5640, "F", 2, 1, 5, 3, 1],
 ];
-const replayScores = replayScript.map(([t, st, h, a, ch, ca], i) => ({
+const replayScores = replayScript.map(([t, st, h, a, ch, ca, ra], i) => ({
   fixtureId: 90003, ts: kickoffReplay + t * 1000, seq: i + 1, statusSoccerId: st,
   clock: { running: st !== "HT" && st !== "F", seconds: t },
-  scoreSoccer: sc(h, a, ch, ca),
+  scoreSoccer: sc(h, a, ch, ca, 0, ra),
 }));
 const replayOdds = [
   [0, "45.000", "28.000", "27.000"],
@@ -134,6 +188,23 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify(body));
   };
 
+  // Fake Gemini for the Pundit ticker (dev-mock points GEMINI_API_BASE here).
+  if (req.method === "POST" && req.url.startsWith("/v1beta/models/")) {
+    let buf = "";
+    req.on("data", (c) => (buf += c));
+    req.on("end", () => {
+      let prompt = "";
+      try { prompt = JSON.stringify(JSON.parse(buf).contents ?? ""); } catch { /* canned */ }
+      const take = prompt.includes("RED CARD")
+        ? "Ten men changes everything: the market is piling onto the other side and the draw price is collapsing fast."
+        : prompt.includes("GOAL")
+          ? "That goal flips the script: the bookmakers now make the scorers firm favourites and momentum money is flooding in."
+          : "Sharp money on the move: a swing that size with no goal means the traders have seen something the crowd has not.";
+      json({ candidates: [{ content: { parts: [{ text: take }] } }] });
+    });
+    return;
+  }
+
   if (req.url === "/auth/guest/start") return json({ token: "mock-jwt" });
   if (req.url.startsWith("/api/fixtures/snapshot")) return json(fixtures);
 
@@ -142,19 +213,17 @@ const server = http.createServer((req, res) => {
 
   if (req.url.startsWith("/api/scores/snapshot/90001")) {
     const t = Math.min((Date.now() - kickoffLive) / 1000, FT_SECONDS);
-    const { h, a, corners, status } = liveAt(t);
-    return json([
-      {
-        fixtureId: 90001, ts: Date.now(), seq: Math.floor(t), statusSoccerId: status,
-        clock: { running: status === "H1" || status === "H2", seconds: Math.floor(t) },
-        scoreSoccer: sc(h, a, Math.ceil(corners / 2), Math.floor(corners / 2)),
-      },
-    ]);
+    return json(liveScoreEntries(t));
   }
   if (req.url.startsWith("/api/odds/snapshot/90001")) {
     const t = Math.min((Date.now() - kickoffLive) / 1000, FT_SECONDS);
     return json(oddsAt(t));
   }
+  if (req.url.startsWith("/api/odds/updates/90001")) {
+    const t = Math.min((Date.now() - kickoffLive) / 1000, FT_SECONDS);
+    return json(liveOddsUpdates(t));
+  }
+  if (req.url.startsWith("/api/odds/updates/90002")) return json([]);
 
   // Upcoming fixture: no scores yet, pre-match odds only.
   if (req.url.startsWith("/api/scores/snapshot/90002")) return json([]);

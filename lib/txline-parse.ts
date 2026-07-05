@@ -66,6 +66,7 @@ function pick(obj: any, ...keys: string[]): any {
 export interface FoldedScores {
   score: { home: number; away: number } | null;
   corners: number | null;
+  red: { home: number; away: number } | null;
   statusId: string | null;
   clockSeconds: number | null;
   clockRunning: boolean;
@@ -79,6 +80,7 @@ interface NormalizedScoreEntry {
   clockRunning: boolean;
   score: { home: number; away: number } | null;
   corners: number | null;
+  red: { home: number; away: number } | null;
 }
 
 function normalizeScoreEntry(entry: unknown): NormalizedScoreEntry | null {
@@ -98,6 +100,7 @@ function normalizeScoreEntry(entry: unknown): NormalizedScoreEntry | null {
   const scoreObj = pick(u, "Score", "scoreSoccer");
   let score: { home: number; away: number } | null = null;
   let corners: number | null = null;
+  let red: { home: number; away: number } | null = null;
   if (scoreObj && typeof scoreObj === "object") {
     const p1 = pick(scoreObj, "Participant1") ?? {};
     const p2 = pick(scoreObj, "Participant2") ?? {};
@@ -106,6 +109,7 @@ function normalizeScoreEntry(entry: unknown): NormalizedScoreEntry | null {
     // Zero values are omitted in the real feed: missing means 0.
     score = { home: Number(t1.Goals ?? 0), away: Number(t2.Goals ?? 0) };
     corners = Number(t1.Corners ?? 0) + Number(t2.Corners ?? 0);
+    red = { home: Number(t1.RedCards ?? 0), away: Number(t2.RedCards ?? 0) };
   }
 
   return {
@@ -116,6 +120,7 @@ function normalizeScoreEntry(entry: unknown): NormalizedScoreEntry | null {
     clockRunning,
     score,
     corners,
+    red,
   };
 }
 
@@ -135,6 +140,7 @@ export function foldScores(raw: unknown): FoldedScores {
   const out: FoldedScores = {
     score: null,
     corners: null,
+    red: null,
     statusId: null,
     clockSeconds: null,
     clockRunning: false,
@@ -153,6 +159,7 @@ export function foldScores(raw: unknown): FoldedScores {
     }
     if (e.score) out.score = e.score;
     if (e.corners !== null) out.corners = e.corners;
+    if (e.red !== null) out.red = e.red;
   }
 
   // Finality latches: stale in-play events can be re-emitted after the final
@@ -171,6 +178,7 @@ export interface RawScoreFrame {
   ts: number;
   score: { home: number; away: number };
   corners: number;
+  red: { home: number; away: number };
   statusId: string | null;
 }
 
@@ -185,6 +193,7 @@ export function scoreEntryFrames(raw: unknown): RawScoreFrame[] {
       ts: e.ts || (last?.ts ?? 0),
       score: e.score ?? last?.score ?? { home: 0, away: 0 },
       corners: e.corners ?? last?.corners ?? 0,
+      red: e.red ?? last?.red ?? { home: 0, away: 0 },
       statusId: e.status ?? last?.statusId ?? null,
     };
     frames.push(frame);
