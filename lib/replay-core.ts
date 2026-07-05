@@ -10,6 +10,7 @@ export interface ScoreFrame {
   ts: number; // wall-clock ms (for mapping odds onto the clock)
   score: { home: number; away: number };
   corners: number;
+  red?: { home: number; away: number }; // red cards so far (missing = 0-0)
   statusId: string | null;
 }
 

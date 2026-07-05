@@ -9,7 +9,8 @@
     "dev:mock": "node scripts/dev-mock.mjs",
     "build": "next build",
     "start": "next start",
-    "setup:txline": "tsx scripts/setup-txline.ts"
+    "setup:txline": "tsx scripts/setup-txline.ts",
+    "test:pundit": "tsx scripts/test-pundit.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",

@@ -15,6 +15,7 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { MarketsPanel } from "@/components/markets-panel";
 import { Flag } from "@/components/flag";
 import { BetSlipProvider, BetSlipTray, useBetSlip } from "@/components/bet-slip";
+import { PunditTicker } from "@/components/pundit-ticker";
 import type { LiveState } from "@/lib/live";
 import { buildCard, type GameCard, type GameOption, type SettledResult } from "@/lib/game-core";
 import { stateAt, type ReplayTimeline } from "@/lib/replay-core";
@@ -781,26 +782,34 @@ function LiveMatch({
       </div>
 
       <div className="match-grid">
-        <ScoreCard
-          fixture={fixture}
-          state={state}
-          clockText={matchStarted ? clockText ?? "0:00" : null}
-          headerRight={
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              {matchStarted && <span className="live-dot" />}
-              <span className="muted" style={{ fontSize: 12 }}>
-                {matchStarted
-                  ? (state?.phase ?? "Connecting...")
-                  : `Kickoff ${kickoffLabel(fixture.StartTime)}`}
+        <div style={{ display: "grid", gap: "var(--element-gap)" }}>
+          <ScoreCard
+            fixture={fixture}
+            state={state}
+            clockText={matchStarted ? clockText ?? "0:00" : null}
+            headerRight={
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {matchStarted && <span className="live-dot" />}
+                <span className="muted" style={{ fontSize: 12 }}>
+                  {matchStarted
+                    ? (state?.phase ?? "Connecting...")
+                    : `Kickoff ${kickoffLabel(fixture.StartTime)}`}
+                </span>
               </span>
-            </span>
-          }
-          footer={
-            <p className="caption muted" style={{ textAlign: "center" }}>
-              {state?.bookmaker ? `${state.bookmaker} · ` : ""}updates every 7s
-            </p>
-          }
-        />
+            }
+            footer={
+              <p className="caption muted" style={{ textAlign: "center" }}>
+                {state?.bookmaker ? `${state.bookmaker} · ` : ""}updates every 7s
+              </p>
+            }
+          />
+
+          <PunditTicker
+            fixtureId={fixture.FixtureId}
+            home={fixture.Participant1}
+            away={fixture.Participant2}
+          />
+        </div>
 
         {view === "game" ? (
           <PredictionPanel
@@ -1071,6 +1080,13 @@ function ReplayMatch({
                 </span>
               </div>
             </div>
+
+            <PunditTicker
+              fixtureId={fixture.FixtureId}
+              home={fixture.Participant1}
+              away={fixture.Participant2}
+              getVt={getVt}
+            />
           </div>
 
           <PredictionPanel

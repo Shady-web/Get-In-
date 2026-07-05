@@ -2,9 +2,9 @@
 //
 //   npm run dev:mock
 //
-// Only TXLINE_* is overridden; Supabase env from .env.local still applies,
-// so the full game loop (picks -> settlement -> points -> leaderboard) runs
-// for real against the fake matches. Cross-platform (no shell tricks).
+// Only TXLINE_* and GEMINI_* are overridden; Supabase env from .env.local
+// still applies, so the full game loop (picks -> settlement -> points ->
+// leaderboard) runs for real against the fake matches. Cross-platform.
 
 import { spawn } from "node:child_process";
 import path from "node:path";
@@ -25,6 +25,10 @@ const next = spawn(process.execPath, [nextBin, "dev"], {
     TXLINE_API_BASE: "http://127.0.0.1:3998/api",
     TXLINE_API_TOKEN: "mock-token",
     TXLINE_NETWORK: "mock",
+    // Pundit ticker against the fake Gemini endpoint (no real key or quota
+    // used in mock mode, same as TXLINE_*).
+    GEMINI_API_KEY: "mock-gemini-key",
+    GEMINI_API_BASE: "http://127.0.0.1:3998",
   },
 });
 

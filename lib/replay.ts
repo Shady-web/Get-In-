@@ -19,7 +19,7 @@ function parseScoreFrames(raw: unknown): ScoreFrame[] {
 }
 
 /** Map a wall-clock ms timestamp onto the match clock via the score frames. */
-function clockAtTs(scoreFrames: ScoreFrame[], ts: number): number {
+export function clockAtTs(scoreFrames: ScoreFrame[], ts: number): number {
   let t = 0;
   for (const f of scoreFrames) {
     if (f.ts !== 0 && f.ts <= ts) t = f.t;
@@ -28,7 +28,8 @@ function clockAtTs(scoreFrames: ScoreFrame[], ts: number): number {
   return t;
 }
 
-function parseOddsFrames(raw: unknown, scoreFrames: ScoreFrame[]): OddsFrame[] {
+/** Clock-keyed 1X2 odds frames from a raw odds updates/snapshot payload. */
+export function parseOddsFrames(raw: unknown, scoreFrames: ScoreFrame[]): OddsFrame[] {
   const frames: OddsFrame[] = [];
   for (const p of all1X2(raw)) {
     const parsed = parseMatchOddsPayload(p);
