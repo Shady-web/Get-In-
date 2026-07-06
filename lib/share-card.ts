@@ -1,5 +1,5 @@
 // Client-side: render the streak share card to a 1080x1080 PNG and download
-// it. Pure canvas drawing in the Fey palette; no server involved.
+// it. Pure canvas drawing in the GSAP palette; no server involved.
 
 interface ShareCardData {
   name: string;
@@ -9,12 +9,13 @@ interface ShareCardData {
 }
 
 const C = {
-  canvas: "#0e1233",
-  card: "#171c44",
-  border: "#262d5e",
-  snow: "#ffffff",
-  fog: "#9aa3c7",
-  ember: "#ffc247",
+  canvas: "#0e100f",
+  card: "#191919",
+  border: "#42433d",
+  snow: "#fffce1", // cream, never pure white
+  fog: "#8f9082",
+  greenA: "#0ae448",
+  greenB: "#abff84",
 };
 
 export async function downloadStreakCard(data: ShareCardData): Promise<void> {
@@ -38,12 +39,15 @@ export async function downloadStreakCard(data: ShareCardData): Promise<void> {
   ctx.fillStyle = C.canvas;
   ctx.fillRect(0, 0, size, size);
 
-  // Card surface
+  // Card surface with the shockingly-green gradient stroke
   const pad = 90;
-  const r = 48;
+  const r = 24;
+  const grad = ctx.createLinearGradient(pad, pad, size - pad, size - pad);
+  grad.addColorStop(0, C.greenA);
+  grad.addColorStop(1, C.greenB);
   ctx.fillStyle = C.card;
-  ctx.strokeStyle = C.border;
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = 4;
   ctx.beginPath();
   ctx.roundRect(pad, pad, size - pad * 2, size - pad * 2, r);
   ctx.fill();
@@ -51,13 +55,13 @@ export async function downloadStreakCard(data: ShareCardData): Promise<void> {
 
   ctx.textAlign = "center";
 
-  // Section label
-  ctx.fillStyle = C.ember;
-  ctx.font = `500 34px ${family}`;
-  ctx.fillText("G E T I N ! ! !   S T R E A K", size / 2, 235);
-
-  // The number
+  // Section label, curly-bracket style
   ctx.fillStyle = C.snow;
+  ctx.font = `500 34px ${family}`;
+  ctx.fillText("{  G E T I N ! ! !   S T R E A K  }", size / 2, 235);
+
+  // The number, in gradient green
+  ctx.fillStyle = grad;
   ctx.font = `600 330px ${family}`;
   ctx.fillText(String(data.streak), size / 2, 620);
 

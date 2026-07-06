@@ -57,7 +57,7 @@ function Sparkline({ points }: { points: number[] }) {
       <Line
         type="monotone"
         dataKey="v"
-        stroke="#868f97"
+        stroke="#7c7c6f"
         strokeWidth={2}
         dot={false}
         isAnimationActive={false}

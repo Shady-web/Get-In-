@@ -3,7 +3,7 @@ import { Inter_Tight } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-// Fey's primary font is Calibre; Inter Tight is its documented fallback.
+// GSAP's primary font is Mori; Inter Tight is its documented fallback.
 const interTight = Inter_Tight({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -18,7 +18,7 @@ export const metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0e1233",
+  themeColor: "#0e100f",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
