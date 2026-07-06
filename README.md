@@ -175,7 +175,10 @@ Two ways around that:
 
 ## Stack notes
 
-- Styling: Fey design system tokens (via the refero-ui-styles workflow),
-  one typeface (Inter Tight), matte-on-matte dark surfaces, no shadows.
+- Styling: GSAP design system tokens (via the refero-ui-styles workflow):
+  just-black canvas, warm cream text (never pure white), a shockingly-green
+  gradient as the only CTA voice, outlined pill controls, 8px cards,
+  curly-bracket section labels, no shadows (depth from gradients only).
+  One typeface (Inter Tight, GSAP's documented fallback).
 - Probability bar palette validated for colorblind safety and contrast.
 - `scripts/setup-txline.ts` handles Token-2022 mints and SSE responses.

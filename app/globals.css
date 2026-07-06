@@ -1,44 +1,50 @@
-/* GetIN!!! - Fey design system tokens (styles.refero.design)
-   Obsidian trading-terminal look: matte-on-matte surfaces, no card shadows,
-   chromatic accents as punctuation only, aggressive negative tracking. */
+/* GetIN!!! - GSAP design system tokens (styles.refero.design)
+   "Neon playground in a midnight void": just-black canvas, warm cream text
+   (never pure white), a shockingly-green gradient as the only CTA voice,
+   playful category colors as taxonomy, 8px cards, pill controls, hairline
+   dividers, and NO shadows - depth comes from gradients + surface shifts. */
 
 :root {
-  /* World Cup celebration accents: trophy gold, pitch green, festival red,
-     sky blue - on a stadium-night navy so the colors GLOW, not gloom. */
-  --color-ember-orange: #ffc247; /* trophy gold: labels, brand, CTAs */
-  --color-signal-blue: #3b8fe0;
-  --color-tape-green: #35c56f; /* pitch green: live, wins */
-  --color-festival-red: #ff5d47;
+  /* Brand + accents (GSAP five-color taxonomy, mapped to GetIN roles):
+     green = live/money, blue = draw/info, orange = replay/negative drift,
+     lilac = quests/game, pink = pundit. */
+  --color-tape-green: #0ae448; /* shockingly green: live, wins */
+  --color-ember-orange: #abff84; /* light green: odds numbers, money accents */
+  --color-signal-blue: #00bae2;
+  --color-festival-red: #ff8709; /* orangey: losses, downward drift */
+  --color-orangey: #ff8709;
+  --color-lilac: #9d95ff;
+  --color-pink: #fec5fb;
+  --color-core-green: #dfffd1;
+  --gradient-green: linear-gradient(114.41deg, #0ae448 20.74%, #abff84 65.5%);
 
-  /* Neutrals, canvas → text (navy family) */
-  --color-void: #060819;
-  --color-obsidian: #0e1233;
-  --color-graphite: #171c44;
-  --color-slate: #3a4180;
-  --color-iron: #8089b0;
-  --color-fog: #9aa3c7;
-  --color-smoke: #8089b0;
-  --color-ash: #c7cde8;
-  --color-platinum: #e6eaff;
-  --color-snow: #ffffff;
-  --color-border: #262d5e;
+  /* Neutrals, canvas -> text (warm near-black family; no pure #000/#fff) */
+  --color-void: #0e100f;
+  --color-obsidian: #0e100f;
+  --color-graphite: #191919;
+  --color-slate: #55564f;
+  --color-iron: #7c7c6f;
+  --color-fog: #8f9082;
+  --color-smoke: #7c7c6f;
+  --color-ash: #c6c6b6;
+  --color-platinum: #fffce1;
+  --color-snow: #fffce1; /* "cream, never pure white" */
+  --color-border: #42433d;
 
   --surface-canvas: var(--color-obsidian);
   --surface-card: var(--color-graphite);
-  --surface-elevated-card: #1f2554;
+  --surface-elevated-card: #222320;
 
-  /* Radii - three-tier system */
-  --radius-buttons: 6px;
-  --radius-cards: 16px;
-  --radius-modals: 10px;
-  --radius-pill: 99px;
+  /* Radii: 8px cards/tags, 100px pills - the GSAP two-tier system */
+  --radius-buttons: 8px;
+  --radius-cards: 8px;
+  --radius-modals: 8px;
+  --radius-pill: 100px;
 
-  /* Spacing */
+  /* Spacing (base unit 4px) */
   --section-gap: 40px;
-  --card-padding: 24px;
-  --element-gap: 18px;
-
-  --shadow-xl: rgba(0, 0, 0, 0.8) 0px 0px 44px 0px;
+  --card-padding: 20px;
+  --element-gap: 16px;
 }
 
 * {
@@ -56,45 +62,47 @@ body {
   color: var(--color-snow);
   font-family: var(--font-app), "Inter Tight", ui-sans-serif, system-ui,
     -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.4;
-  letter-spacing: -0.742px;
+  letter-spacing: -0.15px;
   min-height: 100dvh;
 }
 
-/* Celebration ribbon: pitch green - trophy gold - festival red - sky blue */
+/* Festival hairline: the five playground colors in one thin ribbon */
 body::before {
   content: "";
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 4px;
+  height: 3px;
   z-index: 50;
   background: linear-gradient(
     90deg,
-    var(--color-tape-green),
-    var(--color-ember-orange),
-    var(--color-festival-red),
-    var(--color-signal-blue)
+    #0ae448,
+    #abff84,
+    #00bae2,
+    #9d95ff,
+    #fec5fb,
+    #ff8709
   );
 }
 
-/* Confetti field for hero sections: tiny festival dots, no images needed */
+/* Confetti field for hero sections: neon playground dots, no images needed */
 .confetti {
   background-image:
-    radial-gradient(circle 3px at 12% 20%, rgba(255, 194, 71, 0.5) 0 3px, transparent 3px),
-    radial-gradient(circle 2px at 78% 12%, rgba(53, 197, 111, 0.5) 0 2px, transparent 2px),
-    radial-gradient(circle 2px at 30% 70%, rgba(255, 93, 71, 0.45) 0 2px, transparent 2px),
-    radial-gradient(circle 3px at 88% 55%, rgba(59, 143, 224, 0.45) 0 3px, transparent 3px),
-    radial-gradient(circle 2px at 55% 30%, rgba(255, 194, 71, 0.35) 0 2px, transparent 2px),
-    radial-gradient(circle 2px at 8% 85%, rgba(59, 143, 224, 0.4) 0 2px, transparent 2px),
-    radial-gradient(circle 3px at 65% 82%, rgba(53, 197, 111, 0.4) 0 3px, transparent 3px);
+    radial-gradient(circle 3px at 12% 20%, rgba(10, 228, 72, 0.5) 0 3px, transparent 3px),
+    radial-gradient(circle 2px at 78% 12%, rgba(0, 186, 226, 0.5) 0 2px, transparent 2px),
+    radial-gradient(circle 2px at 30% 70%, rgba(255, 135, 9, 0.45) 0 2px, transparent 2px),
+    radial-gradient(circle 3px at 88% 55%, rgba(157, 149, 255, 0.5) 0 3px, transparent 3px),
+    radial-gradient(circle 2px at 55% 30%, rgba(171, 255, 132, 0.4) 0 2px, transparent 2px),
+    radial-gradient(circle 2px at 8% 85%, rgba(254, 197, 251, 0.45) 0 2px, transparent 2px),
+    radial-gradient(circle 3px at 65% 82%, rgba(10, 228, 72, 0.35) 0 3px, transparent 3px);
 }
 
-/* Brand gradient: gold into festival red, like a trophy in the sun */
+/* Brand gradient: shockingly green - the pitch under floodlights */
 .brand-gradient {
-  background: linear-gradient(100deg, var(--color-ember-orange), var(--color-festival-red));
+  background: var(--gradient-green);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -104,34 +112,34 @@ a {
   color: inherit;
 }
 
-/* ---- Type scale ------------------------------------------------------- */
+/* ---- Type scale (Mori -> Inter Tight fallback, weights 400/600) --------- */
 
 .display {
-  font-size: 48px;
+  font-size: 56px;
   font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: -3.84px;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
 }
 
 .heading {
   font-size: 24px;
-  font-weight: 700;
-  line-height: 1.4;
-  letter-spacing: -1.92px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.24px;
 }
 
 .heading-sm {
   font-size: 18px;
   font-weight: 600;
-  line-height: 1.3;
-  letter-spacing: -0.954px;
+  line-height: 1.25;
+  letter-spacing: -0.18px;
 }
 
 .caption {
   font-size: 11px;
   font-weight: 500;
   line-height: 1.5;
-  letter-spacing: 0.02em; /* labels are the one place tracking opens up */
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
@@ -139,9 +147,21 @@ a {
   color: var(--color-fog);
 }
 
-/* Section labels: the sanctioned home of Ember Orange */
+/* Section eyebrows: the GSAP curly-bracket annotation, in cream */
 .section-label {
-  color: var(--color-ember-orange);
+  color: var(--color-snow);
+}
+
+.section-label::before {
+  content: "{ ";
+  color: var(--color-iron);
+  font-weight: 400;
+}
+
+.section-label::after {
+  content: " }";
+  color: var(--color-iron);
+  font-weight: 400;
 }
 
 /* ---- Layout ------------------------------------------------------------ */
@@ -167,16 +187,19 @@ a {
   display: flex;
   align-items: baseline;
   gap: 2px;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.954px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.19px;
 }
 
 .brand .bang {
-  color: var(--color-ember-orange);
+  background: var(--gradient-green);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-/* ---- Surfaces ----------------------------------------------------------- */
+/* ---- Surfaces (8px radius, hairline borders, zero shadows) --------------- */
 
 .card {
   background: var(--surface-card);
@@ -187,26 +210,29 @@ a {
 
 .row {
   background: var(--surface-card);
-  border-radius: var(--radius-modals);
+  border: 1px solid transparent;
+  border-radius: var(--radius-cards);
   padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-/* ---- Controls ----------------------------------------------------------- */
+/* ---- Controls: outlined-only system, pills everywhere -------------------- */
 
 .btn {
   appearance: none;
-  border: none;
+  border: 1px solid var(--color-snow);
+  background: transparent;
+  color: var(--color-snow);
   width: 100%;
   min-height: 48px;
-  padding: 12px 18px;
-  border-radius: var(--radius-buttons);
+  padding: 12px 24px;
+  border-radius: var(--radius-pill);
   font: inherit;
   font-size: 15px;
   font-weight: 600;
-  letter-spacing: -0.742px;
+  letter-spacing: -0.15px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -220,41 +246,47 @@ a {
   cursor: default;
 }
 
+/* Primary CTA: gradient-stroked ghost pill - "maximum chromatic escalation" */
 .btn-primary {
-  background: var(--color-ember-orange);
-  color: var(--color-void);
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--color-void), var(--color-void)) padding-box,
+    var(--gradient-green) border-box;
+  color: var(--color-snow);
 }
 
 .btn-primary:not(:disabled):hover {
-  background: #ffd071;
+  background:
+    linear-gradient(#152015, #152015) padding-box,
+    var(--gradient-green) border-box;
 }
 
 .btn-primary:not(:disabled):active {
-  background: #e8ab32;
+  background:
+    linear-gradient(#1c2b1a, #1c2b1a) padding-box,
+    var(--gradient-green) border-box;
 }
 
 .btn-ghost {
-  background: transparent;
-  color: var(--color-snow);
-  border: 1px solid var(--color-slate);
+  border-color: var(--color-border);
 }
 
 .btn-ghost:not(:disabled):hover,
 .btn-ghost:not(:disabled):active {
-  border-color: var(--color-platinum);
+  border-color: var(--color-snow);
 }
 
 .input {
   width: 100%;
   min-height: 48px;
-  padding: 12px 16px;
-  background: var(--surface-elevated-card);
+  padding: 12px 20px;
+  background: transparent;
   border: 1px solid var(--color-slate);
-  border-radius: var(--radius-buttons);
+  border-radius: var(--radius-pill);
   color: var(--color-snow);
   font: inherit;
   font-size: 15px;
-  letter-spacing: -0.742px;
+  letter-spacing: -0.15px;
   outline: none;
 }
 
@@ -263,7 +295,7 @@ a {
 }
 
 .input:focus {
-  border-color: var(--color-platinum);
+  border-color: var(--color-snow);
 }
 
 .pill {
@@ -271,13 +303,13 @@ a {
   align-items: center;
   gap: 6px;
   padding: 6px 14px;
-  border: 1px solid var(--color-slate);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--color-snow);
   font-size: 12px;
   font-weight: 500;
-  letter-spacing: -0.53px;
+  letter-spacing: -0.12px;
   white-space: nowrap;
 }
 
@@ -302,17 +334,17 @@ a {
 }
 
 .error-text {
-  color: var(--color-ember-orange);
+  color: var(--color-orangey);
   font-size: 13px;
 }
 
 /* ---- Live match view ------------------------------------------------------ */
 
-/* Series colors - validated categorical palette (dataviz six checks, dark) */
+/* Series colors follow the taxonomy: green home, neutral draw, blue away */
 :root {
-  --series-home: #3b8fe0;
-  --series-draw: #bd8425;
-  --series-away: #2da35f;
+  --series-home: #0ae448;
+  --series-draw: #6b6c60;
+  --series-away: #00bae2;
 }
 
 .live-dot {
@@ -326,7 +358,6 @@ a {
 .fixture-row {
   width: 100%;
   text-align: left;
-  border: 1px solid transparent;
   cursor: pointer;
   font: inherit;
   color: inherit;
@@ -344,10 +375,10 @@ a {
 }
 
 .score-num {
-  font-size: 48px;
+  font-size: 56px;
   font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: -3.84px;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   display: inline-block;
 }
@@ -358,7 +389,7 @@ a {
 
 @keyframes score-pop {
   0% { transform: scale(1); }
-  35% { transform: scale(1.35); color: var(--color-ember-orange); }
+  35% { transform: scale(1.35); color: var(--color-tape-green); }
   100% { transform: scale(1); }
 }
 
@@ -366,15 +397,15 @@ a {
   font-variant-numeric: tabular-nums;
   color: var(--color-fog);
   font-size: 14px;
-  letter-spacing: -0.53px;
+  letter-spacing: -0.14px;
 }
 
-/* Probability bar: thin mark, 2px surface gaps, 4px rounded data ends */
+/* Probability bar: thin mark, 2px surface gaps, rounded data ends */
 .prob-bar {
   display: flex;
   gap: 2px;
-  height: 10px;
-  border-radius: 4px;
+  height: 12px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
@@ -400,7 +431,7 @@ a {
   gap: 6px;
   font-size: 12px;
   color: var(--color-fog);
-  letter-spacing: -0.53px;
+  letter-spacing: -0.12px;
   min-width: 0;
 }
 
@@ -423,6 +454,64 @@ a {
   white-space: nowrap;
 }
 
+/* Quick odds: the SportyBet move - 1X2 chips DIRECTLY under the match stats */
+.quick-odds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.odds-chip {
+  appearance: none;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 10px 8px;
+  background: var(--surface-elevated-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-buttons);
+  color: var(--color-snow);
+  font: inherit;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.odds-chip:not(:disabled):hover {
+  border-color: var(--color-slate);
+}
+
+.odds-chip:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.odds-chip .name {
+  font-size: 11.5px;
+  color: var(--color-fog);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.odds-chip .price {
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ember-orange);
+}
+
+.odds-chip.selected {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#1c2b1a, #1c2b1a) padding-box,
+    var(--gradient-green) border-box;
+}
+
+.odds-chip.selected .name {
+  color: var(--color-snow);
+}
+
 /* ---- Tabs ------------------------------------------------------------------ */
 
 .pill.tab {
@@ -432,7 +521,11 @@ a {
 
 .pill.tab.active {
   color: var(--color-snow);
-  border-color: var(--color-platinum);
+  font-weight: 600;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--color-void), var(--color-void)) padding-box,
+    var(--gradient-green) border-box;
 }
 
 /* ---- Prediction game --------------------------------------------------------- */
@@ -447,20 +540,20 @@ a {
   justify-content: space-between;
   gap: 10px;
   background: var(--surface-elevated-card);
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-buttons);
   color: var(--color-snow);
   font: inherit;
   font-size: 15px;
   font-weight: 500;
-  letter-spacing: -0.742px;
+  letter-spacing: -0.15px;
   cursor: pointer;
   transition: border-color 120ms ease, opacity 120ms ease;
 }
 
 .option-btn:not(:disabled):hover,
 .option-btn:not(:disabled):active {
-  border-color: var(--color-platinum);
+  border-color: var(--color-slate);
 }
 
 .option-btn:disabled {
@@ -470,7 +563,10 @@ a {
 
 .option-btn.chosen {
   opacity: 1;
-  border-color: var(--color-tape-green);
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#1c2b1a, #1c2b1a) padding-box,
+    var(--gradient-green) border-box;
 }
 
 .option-btn .team {
@@ -484,23 +580,23 @@ a {
   font-size: 12px;
   font-weight: 600;
   color: var(--color-ember-orange);
-  border: 1px solid var(--color-slate);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
   padding: 3px 10px;
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- Markets tab (trading-terminal rows) ---------------------------------------- */
+/* ---- Markets tab (odds-board rows) ---------------------------------------- */
 
 .market-chip {
   font-size: 10px;
   font-weight: 500;
   color: var(--color-fog);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-buttons);
   padding: 2px 8px;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   white-space: nowrap;
 }
 
@@ -509,9 +605,10 @@ a {
   align-items: center;
   gap: 10px;
   background: var(--surface-elevated-card);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-buttons);
   padding: 8px 12px;
-  min-height: 40px;
+  min-height: 42px;
 }
 
 .spark-empty {
@@ -523,16 +620,17 @@ a {
 .price-num {
   font-weight: 600;
   font-size: 14px;
-  letter-spacing: -0.53px;
+  letter-spacing: -0.14px;
   font-variant-numeric: tabular-nums;
   min-width: 64px;
   text-align: right;
   border-radius: 4px;
   padding: 2px 6px;
+  color: var(--color-ember-orange);
 }
 
-/* Flash on drift: green up, red down (validated >= 3:1 on this surface).
-   The row also carries a direction glyph, so color is never the only cue. */
+/* Flash on drift: green up, orange down (GSAP has no red; rows also carry
+   a direction glyph, so color is never the only cue). */
 .flash-up {
   animation: price-up 900ms ease-out;
   color: var(--color-tape-green);
@@ -540,16 +638,16 @@ a {
 
 .flash-down {
   animation: price-down 900ms ease-out;
-  color: #ff6b57;
+  color: var(--color-orangey);
 }
 
 @keyframes price-up {
-  0% { background: rgba(53, 197, 111, 0.26); }
+  0% { background: rgba(10, 228, 72, 0.22); }
   100% { background: transparent; }
 }
 
 @keyframes price-down {
-  0% { background: rgba(255, 93, 71, 0.26); }
+  0% { background: rgba(255, 135, 9, 0.22); }
   100% { background: transparent; }
 }
 
@@ -577,11 +675,10 @@ a {
 
 .outcome-row.bettable {
   cursor: pointer;
-  border: 1px solid transparent;
   font: inherit;
   color: inherit;
   text-align: left;
-  transition: border-color 120ms ease;
+  transition: border-color 120ms ease, background 120ms ease;
 }
 
 .outcome-row.bettable:hover {
@@ -589,7 +686,10 @@ a {
 }
 
 .outcome-row.selected {
-  border-color: var(--color-ember-orange);
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#1c2b1a, #1c2b1a) padding-box,
+    var(--gradient-green) border-box;
 }
 
 .slip-bar {
@@ -604,15 +704,16 @@ a {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  background: var(--surface-elevated-card);
-  border: 1px solid var(--color-ember-orange);
-  border-radius: var(--radius-cards);
-  padding: 14px 18px;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--surface-elevated-card), var(--surface-elevated-card)) padding-box,
+    var(--gradient-green) border-box;
+  border-radius: var(--radius-pill);
+  padding: 14px 22px;
   font: inherit;
   font-size: 14px;
   color: var(--color-snow);
   cursor: pointer;
-  box-shadow: var(--shadow-xl);
 }
 
 .slip-sheet {
@@ -628,68 +729,60 @@ a {
   background: var(--surface-card);
   border: 1px solid var(--color-border);
   border-bottom: none;
-  border-radius: var(--radius-cards) var(--radius-cards) 0 0;
+  border-radius: 16px 16px 0 0;
   padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
-  box-shadow: var(--shadow-xl);
 }
 
 /* ---- Cash out --------------------------------------------------------------------- */
 
 .cashout-btn {
   appearance: none;
-  border: none;
   cursor: pointer;
   display: grid;
   gap: 0;
   justify-items: center;
-  background: var(--color-ember-orange);
-  color: var(--color-void);
-  border-radius: var(--radius-buttons);
-  padding: 6px 12px;
-  min-width: 88px;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--surface-card), var(--surface-card)) padding-box,
+    var(--gradient-green) border-box;
+  color: var(--color-snow);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  min-width: 92px;
   font: inherit;
   transition: background 120ms ease;
 }
 
 .cashout-btn:hover {
-  background: #ffd071;
+  background:
+    linear-gradient(#1c2b1a, #1c2b1a) padding-box,
+    var(--gradient-green) border-box;
 }
 
 .cash-value {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.53px;
-  color: var(--color-void);
+  letter-spacing: -0.15px;
+  color: var(--color-ember-orange);
   border-radius: 4px;
   padding: 0 4px;
 }
 
-/* On the gold button the flash needs dark, saturated tints */
 .cash-value.flash-up {
-  animation: cash-up 900ms ease-out;
-  color: #0c4d27;
+  animation: price-up 900ms ease-out;
+  color: var(--color-tape-green);
 }
 
 .cash-value.flash-down {
-  animation: cash-down 900ms ease-out;
-  color: #7a1608;
-}
-
-@keyframes cash-up {
-  0% { background: rgba(12, 77, 39, 0.25); }
-  100% { background: transparent; }
-}
-
-@keyframes cash-down {
-  0% { background: rgba(122, 22, 8, 0.22); }
-  100% { background: transparent; }
+  animation: price-down 900ms ease-out;
+  color: var(--color-orangey);
 }
 
 /* ---- Private rooms ----------------------------------------------------------------- */
 
 .room-code {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 18px;
   letter-spacing: 4px;
   color: var(--color-ember-orange);
@@ -711,20 +804,22 @@ a {
 }
 
 @keyframes rank-up {
-  0% { background: rgba(53, 197, 111, 0.22); transform: translateY(6px); }
+  0% { background: rgba(10, 228, 72, 0.2); transform: translateY(6px); }
   100% { background: var(--surface-card); transform: translateY(0); }
 }
 
 @keyframes rank-down {
-  0% { background: rgba(255, 93, 71, 0.2); transform: translateY(-6px); }
+  0% { background: rgba(255, 135, 9, 0.18); transform: translateY(-6px); }
   100% { background: var(--surface-card); transform: translateY(0); }
 }
 
 /* ---- Share-my-streak card ------------------------------------------------------ */
 
 .share-card {
-  background: var(--surface-card);
-  border: 1px solid var(--color-border);
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--surface-card), var(--surface-card)) padding-box,
+    var(--gradient-green) border-box;
   border-radius: var(--radius-cards);
   padding: 28px 24px;
   display: grid;
@@ -734,11 +829,14 @@ a {
 }
 
 .share-streak {
-  font-size: 84px;
+  font-size: 96px;
   font-weight: 600;
-  line-height: 1;
-  letter-spacing: -6px;
-  color: var(--color-snow);
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  background: var(--gradient-green);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   font-variant-numeric: tabular-nums;
 }
 
@@ -764,7 +862,7 @@ a {
   width: 14px;
   height: 14px;
   border-radius: 99px;
-  background: var(--color-snow);
+  background: var(--color-tape-green);
   margin-top: -5px;
   transition: transform 120ms ease;
 }
@@ -784,7 +882,7 @@ a {
   height: 14px;
   border: none;
   border-radius: 99px;
-  background: var(--color-snow);
+  background: var(--color-tape-green);
 }
 
 /* ---- Motion -------------------------------------------------------------------- */
@@ -816,16 +914,20 @@ a {
   }
 }
 
-/* ---- Responsive: mobile-first, enhanced for tablet + desktop ------------------- */
+/* ---- Responsive: mobile-first; the match view is ALWAYS one column ------------- */
 
 .fixture-grid {
   display: grid;
-  gap: var(--element-gap);
+  gap: 10px;
 }
 
+/* Betting-app layout: stats on top, options directly below, one column */
 .match-grid {
   display: grid;
   gap: var(--element-gap);
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
 .leaders-grid {
@@ -849,13 +951,6 @@ a {
     padding-top: 12px;
   }
 
-  /* Scoreboard left, prediction panel right */
-  .match-grid {
-    grid-template-columns: minmax(0, 1fr) 360px;
-    gap: 24px;
-    align-items: start;
-  }
-
   /* Share card left, leaderboard right */
   .leaders-grid {
     grid-template-columns: 360px minmax(0, 1fr);
@@ -864,15 +959,15 @@ a {
   }
 
   .display {
-    font-size: 54px;
-    letter-spacing: -4.32px;
+    font-size: 72px;
+    letter-spacing: -0.02em;
   }
 }
 
 /* ---- Skeleton fixture rows (empty state) -------------------------------- */
 
 .skeleton {
-  border-radius: var(--radius-modals);
+  border-radius: var(--radius-cards);
   background: var(--surface-elevated-card);
   animation: breathe 2.2s ease-in-out infinite;
 }
@@ -882,7 +977,7 @@ a {
   50% { opacity: 1; }
 }
 
-/* ---- Pundit ticker ------------------------------------------------------- */
+/* ---- Pundit ticker (pink category) ---------------------------------------- */
 
 .pundit-feed {
   display: grid;
@@ -905,10 +1000,10 @@ a {
   text-align: center;
   padding: 2px 6px;
   border-radius: var(--radius-buttons);
-  background: color-mix(in srgb, var(--color-ember-orange) 16%, transparent);
-  color: var(--color-ember-orange);
+  background: color-mix(in srgb, var(--color-pink) 14%, transparent);
+  color: var(--color-pink);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.02em;
 }
 
@@ -929,7 +1024,7 @@ a {
   }
 }
 
-/* ---- Daily quests -------------------------------------------------------- */
+/* ---- Daily quests (lilac category) ----------------------------------------- */
 
 .quest-bar {
   display: block;
@@ -943,7 +1038,7 @@ a {
   display: block;
   height: 100%;
   border-radius: 99px;
-  background: linear-gradient(90deg, var(--color-signal-blue), var(--color-tape-green));
+  background: var(--gradient-green);
   transition: width 0.5s ease;
 }
 
@@ -961,14 +1056,16 @@ a {
   justify-items: center;
   text-align: center;
   padding: 12px 8px;
-  border-radius: var(--radius-modals);
+  border-radius: var(--radius-buttons);
   background: var(--surface-elevated-card);
   border: 1px solid var(--color-border);
 }
 
 .badge.earned {
-  border-color: color-mix(in srgb, var(--color-ember-orange) 55%, transparent);
-  background: color-mix(in srgb, var(--color-ember-orange) 10%, var(--surface-elevated-card));
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#1c2b1a, #1c2b1a) padding-box,
+    var(--gradient-green) border-box;
 }
 
 .badge.locked {

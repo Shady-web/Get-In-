@@ -19,7 +19,7 @@ import { PunditTicker } from "@/components/pundit-ticker";
 import { QuestsCard } from "@/components/quests-card";
 import { BadgeWall } from "@/components/badge-wall";
 import type { LiveState } from "@/lib/live";
-import { buildCard, type GameCard, type GameOption, type SettledResult } from "@/lib/game-core";
+import { buildCard, isFinal, type GameCard, type GameOption, type SettledResult } from "@/lib/game-core";
 import { stateAt, type ReplayTimeline } from "@/lib/replay-core";
 
 interface Fixture {
@@ -347,7 +347,7 @@ function FixtureList({
 
       {upcoming.length > 0 && (
         <section style={{ display: "grid", gap: "var(--element-gap)" }}>
-          <p className="caption muted">Coming up</p>
+          <p className="caption section-label">Coming up</p>
           <div className="fixture-grid">
             {upcoming.slice(0, 6).map((f) => (
               <FixtureRow
@@ -716,6 +716,7 @@ function LiveMatch({
   const [clockText, setClockText] = useState<string | null>(null);
   const [view, setView] = useState<"game" | "markets">("game");
   const stateRef = useRef<LiveState | null>(null);
+  const { toggle, isSelected } = useBetSlip();
 
   // Started = the FEED says so, not the fixture clock (kickoffs shift, and
   // extra time / penalties run long past any window).
@@ -787,34 +788,81 @@ function LiveMatch({
       </div>
 
       <div className="match-grid">
-        <div style={{ display: "grid", gap: "var(--element-gap)" }}>
-          <ScoreCard
-            fixture={fixture}
-            state={state}
-            clockText={matchStarted ? clockText ?? "0:00" : null}
-            headerRight={
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                {matchStarted && <span className="live-dot" />}
-                <span className="muted" style={{ fontSize: 12 }}>
-                  {matchStarted
-                    ? (state?.phase ?? "Connecting...")
-                    : `Kickoff ${kickoffLabel(fixture.StartTime)}`}
-                </span>
+        <ScoreCard
+          fixture={fixture}
+          state={state}
+          clockText={matchStarted ? clockText ?? "0:00" : null}
+          headerRight={
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {matchStarted && <span className="live-dot" />}
+              <span className="muted" style={{ fontSize: 12 }}>
+                {matchStarted
+                  ? (state?.phase ?? "Connecting...")
+                  : `Kickoff ${kickoffLabel(fixture.StartTime)}`}
               </span>
-            }
-            footer={
-              <p className="caption muted" style={{ textAlign: "center" }}>
-                {state?.bookmaker ? `${state.bookmaker} · ` : ""}updates every 7s
-              </p>
-            }
-          />
+            </span>
+          }
+          footer={
+            <p className="caption muted" style={{ textAlign: "center" }}>
+              {state?.bookmaker ? `${state.bookmaker} · ` : ""}updates every 7s
+            </p>
+          }
+        />
 
-          <PunditTicker
-            fixtureId={fixture.FixtureId}
-            home={fixture.Participant1}
-            away={fixture.Participant2}
-          />
-        </div>
+        {/* Match-winner odds live DIRECTLY under the stats, betting-app style */}
+        {state?.odds && !isFinal(state.statusId) && (
+          <div className="card fade-in" style={{ display: "grid", gap: 10 }}>
+            <div
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}
+            >
+              <p className="caption section-label">Match winner</p>
+              <span className="muted" style={{ fontSize: 11 }}>
+                tap odds · pays coins
+              </span>
+            </div>
+            <div className="quick-odds">
+              {(["part1", "draw", "part2"] as const).map((name) => {
+                const odds =
+                  name === "part1"
+                    ? state.odds!.home
+                    : name === "part2"
+                      ? state.odds!.away
+                      : state.odds!.draw;
+                const label =
+                  name === "part1"
+                    ? fixture.Participant1
+                    : name === "part2"
+                      ? fixture.Participant2
+                      : "Draw";
+                const selId = `${fixture.FixtureId}|1X2_PARTICIPANT_RESULT|||${name}`;
+                return (
+                  <button
+                    key={name}
+                    className={`odds-chip ${isSelected(selId) ? "selected" : ""}`}
+                    onClick={() =>
+                      toggle({
+                        id: selId,
+                        fixtureId: fixture.FixtureId,
+                        matchLabel: `${fixture.Participant1} vs ${fixture.Participant2}`,
+                        marketKey: "1X2_PARTICIPANT_RESULT||",
+                        marketLabel: "Match winner",
+                        outcomeName: name,
+                        outcomeLabel: label,
+                        odds,
+                      })
+                    }
+                  >
+                    <span className="name">
+                      {isSelected(selId) ? "✓ " : ""}
+                      {label}
+                    </span>
+                    <span className="price">{odds.toFixed(2)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {view === "game" ? (
           <PredictionPanel
@@ -825,6 +873,12 @@ function LiveMatch({
         ) : (
           <MarketsPanel fixture={fixture} />
         )}
+
+        <PunditTicker
+          fixtureId={fixture.FixtureId}
+          home={fixture.Participant1}
+          away={fixture.Participant2}
+        />
       </div>
 
       {error && <p className="error-text">{error}</p>}
@@ -974,124 +1028,119 @@ function ReplayMatch({
 
       {timeline && (
         <div className="match-grid">
-          <div style={{ display: "grid", gap: "var(--element-gap)" }}>
-            <ScoreCard
-              fixture={fixture}
-              state={state}
-              clockText={fmtClock(vt)}
-              headerRight={
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <span
-                    style={{
-                      color: "var(--color-ember-orange)",
-                      fontSize: 12,
-                      fontWeight: 500,
-                    }}
-                  >
-                    REPLAY
-                  </span>
-                  <span className="muted" style={{ fontSize: 12 }}>
-                    {state?.phase ?? ""}
-                  </span>
-                </span>
-              }
-            />
-
-            {/* Tap-to-bet on the winner at the replay's current odds */}
-            {replayOddsChips && (
-              <div className="card fade-in" style={{ display: "grid", gap: 8 }}>
-                <p className="caption muted">Back the winner (coins)</p>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {replayOddsChips.map((c) => (
-                    <button
-                      key={c.name}
-                      className={`outcome-row bettable ${isSelected(c.selId) ? "selected" : ""}`}
-                      style={{ flex: 1, justifyContent: "space-between" }}
-                      onClick={() =>
-                        toggle({
-                          id: c.selId,
-                          fixtureId: fixture.FixtureId,
-                          matchLabel: `${fixture.Participant1} vs ${fixture.Participant2}`,
-                          marketKey: "1X2_PARTICIPANT_RESULT||",
-                          marketLabel: "Match winner",
-                          outcomeName: c.name,
-                          outcomeLabel: c.label,
-                          odds: c.odds,
-                          session,
-                          vt: Math.floor(vt),
-                        })
-                      }
-                    >
-                      <span className="team" style={{ fontSize: 12 }}>
-                        {isSelected(c.selId) ? "✓ " : ""}
-                        {c.label}
-                      </span>
-                      <span className="price-num" style={{ minWidth: 0 }}>
-                        {c.odds.toFixed(2)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Playback controls */}
-            <div className="card fade-in" style={{ display: "grid", gap: 12 }}>
-              <input
-                type="range"
-                className="scrubber"
-                min={0}
-                max={timeline.duration}
-                step={1}
-                value={Math.floor(vt)}
-                aria-label="Match timeline"
-                onChange={(e) => setVt(Number(e.target.value))}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 10,
-                }}
-              >
-                <button
-                  className="pill tab active"
-                  style={{ minWidth: 76, justifyContent: "center" }}
-                  onClick={() => {
-                    if (ended) {
-                      setVt(0);
-                      setPlaying(true);
-                    } else {
-                      setPlaying((p) => !p);
-                    }
+          <ScoreCard
+            fixture={fixture}
+            state={state}
+            clockText={fmtClock(vt)}
+            headerRight={
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span
+                  style={{
+                    color: "var(--color-orangey)",
+                    fontSize: 12,
+                    fontWeight: 600,
                   }}
                 >
-                  {ended ? "Restart" : playing ? "Pause" : "Play"}
-                </button>
-                <span className="clock">
-                  {fmtClock(vt)} / {fmtClock(timeline.duration)}
+                  REPLAY
                 </span>
-                <span style={{ display: "flex", gap: 6 }}>
-                  {SPEEDS.map((s) => (
-                    <button
-                      key={s}
-                      className={`pill tab ${speed === s ? "active" : ""}`}
-                      onClick={() => setSpeed(s)}
-                    >
-                      x{s}
-                    </button>
-                  ))}
+                <span className="muted" style={{ fontSize: 12 }}>
+                  {state?.phase ?? ""}
+                </span>
+              </span>
+            }
+          />
+
+          {/* Tap-to-bet on the winner, directly under the stats */}
+          {replayOddsChips && (
+            <div className="card fade-in" style={{ display: "grid", gap: 10 }}>
+              <div
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}
+              >
+                <p className="caption section-label">Match winner</p>
+                <span className="muted" style={{ fontSize: 11 }}>
+                  replay odds · pays coins
                 </span>
               </div>
+              <div className="quick-odds">
+                {replayOddsChips.map((c) => (
+                  <button
+                    key={c.name}
+                    className={`odds-chip ${isSelected(c.selId) ? "selected" : ""}`}
+                    onClick={() =>
+                      toggle({
+                        id: c.selId,
+                        fixtureId: fixture.FixtureId,
+                        matchLabel: `${fixture.Participant1} vs ${fixture.Participant2}`,
+                        marketKey: "1X2_PARTICIPANT_RESULT||",
+                        marketLabel: "Match winner",
+                        outcomeName: c.name,
+                        outcomeLabel: c.label,
+                        odds: c.odds,
+                        session,
+                        vt: Math.floor(vt),
+                      })
+                    }
+                  >
+                    <span className="name">
+                      {isSelected(c.selId) ? "✓ " : ""}
+                      {c.label}
+                    </span>
+                    <span className="price">{c.odds.toFixed(2)}</span>
+                  </button>
+                ))}
+              </div>
             </div>
+          )}
 
-            <PunditTicker
-              fixtureId={fixture.FixtureId}
-              home={fixture.Participant1}
-              away={fixture.Participant2}
-              getVt={getVt}
+          {/* Playback controls */}
+          <div className="card fade-in" style={{ display: "grid", gap: 12 }}>
+            <input
+              type="range"
+              className="scrubber"
+              min={0}
+              max={timeline.duration}
+              step={1}
+              value={Math.floor(vt)}
+              aria-label="Match timeline"
+              onChange={(e) => setVt(Number(e.target.value))}
             />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+              }}
+            >
+              <button
+                className="pill tab active"
+                style={{ minWidth: 76, justifyContent: "center" }}
+                onClick={() => {
+                  if (ended) {
+                    setVt(0);
+                    setPlaying(true);
+                  } else {
+                    setPlaying((p) => !p);
+                  }
+                }}
+              >
+                {ended ? "Restart" : playing ? "Pause" : "Play"}
+              </button>
+              <span className="clock">
+                {fmtClock(vt)} / {fmtClock(timeline.duration)}
+              </span>
+              <span style={{ display: "flex", gap: 6 }}>
+                {SPEEDS.map((s) => (
+                  <button
+                    key={s}
+                    className={`pill tab ${speed === s ? "active" : ""}`}
+                    onClick={() => setSpeed(s)}
+                  >
+                    x{s}
+                  </button>
+                ))}
+              </span>
+            </div>
           </div>
 
           <PredictionPanel
@@ -1099,6 +1148,13 @@ function ReplayMatch({
             player={player}
             onPlayerUpdate={onPlayerUpdate}
             replay={replayHooks}
+          />
+
+          <PunditTicker
+            fixtureId={fixture.FixtureId}
+            home={fixture.Participant1}
+            away={fixture.Participant2}
+            getVt={getVt}
           />
         </div>
       )}
