@@ -47,10 +47,6 @@ on-chain World Cup tier, Solana).
 - **Badges**: milestone trophies (First Win, first cash out, 5-leg parlay
   win, 10-win streak, 5,000-coin bankroll) awarded retroactively and kept
   forever, shown as a badge wall in the Leaders tab.
-- **Pro screen**: a monetization demo tab showing what a paid tier would
-  unlock (full odds-history charts, market alerts, double daily claim)
-  with a mock upgrade flow. No payments are wired up; "upgrading" flips a
-  local demo flag so the before/after is visible.
 - **Leaderboard**: global top 20 ranked by coin bankroll, live via Supabase
   Realtime (or polling fallback), plus a downloadable streak share card.
 

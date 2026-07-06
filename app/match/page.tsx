@@ -18,7 +18,6 @@ import { BetSlipProvider, BetSlipTray, useBetSlip } from "@/components/bet-slip"
 import { PunditTicker } from "@/components/pundit-ticker";
 import { QuestsCard } from "@/components/quests-card";
 import { BadgeWall } from "@/components/badge-wall";
-import { ProPanel, useProDemo } from "@/components/pro-panel";
 import type { LiveState } from "@/lib/live";
 import { buildCard, type GameCard, type GameOption, type SettledResult } from "@/lib/game-core";
 import { stateAt, type ReplayTimeline } from "@/lib/replay-core";
@@ -71,8 +70,7 @@ export default function MatchScreen() {
   const [player, setPlayer] = useState<StoredPlayer | null>(null);
   const [checked, setChecked] = useState(false);
   const [selected, setSelected] = useState<Selection | null>(null);
-  const [tab, setTab] = useState<"matches" | "bets" | "rooms" | "leaders" | "pro">("matches");
-  const { pro, setPro } = useProDemo();
+  const [tab, setTab] = useState<"matches" | "bets" | "rooms" | "leaders">("matches");
 
   useEffect(() => {
     const stored = getStoredPlayer();
@@ -111,11 +109,6 @@ export default function MatchScreen() {
           GetIN<span className="bang">!!!</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {pro && (
-            <span className="pill pro-chip" title="Pro demo active">
-              PRO
-            </span>
-          )}
           {coins !== undefined && (
             <span className="pill" title="Coin bankroll">
               <span aria-hidden>🪙</span> {coins.toLocaleString()}
@@ -142,7 +135,6 @@ export default function MatchScreen() {
               ["bets", "My Bets"],
               ["rooms", "Rooms"],
               ["leaders", "Leaders"],
-              ["pro", "Pro ✨"],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -181,8 +173,6 @@ export default function MatchScreen() {
         <MyBets player={player} onPlayerUpdate={updatePlayerRecord} />
       ) : tab === "rooms" ? (
         <Rooms player={player} />
-      ) : tab === "pro" ? (
-        <ProPanel pro={pro} onChange={setPro} />
       ) : (
         <Leaders player={player} onPlayerUpdate={updatePlayerRecord} />
       )}
