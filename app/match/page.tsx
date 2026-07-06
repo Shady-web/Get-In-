@@ -16,6 +16,8 @@ import { MarketsPanel } from "@/components/markets-panel";
 import { Flag } from "@/components/flag";
 import { BetSlipProvider, BetSlipTray, useBetSlip } from "@/components/bet-slip";
 import { PunditTicker } from "@/components/pundit-ticker";
+import { QuestsCard } from "@/components/quests-card";
+import { BadgeWall } from "@/components/badge-wall";
 import type { LiveState } from "@/lib/live";
 import { buildCard, type GameCard, type GameOption, type SettledResult } from "@/lib/game-core";
 import { stateAt, type ReplayTimeline } from "@/lib/replay-core";
@@ -163,7 +165,10 @@ export default function MatchScreen() {
           />
         )
       ) : tab === "matches" ? (
-        <FixtureList player={player} onPick={setSelected} />
+        <>
+          <QuestsCard player={player} onPlayerUpdate={updatePlayerRecord} />
+          <FixtureList player={player} onPick={setSelected} />
+        </>
       ) : tab === "bets" ? (
         <MyBets player={player} onPlayerUpdate={updatePlayerRecord} />
       ) : tab === "rooms" ? (
@@ -1248,6 +1253,7 @@ function Leaders({
         </button>
         {shareError && <p className="error-text">{shareError}</p>}
 
+        <BadgeWall identity={player.identity} />
       </div>
 
       <section style={{ display: "grid", gap: "var(--element-gap)", alignSelf: "start" }}>

@@ -40,6 +40,13 @@ on-chain World Cup tier, Solana).
   screen. A take is generated ONLY when a goal, a red card, or a >15-point
   win-probability swing happens (Gemini, gemini-2.0-flash, free tier), max
   12 per match, cached in Supabase so replays never re-call the AI.
+- **Daily quests**: 3 rotating challenges a day (win 2 singles, land an
+  accumulator, ...) with coin rewards. The rotation is deterministic from
+  the date; progress is computed from data the app already stores and each
+  reward is claimable once per day.
+- **Badges**: milestone trophies (First Win, first cash out, 5-leg parlay
+  win, 10-win streak, 5,000-coin bankroll) awarded retroactively and kept
+  forever, shown as a badge wall in the Leaders tab.
 - **Leaderboard**: global top 20 ranked by coin bankroll, live via Supabase
   Realtime (or polling fallback), plus a downloadable streak share card.
 
@@ -81,6 +88,7 @@ Create a project at supabase.com, then run in the SQL editor:
 4. `supabase/schema-v4.sql`
 5. `supabase/schema-v5.sql`
 6. `supabase/schema-v6.sql`
+7. `supabase/schema-v7.sql`
 
 ### 4. Environment
 
@@ -154,6 +162,8 @@ Two ways around that:
 | `POST /api/game/pick` | Save a pick with its odds snapshot |
 | `GET /api/markets/{fixtureId}` | Every priced market, normalized |
 | `GET /api/pundit/{fixtureId}` | Pundit ticker takes (live, or `?vt=` for replay) |
+| `GET /api/quests` / `POST /api/quests` | Today's quest board / claim a reward |
+| `GET /api/badges` | Badge wall (awards new milestones on read) |
 | `POST /api/coins/claim` | Claim 500 daily coins |
 | `POST /api/slips` / `GET /api/slips` | Place bet slips / list + settle them |
 | `POST /api/slips/cashout` | Cash an open slip out at current value |

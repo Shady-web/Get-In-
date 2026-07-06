@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "setup:txline": "tsx scripts/setup-txline.ts",
-    "test:pundit": "tsx scripts/test-pundit.ts"
+    "test:pundit": "tsx scripts/test-pundit.ts",
+    "test:quests": "tsx scripts/test-quests.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
