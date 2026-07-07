@@ -14,9 +14,10 @@ const RPC_URL = () => process.env.SOLANA_RPC_URL || "https://api.devnet.solana.c
 
 export interface WalletInfo {
   address: string;
-  lamports: number;
+  lamports: number; // spendable custodial balance (deposits + winnings - stakes)
   sol: number;
   usd: number;
+  onchain: number; // raw on-chain devnet balance (total ever deposited)
   rate: number;
   stale: boolean; // true when the RPC was unreachable and this is the stored value
 }
@@ -65,9 +66,12 @@ const balanceCache = new Map<string, { at: number; lamports: number }>();
 const BALANCE_TTL_MS = 30_000;
 
 /**
- * The player's wallet info with a live devnet balance. Any change against
- * the stored sol_balance is recorded in the ledger as a deposit/withdrawal
- * check, so external faucet deposits show up in the money history.
+ * The player's wallet info. sol_balance is a spendable custodial balance
+ * (SOL is now stakeable), so we do NOT overwrite it with the on-chain value.
+ * Instead we detect NEW deposits: whenever the on-chain balance rises above
+ * the last amount we credited (sol_seen), the increase is added to the
+ * spendable balance once and logged. We never withdraw, so the on-chain
+ * balance only moves up.
  */
 export async function getWalletInfo(
   playerId: string,
@@ -76,48 +80,61 @@ export async function getWalletInfo(
   const supabase = requireDb();
   const address = await ensureWallet(playerId);
 
-  let lamports = storedLamports;
+  // Current on-chain devnet balance (cached to spare the public RPC).
+  let onchain = storedLamports;
   let stale = false;
   const hit = balanceCache.get(address);
   if (hit && Date.now() - hit.at < BALANCE_TTL_MS) {
-    lamports = hit.lamports;
+    onchain = hit.lamports;
   } else {
     try {
       const connection = new Connection(RPC_URL(), "confirmed");
-      lamports = await connection.getBalance(new PublicKey(address));
-      balanceCache.set(address, { at: Date.now(), lamports });
+      onchain = await connection.getBalance(new PublicKey(address));
+      balanceCache.set(address, { at: Date.now(), lamports: onchain });
     } catch {
-      stale = true; // RPC hiccup: show the last stored balance
+      stale = true;
+      onchain = storedLamports;
     }
   }
 
-  if (!stale && lamports !== storedLamports) {
-    await supabase.from("players").update({ sol_balance: lamports }).eq("id", playerId);
-    await supabase.from("ledger").insert({
-      player: playerId,
-      type: lamports > storedLamports ? "deposit_check" : "withdrawal_check",
-      amount_lamports: lamports - storedLamports,
-      currency: "SOL",
-      ref: address,
-    });
+  let spendable = storedLamports;
+  if (!stale) {
+    const { data: row } = await supabase
+      .from("players")
+      .select("sol_balance, sol_seen")
+      .eq("id", playerId)
+      .single();
+    spendable = Number(row?.sol_balance ?? storedLamports);
+    const seen = Number(row?.sol_seen ?? 0);
+    const deposit = onchain - seen;
+    if (deposit > 0) {
+      spendable += deposit;
+      await supabase
+        .from("players")
+        .update({ sol_balance: spendable, sol_seen: onchain })
+        .eq("id", playerId);
+      await logLedger(playerId, "deposit_check", deposit, "SOL", address);
+    }
   }
 
-  const sol = lamports / LAMPORTS_PER_SOL;
+  const sol = spendable / LAMPORTS_PER_SOL;
   return {
     address,
-    lamports,
+    lamports: spendable,
     sol,
     usd: Math.round(sol * SOL_USD_RATE * 100) / 100,
+    onchain,
     rate: SOL_USD_RATE,
     stale,
   };
 }
 
-/** Append a COIN ledger row (best effort: game flow never fails on logging). */
-export async function logCoinLedger(
+/** Append a ledger row (best effort: game flow never fails on logging). */
+export async function logLedger(
   playerId: string,
   type: string,
   amount: number,
+  currency: "SOL" | "COIN",
   ref?: string | null,
 ): Promise<void> {
   const supabase = getSupabaseAdmin();
@@ -126,7 +143,17 @@ export async function logCoinLedger(
     player: playerId,
     type,
     amount_lamports: Math.round(amount),
-    currency: "COIN",
+    currency,
     ref: ref ?? null,
   });
+}
+
+/** COIN ledger row (back-compat wrapper for quests/claims). */
+export async function logCoinLedger(
+  playerId: string,
+  type: string,
+  amount: number,
+  ref?: string | null,
+): Promise<void> {
+  return logLedger(playerId, type, amount, "COIN", ref);
 }

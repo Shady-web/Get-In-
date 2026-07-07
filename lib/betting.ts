@@ -8,7 +8,7 @@ import { getLiveState } from "@/lib/live";
 import { getMarkets } from "@/lib/markets";
 import { getReplayTimeline, stateAt } from "@/lib/replay";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { logCoinLedger } from "@/lib/wallet";
+import { logLedger } from "@/lib/wallet";
 import { getOrCreatePlayer, isFinal, type PlayerRow } from "@/lib/game";
 
 export interface LegInput {
@@ -26,6 +26,7 @@ export interface SlipRow {
   combined_odds: number;
   potential_return: number;
   status: "pending" | "won" | "lost" | "void";
+  currency: Currency;
   placed_at: string;
   settled_at: string | null;
   bet_legs: LegRow[];
@@ -45,8 +46,14 @@ export interface LegRow {
   result: "pending" | "won" | "lost" | "void";
 }
 
-const MIN_STAKE = 10;
+export type Currency = "COIN" | "SOL";
 const MAX_LEGS = 10;
+// Minimum stake per currency (SOL in lamports: 0.001 SOL).
+const MIN_STAKE: Record<Currency, number> = { COIN: 10, SOL: 1_000_000 };
+const balanceCol = (ccy: Currency): "coin_balance" | "sol_balance" =>
+  ccy === "SOL" ? "sol_balance" : "coin_balance";
+const readBalance = (row: unknown, col: string): number =>
+  Number((row as Record<string, unknown>)[col] ?? 0);
 
 // --- Leg outcome (pure; unit-testable) -----------------------------------------
 
@@ -178,13 +185,20 @@ export async function placeSlip(args: {
   identity: string;
   stake: number;
   legs: LegInput[];
+  currency?: Currency;
 }): Promise<{ slip: SlipRow; player: PlayerRow }> {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error("Supabase is not configured on the server.");
 
+  const currency: Currency = args.currency === "SOL" ? "SOL" : "COIN";
+  const col = balanceCol(currency);
   const stake = Math.floor(args.stake);
-  if (!Number.isFinite(stake) || stake < MIN_STAKE) {
-    throw new Error(`Minimum stake is ${MIN_STAKE} coins.`);
+  if (!Number.isFinite(stake) || stake < MIN_STAKE[currency]) {
+    throw new Error(
+      currency === "SOL"
+        ? `Minimum stake is ${MIN_STAKE.SOL / 1e9} SOL.`
+        : `Minimum stake is ${MIN_STAKE.COIN} coins.`,
+    );
   }
   if (args.legs.length === 0) throw new Error("The slip is empty.");
   if (args.legs.length > MAX_LEGS) throw new Error(`Max ${MAX_LEGS} legs per slip.`);
@@ -200,16 +214,21 @@ export async function placeSlip(args: {
   const potential = Math.floor(stake * combined);
 
   const player = await getOrCreatePlayer(args.identity);
-  if ((player.coin_balance ?? 0) < stake) {
-    throw new Error(`Not enough coins: you have ${player.coin_balance ?? 0}.`);
+  const have = readBalance(player, col);
+  if (have < stake) {
+    throw new Error(
+      currency === "SOL"
+        ? `Not enough SOL: you have ${(have / 1e9).toFixed(4)} SOL. Deposit test SOL in the Deposit tab.`
+        : `Not enough coins: you have ${have}.`,
+    );
   }
 
   // Conditional deduction guards against double-spends without transactions.
   const { data: paid, error: payErr } = await supabase
     .from("players")
-    .update({ coin_balance: (player.coin_balance ?? 0) - stake })
+    .update({ [col]: have - stake })
     .eq("id", player.id)
-    .gte("coin_balance", stake)
+    .gte(col, stake)
     .select("*")
     .single();
   if (payErr || !paid) throw new Error("Could not reserve the stake. Try again.");
@@ -219,13 +238,14 @@ export async function placeSlip(args: {
     .insert({
       player: player.id,
       stake,
+      currency,
       combined_odds: Math.round(combined * 1000) / 1000,
       potential_return: potential,
     })
     .select("*")
     .single();
   if (slipErr || !slip) {
-    await supabase.from("players").update({ coin_balance: paid.coin_balance + stake }).eq("id", player.id);
+    await supabase.from("players").update({ [col]: Number(paid[col]) + stake }).eq("id", player.id);
     throw new Error(`Could not place the bet: ${slipErr?.message ?? "unknown error"}.`);
   }
 
@@ -243,11 +263,11 @@ export async function placeSlip(args: {
   const { error: legsErr } = await supabase.from("bet_legs").insert(legRows);
   if (legsErr) {
     await supabase.from("bet_slips").delete().eq("id", slip.id);
-    await supabase.from("players").update({ coin_balance: paid.coin_balance + stake }).eq("id", player.id);
+    await supabase.from("players").update({ [col]: Number(paid[col]) + stake }).eq("id", player.id);
     throw new Error(`Could not save the legs: ${legsErr.message}.`);
   }
 
-  await logCoinLedger(player.id, "bet_stake", -stake, slip.id);
+  await logLedger(player.id, "bet_stake", -stake, currency, slip.id);
 
   const { data: full } = await supabase
     .from("bet_slips")
@@ -300,7 +320,7 @@ export async function settleSlipsForMatch(
   }
 
   const results: SlipResult[] = [];
-  let coinsDelta = 0;
+  const deltas: Record<Currency, number> = { COIN: 0, SOL: 0 };
 
   for (const slipId of touchedSlips) {
     const { data: slip } = await supabase
@@ -339,21 +359,24 @@ export async function settleSlipsForMatch(
       .eq("id", slipId)
       .eq("status", "pending");
     if (!error) {
-      coinsDelta += payout;
+      const ccy = (slip.currency ?? "COIN") as Currency;
+      deltas[ccy] += payout;
       results.push({ slipId, status: allVoid ? "void" : "won", payout });
-      await logCoinLedger(player.id, allVoid ? "bet_void_refund" : "bet_payout", payout, slipId);
+      await logLedger(player.id, allVoid ? "bet_void_refund" : "bet_payout", payout, ccy, slipId);
     }
   }
 
-  let updated: PlayerRow | null = player;
-  if (coinsDelta > 0) {
+  let updated: PlayerRow = player;
+  for (const ccy of ["COIN", "SOL"] as Currency[]) {
+    if (deltas[ccy] <= 0) continue;
+    const col = balanceCol(ccy);
     const { data } = await supabase
       .from("players")
-      .update({ coin_balance: (player.coin_balance ?? 0) + coinsDelta })
+      .update({ [col]: readBalance(updated, col) + deltas[ccy] })
       .eq("id", player.id)
       .select("*")
       .single();
-    updated = (data as PlayerRow) ?? player;
+    if (data) updated = data as PlayerRow;
   }
   return { results, player: updated };
 }
@@ -479,13 +502,15 @@ export async function cashOutSlip(
     .single();
   if (error || !updated) throw new Error("That slip just settled. No cash out needed.");
 
+  const ccy = (slip.currency ?? "COIN") as Currency;
+  const col = balanceCol(ccy);
   const { data: paid } = await supabase
     .from("players")
-    .update({ coin_balance: (player.coin_balance ?? 0) + amount })
+    .update({ [col]: readBalance(player, col) + amount })
     .eq("id", player.id)
     .select("*")
     .single();
-  await logCoinLedger(player.id, "cashout", amount, slipId);
+  await logLedger(player.id, "cashout", amount, ccy, slipId);
   return { amount, player: (paid as PlayerRow) ?? player };
 }
 
@@ -540,11 +565,14 @@ export async function voidStaleReplayLegs(identity: string): Promise<void> {
       .eq("id", slipId)
       .eq("status", "pending");
     if (payout > 0) {
+      const ccy = (slip.currency ?? "COIN") as Currency;
+      const col = balanceCol(ccy);
       const p = await getOrCreatePlayer(identity);
       await supabase
         .from("players")
-        .update({ coin_balance: (p.coin_balance ?? 0) + payout })
+        .update({ [col]: readBalance(p, col) + payout })
         .eq("id", p.id);
+      await logLedger(p.id, allVoid ? "bet_void_refund" : "bet_payout", payout, ccy, slipId);
     }
   }
 }

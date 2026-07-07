@@ -38,9 +38,10 @@ export async function POST(request: Request) {
   }
   const stake = Number(body?.stake);
   const legs = Array.isArray(body?.legs) ? (body.legs as LegInput[]) : [];
+  const currency = body?.currency === "SOL" ? "SOL" : "COIN";
 
   try {
-    const { slip, player } = await placeSlip({ identity, stake, legs });
+    const { slip, player } = await placeSlip({ identity, stake, legs, currency });
     return NextResponse.json({ ok: true, slip, player });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not place the bet.";

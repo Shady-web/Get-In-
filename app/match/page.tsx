@@ -6,6 +6,8 @@ import { displayName, type PlayerRecord, type StoredPlayer } from "@/lib/player"
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { authFetch } from "@/lib/api-client";
 import { WalletPanel } from "@/components/wallet-panel";
+import { Coin } from "@/components/coin";
+import { formatAmount, type Currency } from "@/lib/money";
 import { MarketsPanel } from "@/components/markets-panel";
 import { Flag } from "@/components/flag";
 import { BetSlipProvider, BetSlipTray, useBetSlip } from "@/components/bet-slip";
@@ -64,6 +66,7 @@ export default function MatchScreen() {
   const [checked, setChecked] = useState(false);
   const [selected, setSelected] = useState<Selection | null>(null);
   const [tab, setTab] = useState<"matches" | "bets" | "rooms" | "leaders" | "wallet">("matches");
+  const [openBets, setOpenBets] = useState(0);
 
   // Identity = the Supabase session. No session, no match screen.
   useEffect(() => {
@@ -107,6 +110,30 @@ export default function MatchScreen() {
     setPlayer((prev) => (prev ? { ...prev, player: record } : prev));
   }, []);
 
+  // Keep the open-bets counter fresh even when the My Bets tab isn't showing.
+  useEffect(() => {
+    if (!checked) return;
+    let cancelled = false;
+    const tick = async () => {
+      if (document.hidden) return;
+      try {
+        const res = await authFetch("/api/slips");
+        const body = await res.json();
+        if (!cancelled && body?.ok && Array.isArray(body.slips)) {
+          setOpenBets(body.slips.filter((s: { status: string }) => s.status === "pending").length);
+        }
+      } catch {
+        /* leave the last count */
+      }
+    };
+    void tick();
+    const id = window.setInterval(tick, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [checked]);
+
   function signOut() {
     getSupabaseBrowser()?.auth.signOut().catch(() => {});
     router.replace("/");
@@ -125,8 +152,8 @@ export default function MatchScreen() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {coins !== undefined && (
-            <span className="pill" title="Coin bankroll">
-              <span aria-hidden>🪙</span> {coins.toLocaleString()}
+            <span className="pill" title="Coin bankroll" style={{ gap: 5 }}>
+              <Coin size={15} /> {coins.toLocaleString()}
             </span>
           )}
           <span className="pill" title={displayName(player)}>
@@ -148,7 +175,7 @@ export default function MatchScreen() {
             [
               ["matches", "Matches"],
               ["bets", "My Bets"],
-              ["wallet", "Wallet"],
+              ["wallet", "Deposit"],
               ["rooms", "Rooms"],
               ["leaders", "Leaders"],
             ] as const
@@ -157,8 +184,14 @@ export default function MatchScreen() {
               key={key}
               className={`pill tab ${tab === key ? "active" : ""}`}
               onClick={() => setTab(key)}
+              style={{ position: "relative" }}
             >
               {label}
+              {key === "bets" && openBets > 0 && (
+                <span className="count-badge" aria-label={`${openBets} open bets`}>
+                  {openBets}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -186,7 +219,11 @@ export default function MatchScreen() {
           <FixtureList player={player} onPick={setSelected} />
         </>
       ) : tab === "bets" ? (
-        <MyBets player={player} onPlayerUpdate={updatePlayerRecord} />
+        <MyBets
+          player={player}
+          onPlayerUpdate={updatePlayerRecord}
+          onOpenCount={setOpenBets}
+        />
       ) : tab === "wallet" ? (
         <WalletPanel />
       ) : tab === "rooms" ? (
@@ -312,7 +349,7 @@ function FixtureList({
           </div>
         )}
 
-        {fixtures && live.length === 0 && justFinished.length === 0 && (
+        {fixtures && live.length === 0 && (
           <div className="card fade-in" style={{ textAlign: "center", display: "grid", gap: 6 }}>
             <h2 className="heading-sm">Nothing in play right now</h2>
             <p className="muted" style={{ fontSize: 14 }}>
@@ -322,46 +359,56 @@ function FixtureList({
           </div>
         )}
 
-        <div className="fixture-grid">
-          {live.map((f) => (
-            <FixtureRow
-              key={f.FixtureId}
-              fixture={f}
-              onClick={() => onPick({ fixture: f, mode: "live" })}
-              left={<span className="live-dot" />}
-              right={
-                <span style={{ display: "grid", gap: 2, justifyItems: "end" }}>
-                  <span
-                    style={{ color: "var(--color-tape-green)", fontSize: 12, fontWeight: 600 }}
-                  >
-                    {f.LiveScore ? `${f.LiveScore.home}:${f.LiveScore.away}` : "LIVE"}
+        {live.length > 0 && (
+          <div className="fixture-grid">
+            {live.map((f) => (
+              <FixtureRow
+                key={f.FixtureId}
+                fixture={f}
+                onClick={() => onPick({ fixture: f, mode: "live" })}
+                left={<span className="live-dot" />}
+                right={
+                  <span style={{ display: "grid", gap: 2, justifyItems: "end" }}>
+                    <span
+                      style={{ color: "var(--color-tape-green)", fontSize: 12, fontWeight: 600 }}
+                    >
+                      {f.LiveScore ? `${f.LiveScore.home}:${f.LiveScore.away}` : "LIVE"}
+                    </span>
+                    <span className="muted" style={{ fontSize: 11 }}>
+                      {f.Phase ?? "LIVE"}
+                    </span>
                   </span>
-                  <span className="muted" style={{ fontSize: 11 }}>
-                    {f.Phase ?? "LIVE"}
-                  </span>
-                </span>
-              }
-            />
-          ))}
-          {justFinished.map((f) => (
-            <FixtureRow
-              key={f.FixtureId}
-              fixture={f}
-              onClick={() => onPick({ fixture: f, mode: "live" })}
-              right={
-                <span style={{ display: "grid", gap: 2, justifyItems: "end" }}>
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>
-                    {f.LiveScore ? `${f.LiveScore.home}:${f.LiveScore.away}` : "FT"}
-                  </span>
-                  <span className="muted" style={{ fontSize: 11 }}>
-                    {f.Phase ?? "Full time"}
-                  </span>
-                </span>
-              }
-            />
-          ))}
-        </div>
+                }
+              />
+            ))}
+          </div>
+        )}
       </section>
+
+      {justFinished.length > 0 && (
+        <section style={{ display: "grid", gap: "var(--element-gap)" }}>
+          <p className="caption section-label">Full time</p>
+          <div className="fixture-grid">
+            {justFinished.map((f) => (
+              <FixtureRow
+                key={f.FixtureId}
+                fixture={f}
+                onClick={() => onPick({ fixture: f, mode: "live" })}
+                right={
+                  <span style={{ display: "grid", gap: 2, justifyItems: "end" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>
+                      {f.LiveScore ? `${f.LiveScore.home}:${f.LiveScore.away}` : "FT"}
+                    </span>
+                    <span className="muted" style={{ fontSize: 11 }}>
+                      {f.Phase ?? "Full time"}
+                    </span>
+                  </span>
+                }
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {upcoming.length > 0 && (
         <section style={{ display: "grid", gap: "var(--element-gap)" }}>
@@ -1194,6 +1241,7 @@ interface SlipView {
   combined_odds: number;
   potential_return: number;
   status: string;
+  currency?: "COIN" | "SOL";
   cashValue?: number | null;
   cashout_amount?: number | null;
   bet_legs: {
@@ -1359,8 +1407,22 @@ function Leaders({
               <span className="muted" style={{ fontSize: 12 }}>
                 streak {r.current_streak}
               </span>
-              <span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                {r.coins !== undefined ? `🪙 ${r.coins.toLocaleString()}` : r.total_points}
+              <span
+                style={{
+                  fontWeight: 600,
+                  fontVariantNumeric: "tabular-nums",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                {r.coins !== undefined ? (
+                  <>
+                    <Coin size={14} /> {r.coins.toLocaleString()}
+                  </>
+                ) : (
+                  r.total_points
+                )}
               </span>
             </div>
           );
@@ -1375,9 +1437,11 @@ function Leaders({
 function MyBets({
   player,
   onPlayerUpdate,
+  onOpenCount,
 }: {
   player: StoredPlayer;
   onPlayerUpdate: (p: PlayerRecord) => void;
+  onOpenCount?: (n: number) => void;
 }) {
   const [slips, setSlips] = useState<SlipView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1406,11 +1470,12 @@ function MyBets({
       }
       setSlips(next);
       setError(null);
+      onOpenCount?.(next.filter((s) => s.status === "pending").length);
       if (body.player) onPlayerUpdate(body.player as PlayerRecord);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load your bets.");
     }
-  }, [onPlayerUpdate]);
+  }, [onPlayerUpdate, onOpenCount]);
 
   useEffect(() => {
     void loadSlips();
@@ -1430,7 +1495,7 @@ function MyBets({
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body?.error ?? "Cash out failed.");
       onPlayerUpdate(body.player as PlayerRecord);
-      setCashMsg(`Cashed out for ${Number(body.amount).toLocaleString()} coins 🪙`);
+      setCashMsg(`Cashed out for ${Number(body.amount).toLocaleString()} ${confirmCash?.currency === "SOL" ? "SOL lamports" : "coins"}`);
       setConfirmCash(null);
       void loadSlips();
     } catch (err) {
@@ -1444,36 +1509,55 @@ function MyBets({
   const open = (slips ?? []).filter((s) => s.status === "pending");
   const settled = (slips ?? []).filter((s) => s.status !== "pending");
 
+  const legColor = (r: string) =>
+    r === "won"
+      ? "var(--color-tape-green)"
+      : r === "lost"
+        ? "var(--color-festival-red)"
+        : r === "void"
+          ? "var(--color-fog)"
+          : "var(--color-snow)";
+
   const slipRow = (s: SlipView) => {
     const dir = cashDirRef.current.get(s.id) ?? null;
+    const ccy: Currency = s.currency === "SOL" ? "SOL" : "COIN";
+    const settledLegs = s.bet_legs.filter((l) => l.result !== "pending").length;
     return (
       <div key={s.id} className="row fade-in" style={{ alignItems: "flex-start" }}>
         <span style={{ flex: 1, minWidth: 0, display: "grid", gap: 2 }}>
           {s.bet_legs.map((l) => (
-            <span key={l.id} className="team" style={{ fontSize: 12 }}>
-              {l.result === "won" ? "✓" : l.result === "lost" ? "✗" : "·"}{" "}
+            <span
+              key={l.id}
+              className="team"
+              style={{ fontSize: 12, color: legColor(l.result) }}
+            >
+              {l.result === "won" ? "✓" : l.result === "lost" ? "✗" : l.result === "void" ? "∅" : "○"}{" "}
               {l.outcome_label} @ {Number(l.odds).toFixed(2)}
             </span>
           ))}
           <span className="muted" style={{ fontSize: 11 }}>
-            {s.stake} coins @ {Number(s.combined_odds).toFixed(2)} · pays{" "}
-            {Number(s.potential_return).toLocaleString()}
+            {formatAmount(s.stake, ccy)} @ {Number(s.combined_odds).toFixed(2)} · pays{" "}
+            {formatAmount(s.potential_return, ccy)}
+            {s.status === "pending" && s.bet_legs.length > 1
+              ? ` · ${settledLegs}/${s.bet_legs.length} legs in`
+              : ""}
           </span>
         </span>
         {s.status === "pending" && typeof s.cashValue === "number" ? (
           <button
             className="cashout-btn"
             onClick={() => setConfirmCash(s)}
-            aria-label={`Cash out for ${s.cashValue} coins`}
+            aria-label={`Cash out for ${formatAmount(s.cashValue, ccy)}`}
           >
-            <span className="caption" style={{ color: "var(--color-void)", opacity: 0.75 }}>
+            <span className="caption" style={{ color: "var(--color-fog)" }}>
               Cash out
             </span>
             <span
               key={`${s.id}:${s.cashValue}`}
               className={`cash-value ${dir ? `flash-${dir}` : ""}`}
             >
-              {dir === "up" ? "▲" : dir === "down" ? "▼" : ""} {s.cashValue.toLocaleString()}
+              {dir === "up" ? "▲" : dir === "down" ? "▼" : ""}{" "}
+              {ccy === "SOL" ? `${(s.cashValue / 1e9).toFixed(3)}◎` : s.cashValue.toLocaleString()}
             </span>
           </button>
         ) : (
@@ -1481,6 +1565,7 @@ function MyBets({
             style={{
               fontSize: 12,
               fontWeight: 700,
+              textAlign: "right",
               color:
                 s.status === "won"
                   ? "var(--color-tape-green)"
@@ -1494,8 +1579,10 @@ function MyBets({
             {s.status === "pending"
               ? "open"
               : s.status === "cashed"
-                ? `CASHED +${Number(s.cashout_amount ?? 0).toLocaleString()}`
-                : s.status.toUpperCase()}
+                ? `CASHED +${formatAmount(Number(s.cashout_amount ?? 0), ccy)}`
+                : s.status === "won"
+                  ? `WON +${formatAmount(Number(s.potential_return), ccy)}`
+                  : s.status.toUpperCase()}
           </span>
         )}
       </div>
@@ -1549,7 +1636,10 @@ function MyBets({
           <p style={{ fontSize: 14 }}>
             Cash this slip out now for about{" "}
             <strong style={{ color: "var(--color-ember-orange)" }}>
-              {Number(confirmCash.cashValue ?? 0).toLocaleString()} coins
+              {formatAmount(
+                Number(confirmCash.cashValue ?? 0),
+                confirmCash.currency === "SOL" ? "SOL" : "COIN",
+              )}
             </strong>
             ? The final amount is repriced at confirm (odds move), and the slip
             closes for good.

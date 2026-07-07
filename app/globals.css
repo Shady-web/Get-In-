@@ -127,21 +127,9 @@ a {
   color: var(--color-fog);
 }
 
-/* Section eyebrows: the GSAP curly-bracket annotation, in cream */
+/* Section eyebrows, in cream */
 .section-label {
   color: var(--color-snow);
-}
-
-.section-label::before {
-  content: "{ ";
-  color: var(--color-iron);
-  font-weight: 400;
-}
-
-.section-label::after {
-  content: " }";
-  color: var(--color-iron);
-  font-weight: 400;
 }
 
 /* ---- Layout ------------------------------------------------------------ */
@@ -1069,4 +1057,23 @@ a {
   color: var(--color-orangey);
   background: var(--surface-card);
   border-bottom: 1px solid var(--color-border);
+}
+
+/* ---- Open-bets counter badge --------------------------------------------- */
+
+.count-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: var(--gradient-green);
+  color: var(--color-void);
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
