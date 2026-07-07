@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { PlayerRecord, StoredPlayer } from "@/lib/player";
+import { authFetch } from "@/lib/api-client";
 
 interface QuestStatus {
   id: string;
@@ -31,14 +32,14 @@ export function QuestsCard({
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/quests?identity=${encodeURIComponent(player.identity)}`);
+      const res = await authFetch("/api/quests");
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body?.error ?? "quests unavailable");
       setQuests(body.quests as QuestStatus[]);
     } catch {
       setQuests(null); // no Supabase (or a hiccup): hide the card quietly
     }
-  }, [player.identity]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -47,10 +48,10 @@ export function QuestsCard({
   async function claim(quest: QuestStatus) {
     setClaiming(quest.id);
     try {
-      const res = await fetch("/api/quests", {
+      const res = await authFetch("/api/quests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identity: player.identity, questId: quest.id }),
+        body: JSON.stringify({ questId: quest.id }),
       });
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body?.error ?? "Could not claim.");

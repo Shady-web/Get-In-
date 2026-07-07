@@ -5,6 +5,7 @@
 // already achieved lights up the first time this loads.
 
 import { useEffect, useState } from "react";
+import { authFetch } from "@/lib/api-client";
 
 interface BadgeStatus {
   id: string;
@@ -14,12 +15,12 @@ interface BadgeStatus {
   earnedAt: string | null;
 }
 
-export function BadgeWall({ identity }: { identity: string }) {
+export function BadgeWall() {
   const [badges, setBadges] = useState<BadgeStatus[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/badges?identity=${encodeURIComponent(identity)}`)
+    authFetch("/api/badges")
       .then(async (res) => {
         const body = await res.json();
         if (!res.ok || !body.ok) throw new Error(body?.error ?? "badges unavailable");
@@ -31,7 +32,7 @@ export function BadgeWall({ identity }: { identity: string }) {
     return () => {
       cancelled = true;
     };
-  }, [identity]);
+  }, []);
 
   if (!badges) return null;
   const earned = badges.filter((b) => b.earnedAt).length;

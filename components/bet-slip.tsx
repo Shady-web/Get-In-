@@ -13,6 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import type { PlayerRecord, StoredPlayer } from "@/lib/player";
+import { authFetch } from "@/lib/api-client";
 
 export interface SlipSelection {
   id: string; // matchScope|marketKey|outcomeName
@@ -110,7 +111,7 @@ export function BetSlipTray({
   const combined = selections.reduce((acc, s) => acc * s.odds, 1);
   const stakeNum = Math.floor(Number(stake) || 0);
   const potential = Math.floor(stakeNum * combined);
-  const coins = player.player?.coins ?? 0;
+  const coins = player.player?.coin_balance ?? 0;
 
   useEffect(() => {
     if (selections.length === 0) setOpen(false);
@@ -120,11 +121,10 @@ export function BetSlipTray({
     setPlacing(true);
     setError(null);
     try {
-      const res = await fetch("/api/slips", {
+      const res = await authFetch("/api/slips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          identity: player.identity,
           stake: stakeNum,
           legs: selections.map((s) => ({
             fixtureId: s.fixtureId,

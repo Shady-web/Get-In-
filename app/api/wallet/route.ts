@@ -1,0 +1,25 @@
+import { NextResponse } from "next/server";
+import { errorStatus, requireUser } from "@/lib/auth";
+import { getOrCreatePlayer } from "@/lib/game";
+import { getWalletInfo } from "@/lib/wallet";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/wallet (authenticated)
+ *
+ * The caller's custodial devnet wallet: address + live balance in SOL and
+ * USD (hard-coded 1 SOL = $150). Creates the keypair on first call; never
+ * funds it. The secret key stays server-side, always.
+ */
+export async function GET(request: Request) {
+  try {
+    const user = await requireUser(request);
+    const player = await getOrCreatePlayer(user.userId);
+    const wallet = await getWalletInfo(player.id, Number(player.sol_balance ?? 0));
+    return NextResponse.json({ ok: true, wallet });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Wallet unavailable.";
+    return NextResponse.json({ ok: false, error: message }, { status: errorStatus(err) });
+  }
+}

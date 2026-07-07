@@ -25,6 +25,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={interTight.variable}>
       <body>
+        <div className="devnet-banner" role="note">
+          Devnet · test tokens · no real value
+        </div>
         <Providers>{children}</Providers>
       </body>
     </html>

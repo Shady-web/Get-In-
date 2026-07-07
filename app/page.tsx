@@ -1,100 +1,119 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { PhantomWalletName } from "@solana/wallet-adapter-phantom";
-import { WalletReadyState } from "@solana/wallet-adapter-base";
-import { setStoredPlayer, type PlayerRecord } from "@/lib/player";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 
 export default function Landing() {
   const router = useRouter();
-  const { select, connect, publicKey, wallet, connecting } = useWallet();
-
-  const [guestOpen, setGuestOpen] = useState(false);
-  const [nickname, setNickname] = useState("");
-  const [busy, setBusy] = useState<"wallet" | "guest" | null>(null);
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [identifier, setIdentifier] = useState(""); // email OR username
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const walletFlow = useRef(false); // true while a user-initiated connect is in flight
-  const finished = useRef(false);
 
-  async function finishLogin(identity: string, kind: "wallet" | "guest") {
-    if (finished.current) return;
-    finished.current = true;
+  // Already signed in? Straight to the matches.
+  useEffect(() => {
+    const supabase = getSupabaseBrowser();
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) router.replace("/match");
+    });
+  }, [router]);
+
+  function requireSupabase() {
+    const supabase = getSupabaseBrowser();
+    if (!supabase) {
+      setError(
+        "Auth is not configured: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+      );
+      return null;
+    }
+    return supabase;
+  }
+
+  async function onSignIn() {
+    const supabase = requireSupabase();
+    if (!supabase) return;
+    setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/player", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identity, kind }),
+      // One field, two ways in: emails go straight through, usernames get
+      // mapped to their email server-side first.
+      let loginEmail = identifier.trim().toLowerCase();
+      if (!loginEmail.includes("@")) {
+        const res = await fetch("/api/auth/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: loginEmail }),
+        });
+        const body = await res.json();
+        if (!res.ok || !body.ok) throw new Error(body?.error ?? "No account with that username.");
+        loginEmail = body.email as string;
+      }
+      const { error: authErr } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password,
       });
-      const body = (await res.json()) as {
-        player?: PlayerRecord | null;
-        error?: string;
-      };
-      if (!res.ok) throw new Error(body?.error ?? "Could not sign you in.");
-      setStoredPlayer({ identity, kind, player: body.player ?? null });
+      if (authErr) {
+        throw new Error(
+          /invalid/i.test(authErr.message) ? "Wrong email/username or password." : authErr.message,
+        );
+      }
       router.push("/match");
     } catch (err) {
-      finished.current = false;
-      setBusy(null);
       setError(err instanceof Error ? err.message : "Could not sign you in.");
+      setBusy(false);
     }
   }
 
-  // --- Wallet flow: select Phantom, connect, then log in with the address ---
-
-  function onConnectWallet() {
+  async function onSignUp() {
+    const supabase = requireSupabase();
+    if (!supabase) return;
+    setBusy(true);
     setError(null);
-    setBusy("wallet");
-    walletFlow.current = true;
-    if (publicKey) {
-      void finishLogin(publicKey.toBase58(), "wallet");
-      return;
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), username: username.trim(), password }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Could not create the account.");
+      const { error: authErr } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (authErr) throw new Error(authErr.message);
+      router.push("/match");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create the account.");
+      setBusy(false);
     }
-    select(PhantomWalletName);
   }
 
-  useEffect(() => {
-    if (!walletFlow.current || !wallet || publicKey || connecting) return;
-    if (wallet.readyState !== WalletReadyState.Installed) {
-      walletFlow.current = false;
-      setBusy(null);
-      setError("Phantom isn’t installed. Get it at phantom.app, then try again.");
-      return;
-    }
-    connect().catch((err: unknown) => {
-      walletFlow.current = false;
-      setBusy(null);
-      setError(
-        err instanceof Error && err.name === "WalletConnectionError"
-          ? "Connection was cancelled in Phantom."
-          : err instanceof Error
-            ? err.message
-            : "Could not connect to Phantom.",
-      );
+  async function onGoogle() {
+    const supabase = requireSupabase();
+    if (!supabase) return;
+    setBusy(true);
+    setError(null);
+    const { error: authErr } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/match` },
     });
-  }, [wallet, publicKey, connecting, connect]);
-
-  useEffect(() => {
-    if (walletFlow.current && publicKey) {
-      walletFlow.current = false;
-      void finishLogin(publicKey.toBase58(), "wallet");
+    if (authErr) {
+      setError(authErr.message);
+      setBusy(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [publicKey]);
-
-  // --- Guest flow -----------------------------------------------------------
-
-  function onGuestSubmit() {
-    const name = nickname.trim();
-    if (name.length < 2 || name.length > 20) {
-      setError("Nickname needs to be 2-20 characters.");
-      return;
-    }
-    setBusy("guest");
-    void finishLogin(name, "guest");
   }
+
+  const submit = mode === "signin" ? onSignIn : onSignUp;
+  const canSubmit =
+    mode === "signin"
+      ? identifier.trim().length >= 3 && password.length >= 6
+      : username.trim().length >= 3 && email.includes("@") && password.length >= 6;
 
   return (
     <main className="shell confetti" style={{ justifyContent: "center", gap: 32 }}>
@@ -111,52 +130,79 @@ export default function Landing() {
         </p>
       </header>
 
-      <section className="card" style={{ display: "grid", gap: 16 }}>
-        <button
-          className="btn btn-primary"
-          onClick={onConnectWallet}
-          disabled={busy !== null}
-        >
-          {busy === "wallet" ? "Connecting…" : "Connect Wallet"}
+      <section className="card" style={{ display: "grid", gap: 12 }}>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+          <button
+            className={`pill tab ${mode === "signin" ? "active" : ""}`}
+            onClick={() => {
+              setMode("signin");
+              setError(null);
+            }}
+          >
+            Sign in
+          </button>
+          <button
+            className={`pill tab ${mode === "signup" ? "active" : ""}`}
+            onClick={() => {
+              setMode("signup");
+              setError(null);
+            }}
+          >
+            Create account
+          </button>
+        </div>
+
+        {mode === "signin" ? (
+          <input
+            className="input"
+            placeholder="Email or username"
+            autoComplete="username"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            disabled={busy}
+          />
+        ) : (
+          <>
+            <input
+              className="input"
+              placeholder="Username (3-20, letters/numbers/_)"
+              autoComplete="username"
+              maxLength={20}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              disabled={busy}
+            />
+            <input
+              className="input"
+              type="email"
+              placeholder="Email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={busy}
+            />
+          </>
+        )}
+        <input
+          className="input"
+          type="password"
+          placeholder="Password (6+ characters)"
+          autoComplete={mode === "signin" ? "current-password" : "new-password"}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && canSubmit && !busy && void submit()}
+          disabled={busy}
+        />
+
+        <button className="btn btn-primary" onClick={() => void submit()} disabled={busy || !canSubmit}>
+          {busy ? "One moment…" : mode === "signin" ? "Sign in" : "Create account"}
         </button>
-        <p className="muted" style={{ fontSize: 12, textAlign: "center", marginTop: -8 }}>
-          Phantom · Solana devnet
-        </p>
 
         <div className="divider">or</div>
 
-        {!guestOpen ? (
-          <button
-            className="btn btn-ghost"
-            onClick={() => {
-              setGuestOpen(true);
-              setError(null);
-            }}
-            disabled={busy !== null}
-          >
-            Play as guest
-          </button>
-        ) : (
-          <div style={{ display: "grid", gap: 10 }}>
-            <input
-              className="input"
-              placeholder="Pick a nickname"
-              value={nickname}
-              maxLength={20}
-              autoFocus
-              onChange={(e) => setNickname(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && onGuestSubmit()}
-              disabled={busy !== null}
-            />
-            <button
-              className="btn btn-ghost"
-              onClick={onGuestSubmit}
-              disabled={busy !== null || nickname.trim().length < 2}
-            >
-              {busy === "guest" ? "Getting you in…" : "Let’s go"}
-            </button>
-          </div>
-        )}
+        <button className="btn btn-ghost" onClick={() => void onGoogle()} disabled={busy}>
+          Continue with Google
+        </button>
 
         {error && <p className="error-text">{error}</p>}
       </section>

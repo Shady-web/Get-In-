@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { errorStatus, requireUser } from "@/lib/auth";
 import { createRoom, joinRoom, myRooms } from "@/lib/rooms";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +17,12 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
-  const identity = String(body?.identity ?? "").trim();
-  if (!identity) {
-    return NextResponse.json({ ok: false, error: "identity is required." }, { status: 400 });
+  let identity: string;
+  try {
+    identity = (await requireUser(request)).userId;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Sign in to do that.";
+    return NextResponse.json({ ok: false, error: message }, { status: errorStatus(err) });
   }
 
   try {
@@ -35,9 +39,12 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const identity = new URL(request.url).searchParams.get("identity")?.trim();
-  if (!identity) {
-    return NextResponse.json({ ok: false, error: "identity is required." }, { status: 400 });
+  let identity: string;
+  try {
+    identity = (await requireUser(request)).userId;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Sign in to do that.";
+    return NextResponse.json({ ok: false, error: message }, { status: errorStatus(err) });
   }
   try {
     const rooms = await myRooms(identity);

@@ -13,14 +13,14 @@ export async function GET() {
     );
   }
 
-  // Rank by coin bankroll (schema v3); fall back to points if the coins
-  // column doesn't exist yet so the board never goes dark mid-migration.
+  // Rank by coin bankroll (aliased from coin_balance, schema v8); fall back
+  // to points if the column doesn't exist yet so the board never goes dark.
   let data: unknown[] | null;
   let error: { message: string } | null;
   ({ data, error } = await supabase
     .from("players")
-    .select("wallet_or_nickname, total_points, best_streak, current_streak, coins")
-    .order("coins", { ascending: false })
+    .select("wallet_or_nickname, total_points, best_streak, current_streak, coins:coin_balance")
+    .order("coin_balance", { ascending: false })
     .limit(20));
   if (error) {
     ({ data, error } = await supabase

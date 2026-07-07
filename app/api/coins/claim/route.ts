@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { logCoinLedger } from "@/lib/wallet";
+import { errorStatus, requireUser } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOrCreatePlayer } from "@/lib/game";
 
@@ -11,12 +13,10 @@ const CLAIM_EVERY_MS = 24 * 3600_000;
 export async function POST(request: Request) {
   let identity: string;
   try {
-    identity = String((await request.json())?.identity ?? "").trim();
-  } catch {
-    return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
-  }
-  if (!identity) {
-    return NextResponse.json({ ok: false, error: "identity is required." }, { status: 400 });
+    identity = (await requireUser(request)).userId;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Sign in to do that.";
+    return NextResponse.json({ ok: false, error: message }, { status: errorStatus(err) });
   }
 
   const supabase = getSupabaseAdmin();
@@ -40,13 +40,14 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from("players")
       .update({
-        coins: (player.coins ?? 0) + CLAIM_AMOUNT,
+        coin_balance: (player.coin_balance ?? 0) + CLAIM_AMOUNT,
         last_claim: new Date().toISOString(),
       })
       .eq("id", player.id)
       .select("*")
       .single();
     if (error) throw new Error(error.message);
+    await logCoinLedger(player.id, "daily_claim", CLAIM_AMOUNT);
     return NextResponse.json({
       ok: true,
       player: data,
