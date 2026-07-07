@@ -57,7 +57,7 @@ export async function createRoom(identity: string, name: string): Promise<RoomIn
     await supabase.from("room_members").insert({
       room: room.id,
       player: player.id,
-      baseline_coins: player.coins ?? 0,
+      baseline_coins: player.coin_balance ?? 0,
     });
     return { id: room.id, code: room.code, name: room.name, created_at: room.created_at, members: 1 };
   }
@@ -78,7 +78,7 @@ export async function joinRoom(identity: string, code: string): Promise<RoomInfo
   const { error } = await supabase.from("room_members").insert({
     room: room.id,
     player: player.id,
-    baseline_coins: player.coins ?? 0,
+    baseline_coins: player.coin_balance ?? 0,
   });
   if (error && error.code !== "23505") {
     // 23505 = already a member: joining twice is fine.
@@ -132,14 +132,14 @@ export async function roomStandings(
 
   const { data: members } = await supabase
     .from("room_members")
-    .select("baseline_coins, joined_at, players!inner(wallet_or_nickname, coins)")
+    .select("baseline_coins, joined_at, players!inner(wallet_or_nickname, coin_balance)")
     .eq("room", room.id);
 
   const standings: RoomStanding[] = (members ?? [])
     .map((m: any) => ({
       name: m.players.wallet_or_nickname as string,
-      coins: Number(m.players.coins ?? 0),
-      profit: Number(m.players.coins ?? 0) - Number(m.baseline_coins),
+      coins: Number(m.players.coin_balance ?? 0),
+      profit: Number(m.players.coin_balance ?? 0) - Number(m.baseline_coins),
       joined_at: m.joined_at as string,
     }))
     .sort((a, b) => b.profit - a.profit || b.coins - a.coins);

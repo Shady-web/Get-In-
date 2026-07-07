@@ -11,9 +11,15 @@ on-chain World Cup tier, Solana).
 
 ## How it works
 
-- **Identity without auth**: connect a Phantom wallet or just pick a
-  nickname. The players table keys on `wallet_or_nickname`; there is no
-  Supabase Auth.
+- **Accounts**: Supabase Auth with email/password or Google sign-in. The
+  login form takes an email OR a username (usernames map to their email
+  server-side). A player is keyed to their Supabase auth user id.
+- **Custodial devnet wallet**: on first login the backend generates a
+  Solana devnet keypair for the user, stored server-side only. We never
+  fund it: new wallets start at 0 and players deposit free test SOL from
+  the public faucet via the Wallet tab. Balances show in SOL and USD at a
+  hard-coded 1 SOL = $150, and every money movement lands in a ledger
+  table. A sitewide banner marks everything as devnet test tokens.
 - **Live matches**: score, match clock, and a win-probability bar derived
   from the TxLINE 1X2 market (margin normalized away), updating every ~7s.
 - **The game**: every minute of match time deals a prediction card
@@ -54,6 +60,11 @@ on-chain World Cup tier, Solana).
 
 - TxLINE tokens live ONLY on the server (`.env.local` / Vercel env vars).
   The browser talks to our own `/api/*` routes; those routes talk to TxLINE.
+- Identity is the Supabase Auth user: the browser sends its session token
+  and every protected route verifies it server-side (`lib/auth.ts`).
+  Clients can no longer pick their own identity string.
+- Custodial wallet secret keys live in a service-role-only table and never
+  leave the server; API responses carry the public address only.
 - Supabase RLS is enabled with a single read-only policy on `players`
   (for the realtime leaderboard). All writes go through server routes
   using the service-role key.
@@ -89,6 +100,11 @@ Create a project at supabase.com, then run in the SQL editor:
 5. `supabase/schema-v5.sql`
 6. `supabase/schema-v6.sql`
 7. `supabase/schema-v7.sql`
+8. `supabase/schema-v8.sql`
+
+Then enable the auth providers: Dashboard -> Authentication -> Providers ->
+turn on **Email** (password sign-in) and **Google** (paste a Google OAuth
+client id/secret from console.cloud.google.com).
 
 ### 4. Environment
 
@@ -104,9 +120,12 @@ TXLINE_API_BASE=https://txline-dev.txodds.com/api
 SUPABASE_URL=https://<ref>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=...
 
-# Optional: realtime leaderboard (public anon key is browser-safe)
+# REQUIRED for sign-in (public anon key is browser-safe)
 NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+
+# Optional: custom devnet RPC for wallet balances (default: public devnet)
+# SOLANA_RPC_URL=
 
 # Optional: Pundit ticker (free key: aistudio.google.com -> Get API key).
 # Server-side only. If unset, the ticker simply hides itself.
@@ -167,10 +186,13 @@ Two ways around that:
 | `POST /api/coins/claim` | Claim 500 daily coins |
 | `POST /api/slips` / `GET /api/slips` | Place bet slips / list + settle them |
 | `POST /api/slips/cashout` | Cash an open slip out at current value |
+| `GET /api/wallet` | Custodial devnet address + SOL/USD balance |
+| `POST /api/auth/register` | Sign-up (email + username + password) |
+| `POST /api/auth/lookup` | Username -> email for the combined login field |
 | `POST /api/rooms` / `GET /api/rooms` | Create/join rooms / list mine |
 | `GET /api/rooms/{code}` | Room standings by profit since joining |
 | `GET /api/leaderboard` | Top 20 players by coin bankroll |
-| `POST /api/player` | Upsert player by wallet/nickname |
+| `POST /api/player` | Bootstrap player + wallet for the signed-in user |
 | `GET /api/test` | End-to-end TxLINE health check |
 
 ## Stack notes

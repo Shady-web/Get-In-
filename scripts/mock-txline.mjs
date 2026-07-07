@@ -183,10 +183,39 @@ const replayOdds = [
 // --- Server -----------------------------------------------------------------------
 
 const server = http.createServer((req, res) => {
+  // The browser calls the fake GoTrue below cross-origin (3000 -> 3998).
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  res.setHeader("Access-Control-Allow-Methods", "*");
+  if (req.method === "OPTIONS") return res.writeHead(204).end();
+
   const json = (body) => {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(body));
   };
+
+  // --- Fake Supabase GoTrue (just enough for dev:mock sign-in) --------------
+  const mockUser = {
+    id: "00000000-0000-4000-8000-000000000001",
+    aud: "authenticated",
+    role: "authenticated",
+    email: "punditfan@example.com",
+    user_metadata: { username: "punditfan" },
+    app_metadata: { provider: "email" },
+    created_at: new Date(started).toISOString(),
+  };
+  if (req.url.startsWith("/auth/v1/token")) {
+    return json({
+      access_token: "mock-access-token",
+      token_type: "bearer",
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      refresh_token: "mock-refresh-token",
+      user: mockUser,
+    });
+  }
+  if (req.url.startsWith("/auth/v1/user")) return json(mockUser);
+  if (req.url.startsWith("/auth/v1/logout")) return res.writeHead(204).end();
 
   // Fake Gemini for the Pundit ticker (dev-mock points GEMINI_API_BASE here).
   if (req.method === "POST" && req.url.startsWith("/v1beta/models/")) {

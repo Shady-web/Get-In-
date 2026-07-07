@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
 import { getLiveState } from "@/lib/live";
 import { buildCard, settleDue } from "@/lib/game";
 import { getReplayTimeline, stateAt } from "@/lib/replay";
@@ -21,7 +22,6 @@ export async function GET(request: Request) {
   const fixtureId = Number.parseInt(searchParams.get("fixtureId") ?? "", 10);
   const home = searchParams.get("home") ?? "Home";
   const away = searchParams.get("away") ?? "Away";
-  const identity = searchParams.get("identity");
   const session = searchParams.get("session");
   const vtRaw = searchParams.get("vt");
 
@@ -30,6 +30,14 @@ export async function GET(request: Request) {
   }
   if (session && !SESSION_RE.test(session)) {
     return NextResponse.json({ ok: false, error: "Invalid replay session." }, { status: 400 });
+  }
+
+  // The card itself is public; settlement runs only for signed-in callers.
+  let identity: string | null = null;
+  try {
+    identity = (await requireUser(request)).userId;
+  } catch {
+    identity = null;
   }
 
   try {

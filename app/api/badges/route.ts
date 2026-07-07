@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { errorStatus, requireUser } from "@/lib/auth";
 import { getBadges } from "@/lib/badges";
 
 export const dynamic = "force-dynamic";
@@ -8,9 +9,12 @@ export const dynamic = "force-dynamic";
  * condition is already met (idempotent), so milestones count retroactively.
  */
 export async function GET(request: Request) {
-  const identity = new URL(request.url).searchParams.get("identity")?.trim();
-  if (!identity) {
-    return NextResponse.json({ ok: false, error: "identity is required." }, { status: 400 });
+  let identity: string;
+  try {
+    identity = (await requireUser(request)).userId;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Sign in to do that.";
+    return NextResponse.json({ ok: false, error: message }, { status: errorStatus(err) });
   }
   try {
     const badges = await getBadges(identity);

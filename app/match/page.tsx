@@ -2,16 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useWallet } from "@solana/wallet-adapter-react";
-import {
-  clearStoredPlayer,
-  displayName,
-  getStoredPlayer,
-  setStoredPlayer,
-  type PlayerRecord,
-  type StoredPlayer,
-} from "@/lib/player";
+import { displayName, type PlayerRecord, type StoredPlayer } from "@/lib/player";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { authFetch } from "@/lib/api-client";
+import { WalletPanel } from "@/components/wallet-panel";
 import { MarketsPanel } from "@/components/markets-panel";
 import { Flag } from "@/components/flag";
 import { BetSlipProvider, BetSlipTray, useBetSlip } from "@/components/bet-slip";
@@ -66,40 +60,61 @@ function fmtClock(seconds: number | null): string {
 
 export default function MatchScreen() {
   const router = useRouter();
-  const { disconnect } = useWallet();
   const [player, setPlayer] = useState<StoredPlayer | null>(null);
   const [checked, setChecked] = useState(false);
   const [selected, setSelected] = useState<Selection | null>(null);
-  const [tab, setTab] = useState<"matches" | "bets" | "rooms" | "leaders">("matches");
+  const [tab, setTab] = useState<"matches" | "bets" | "rooms" | "leaders" | "wallet">("matches");
 
+  // Identity = the Supabase session. No session, no match screen.
   useEffect(() => {
-    const stored = getStoredPlayer();
-    if (!stored) {
+    const supabase = getSupabaseBrowser();
+    if (!supabase) {
       router.replace("/");
       return;
     }
-    setPlayer(stored);
-    setChecked(true);
+    let cancelled = false;
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (cancelled) return;
+      const session = data.session;
+      if (!session) {
+        router.replace("/");
+        return;
+      }
+      const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
+      const label =
+        (typeof meta.username === "string" && meta.username) ||
+        session.user.email?.split("@")[0] ||
+        "player";
+      setPlayer({ identity: session.user.id, label, player: null });
+      setChecked(true);
+      // Bootstrap the players row + custodial devnet wallet (first login).
+      try {
+        const res = await authFetch("/api/player", { method: "POST" });
+        const body = await res.json();
+        if (!cancelled && body?.player) {
+          setPlayer((prev) => (prev ? { ...prev, player: body.player } : prev));
+        }
+      } catch {
+        /* offline bootstrap: the polls will fill the player in */
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const updatePlayerRecord = useCallback((record: PlayerRecord) => {
-    setPlayer((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, player: record };
-      setStoredPlayer(next);
-      return next;
-    });
+    setPlayer((prev) => (prev ? { ...prev, player: record } : prev));
   }, []);
 
   function signOut() {
-    clearStoredPlayer();
-    disconnect().catch(() => {});
+    getSupabaseBrowser()?.auth.signOut().catch(() => {});
     router.replace("/");
   }
 
   if (!checked || !player) return null;
 
-  const coins = player.player?.coins;
+  const coins = player.player?.coin_balance;
 
   return (
     <BetSlipProvider>
@@ -114,7 +129,7 @@ export default function MatchScreen() {
               <span aria-hidden>🪙</span> {coins.toLocaleString()}
             </span>
           )}
-          <span className="pill" title={player.identity}>
+          <span className="pill" title={displayName(player)}>
             {displayName(player)}
           </span>
           <button
@@ -133,6 +148,7 @@ export default function MatchScreen() {
             [
               ["matches", "Matches"],
               ["bets", "My Bets"],
+              ["wallet", "Wallet"],
               ["rooms", "Rooms"],
               ["leaders", "Leaders"],
             ] as const
@@ -171,6 +187,8 @@ export default function MatchScreen() {
         </>
       ) : tab === "bets" ? (
         <MyBets player={player} onPlayerUpdate={updatePlayerRecord} />
+      ) : tab === "wallet" ? (
+        <WalletPanel />
       ) : tab === "rooms" ? (
         <Rooms player={player} />
       ) : (
@@ -563,13 +581,12 @@ function PredictionPanel({
         fixtureId: String(fixture.FixtureId),
         home: fixture.Participant1,
         away: fixture.Participant2,
-        identity: player.identity,
       });
       if (replay) {
         qs.set("session", replay.session);
         qs.set("vt", String(Math.floor(replay.getVt())));
       }
-      const res = await fetch(`/api/game/card?${qs}`);
+      const res = await authFetch(`/api/game/card?${qs}`);
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body?.error ?? "Game unavailable.");
 
@@ -582,7 +599,7 @@ function PredictionPanel({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Game unavailable.");
     }
-  }, [fixture, player.identity, onPlayerUpdate, replay]);
+  }, [fixture, onPlayerUpdate, replay]);
 
   useEffect(() => {
     void pollCard();
@@ -595,11 +612,10 @@ function PredictionPanel({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/game/pick", {
+      const res = await authFetch("/api/game/pick", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          identity: player.identity,
           fixtureId: fixture.FixtureId,
           round: card.round,
           choice: option.id,
@@ -1206,11 +1222,7 @@ function Leaders({
     setClaiming(true);
     setClaimMsg(null);
     try {
-      const res = await fetch("/api/coins/claim", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identity: player.identity }),
-      });
+      const res = await authFetch("/api/coins/claim", { method: "POST" });
       const body = await res.json();
       if (!res.ok || !body.ok) {
         if (body?.nextClaimAt) {
@@ -1309,7 +1321,7 @@ function Leaders({
         </button>
         {shareError && <p className="error-text">{shareError}</p>}
 
-        <BadgeWall identity={player.identity} />
+        <BadgeWall />
       </div>
 
       <section style={{ display: "grid", gap: "var(--element-gap)", alignSelf: "start" }}>
@@ -1331,7 +1343,7 @@ function Leaders({
         )}
 
         {rows?.map((r, i) => {
-          const mine = r.wallet_or_nickname === player.identity;
+          const mine = r.wallet_or_nickname === (player.player?.wallet_or_nickname ?? player.label);
           return (
             <div
               key={r.wallet_or_nickname}
@@ -1378,7 +1390,7 @@ function MyBets({
   const loadSlips = useCallback(async () => {
     if (document.hidden) return;
     try {
-      const res = await fetch(`/api/slips?identity=${encodeURIComponent(player.identity)}`);
+      const res = await authFetch("/api/slips");
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body?.error ?? "Could not load your bets.");
       const next = body.slips as SlipView[];
@@ -1398,7 +1410,7 @@ function MyBets({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load your bets.");
     }
-  }, [player.identity, onPlayerUpdate]);
+  }, [onPlayerUpdate]);
 
   useEffect(() => {
     void loadSlips();
@@ -1410,10 +1422,10 @@ function MyBets({
     setCashing(true);
     setCashMsg(null);
     try {
-      const res = await fetch("/api/slips/cashout", {
+      const res = await authFetch("/api/slips/cashout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identity: player.identity, slipId: slip.id }),
+        body: JSON.stringify({ slipId: slip.id }),
       });
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body?.error ?? "Cash out failed.");
@@ -1588,7 +1600,7 @@ function Rooms({ player }: { player: StoredPlayer }) {
 
   const loadRooms = useCallback(async () => {
     try {
-      const res = await fetch(`/api/rooms?identity=${encodeURIComponent(player.identity)}`);
+      const res = await authFetch("/api/rooms");
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body?.error ?? "Rooms unavailable.");
       setRooms(body.rooms as RoomInfo[]);
@@ -1596,7 +1608,7 @@ function Rooms({ player }: { player: StoredPlayer }) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Rooms unavailable.");
     }
-  }, [player.identity]);
+  }, []);
 
   const loadStandings = useCallback(async (code: string) => {
     try {
@@ -1630,10 +1642,10 @@ function Rooms({ player }: { player: StoredPlayer }) {
     window.history.replaceState(null, "", "/match");
     void (async () => {
       try {
-        const res = await fetch("/api/rooms", {
+        const res = await authFetch("/api/rooms", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ identity: player.identity, code }),
+          body: JSON.stringify({ code }),
         });
         const body = await res.json();
         if (res.ok && body.ok) {
@@ -1644,7 +1656,7 @@ function Rooms({ player }: { player: StoredPlayer }) {
         /* bad link: the rooms list still renders */
       }
     })();
-  }, [player.identity, loadRooms, loadStandings]);
+  }, [loadRooms, loadStandings]);
 
   // Live standings: refetch on any players change (realtime) or every 10s.
   useEffect(() => {
@@ -1669,10 +1681,10 @@ function Rooms({ player }: { player: StoredPlayer }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/rooms", {
+      const res = await authFetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identity: player.identity, ...payload }),
+        body: JSON.stringify(payload),
       });
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body?.error ?? "Room action failed.");
@@ -1742,7 +1754,7 @@ function Rooms({ player }: { player: StoredPlayer }) {
           <p className="caption section-label">Room standings</p>
           {!standings && <div className="skeleton" style={{ height: 120 }} />}
           {standings?.map((s, i) => {
-            const mine = s.name === player.identity;
+            const mine = s.name === (player.player?.wallet_or_nickname ?? player.label);
             const dir = rankDirRef.current.get(s.name) ?? null;
             return (
               <div

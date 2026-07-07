@@ -1,65 +1,32 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { errorStatus, requireUser } from "@/lib/auth";
+import { ensurePlayer } from "@/lib/game";
+import { ensureWallet } from "@/lib/wallet";
 
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/player   { identity: string, kind: "wallet" | "guest" }
+ * POST /api/player (authenticated bootstrap, called right after login)
  *
- * Upserts the player by wallet_or_nickname and returns the row. If Supabase
- * isn't configured yet, sign-in still works locally - we return player: null
- * with a warning so the shell stays usable before the DB exists.
+ * Ensures the players row for the verified auth user (username from
+ * sign-up metadata, else the email prefix) and the custodial devnet wallet
+ * (generated server-side on first login, NEVER funded by us). Returns the
+ * player row; the wallet secret never leaves the server.
  */
 export async function POST(request: Request) {
-  let identity: string;
-  let kind: string;
   try {
-    const body = await request.json();
-    identity = String(body?.identity ?? "").trim();
-    kind = String(body?.kind ?? "");
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    const user = await requireUser(request);
+    const player = await ensurePlayer(user);
+    let walletWarning: string | undefined;
+    try {
+      await ensureWallet(player.id);
+    } catch (err) {
+      // Wallet table missing (schema-v8 not run yet): the game still works.
+      walletWarning = err instanceof Error ? err.message : "Wallet unavailable.";
+    }
+    return NextResponse.json({ ok: true, player, warning: walletWarning });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Could not load your player.";
+    return NextResponse.json({ ok: false, error: message }, { status: errorStatus(err) });
   }
-
-  if (kind !== "wallet" && kind !== "guest") {
-    return NextResponse.json({ error: "kind must be wallet or guest." }, { status: 400 });
-  }
-  if (kind === "guest" && (identity.length < 2 || identity.length > 20)) {
-    return NextResponse.json(
-      { error: "Nickname needs to be 2-20 characters." },
-      { status: 400 },
-    );
-  }
-  if (kind === "wallet" && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(identity)) {
-    return NextResponse.json({ error: "That doesn’t look like a Solana address." }, {
-      status: 400,
-    });
-  }
-
-  const supabase = getSupabaseAdmin();
-  if (!supabase) {
-    return NextResponse.json({
-      player: null,
-      warning:
-        "Supabase is not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing) - player not persisted.",
-    });
-  }
-
-  const { data, error } = await supabase
-    .from("players")
-    .upsert(
-      { wallet_or_nickname: identity },
-      { onConflict: "wallet_or_nickname", ignoreDuplicates: false },
-    )
-    .select("id, wallet_or_nickname, total_points, best_streak")
-    .single();
-
-  if (error) {
-    return NextResponse.json(
-      { error: `Could not save player: ${error.message}` },
-      { status: 502 },
-    );
-  }
-
-  return NextResponse.json({ player: data });
 }

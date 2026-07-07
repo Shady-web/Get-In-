@@ -1,45 +1,25 @@
-// Client-side identity storage. No Supabase Auth - identity is just the
-// wallet address or a nickname, remembered in localStorage.
+// Client-side identity types. Identity IS the Supabase Auth user id; the
+// label is the username (or email prefix) for display. No localStorage:
+// the Supabase session is the single source of truth.
 
 export interface PlayerRecord {
   id: string;
-  wallet_or_nickname: string;
+  wallet_or_nickname: string; // mirrors username
+  username?: string | null;
   total_points: number;
   best_streak: number;
   current_streak?: number;
-  coins?: number;
+  coin_balance?: number;
+  sol_balance?: number; // lamports
   last_claim?: string | null;
 }
 
 export interface StoredPlayer {
-  identity: string; // wallet address or nickname
-  kind: "wallet" | "guest";
-  player: PlayerRecord | null; // Supabase row, if the API had it
+  identity: string; // Supabase auth user id (uuid)
+  label: string; // username / email prefix, for display
+  player: PlayerRecord | null;
 }
 
-const KEY = "getin.player";
-
-export function getStoredPlayer(): StoredPlayer | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as StoredPlayer) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function setStoredPlayer(p: StoredPlayer): void {
-  window.localStorage.setItem(KEY, JSON.stringify(p));
-}
-
-export function clearStoredPlayer(): void {
-  window.localStorage.removeItem(KEY);
-}
-
-/** "7xKX…9fGh" for wallets; nicknames pass through untouched. */
 export function displayName(p: StoredPlayer): string {
-  return p.kind === "wallet"
-    ? `${p.identity.slice(0, 4)}…${p.identity.slice(-4)}`
-    : p.identity;
+  return p.player?.username ?? p.player?.wallet_or_nickname ?? p.label;
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { errorStatus, requireUser } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOrCreatePlayer, isFinal } from "@/lib/game";
 import { getLiveState } from "@/lib/live";
@@ -28,12 +29,15 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
-  const identity = String(body?.identity ?? "").trim();
+  let identity: string;
+  try {
+    identity = (await requireUser(request)).userId;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Sign in to do that.";
+    return NextResponse.json({ ok: false, error: message }, { status: errorStatus(err) });
+  }
   const stake = Number(body?.stake);
   const legs = Array.isArray(body?.legs) ? (body.legs as LegInput[]) : [];
-  if (!identity) {
-    return NextResponse.json({ ok: false, error: "identity is required." }, { status: 400 });
-  }
 
   try {
     const { slip, player } = await placeSlip({ identity, stake, legs });
@@ -51,9 +55,12 @@ export async function POST(request: Request) {
  * and voids abandoned replay legs, so this list is always fresh.
  */
 export async function GET(request: Request) {
-  const identity = new URL(request.url).searchParams.get("identity")?.trim();
-  if (!identity) {
-    return NextResponse.json({ ok: false, error: "identity is required." }, { status: 400 });
+  let identity: string;
+  try {
+    identity = (await requireUser(request)).userId;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Sign in to do that.";
+    return NextResponse.json({ ok: false, error: message }, { status: errorStatus(err) });
   }
   const supabase = getSupabaseAdmin();
   if (!supabase) {

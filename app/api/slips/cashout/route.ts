@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { errorStatus, requireUser } from "@/lib/auth";
 import { cashOutSlip } from "@/lib/betting";
 
 export const dynamic = "force-dynamic";
@@ -12,19 +13,20 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: Request) {
   let identity: string;
+  try {
+    identity = (await requireUser(request)).userId;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Sign in to do that.";
+    return NextResponse.json({ ok: false, error: message }, { status: errorStatus(err) });
+  }
   let slipId: string;
   try {
-    const body = await request.json();
-    identity = String(body?.identity ?? "").trim();
-    slipId = String(body?.slipId ?? "").trim();
+    slipId = String((await request.json())?.slipId ?? "").trim();
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
-  if (!identity || !slipId) {
-    return NextResponse.json(
-      { ok: false, error: "identity and slipId are required." },
-      { status: 400 },
-    );
+  if (!slipId) {
+    return NextResponse.json({ ok: false, error: "slipId is required." }, { status: 400 });
   }
 
   try {

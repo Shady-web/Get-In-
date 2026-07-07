@@ -5,6 +5,7 @@
 
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOrCreatePlayer, type PlayerRow } from "@/lib/game";
+import { logCoinLedger } from "@/lib/wallet";
 
 export const QUESTS_PER_DAY = 3;
 
@@ -228,12 +229,13 @@ export async function claimQuest(
 
   const { data: updated, error: coinErr } = await supabase
     .from("players")
-    .update({ coins: (player.coins ?? 0) + quest.reward })
+    .update({ coin_balance: (player.coin_balance ?? 0) + quest.reward })
     .eq("id", player.id)
     .select("*")
     .single();
   if (coinErr || !updated) {
     throw new Error(`Claim recorded but payout failed: ${coinErr?.message ?? "unknown"}.`);
   }
+  await logCoinLedger(player.id, "quest_reward", quest.reward, quest.id);
   return { reward: quest.reward, player: updated as PlayerRow };
 }

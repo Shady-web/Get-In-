@@ -58,7 +58,7 @@ export async function getBadges(identity: string): Promise<BadgeStatus[]> {
     first_cashout: slips.some((s) => s.status === "cashed"),
     parlay_5: slips.some((s) => s.status === "won" && s.legs >= 5),
     streak_10: (player.best_streak ?? 0) >= 10,
-    bankroll_5k: (player.coins ?? 0) >= 5_000,
+    bankroll_5k: (player.coin_balance ?? 0) >= 5_000,
   };
 
   const newlyEarned = BADGE_DEFS.filter((b) => !owned.has(b.id) && conditions[b.id]);

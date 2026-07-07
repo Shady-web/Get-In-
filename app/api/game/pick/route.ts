@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { errorStatus, requireUser } from "@/lib/auth";
 import { getLiveState } from "@/lib/live";
 import { savePick } from "@/lib/game";
 import { getReplayTimeline, stateAt } from "@/lib/replay";
@@ -24,7 +25,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const identity = String(body?.identity ?? "").trim();
+  let identity: string;
+  try {
+    identity = (await requireUser(request)).userId;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Sign in to do that.";
+    return NextResponse.json({ ok: false, error: message }, { status: errorStatus(err) });
+  }
   const fixtureId = Number.parseInt(String(body?.fixtureId), 10);
   const round = Number.parseInt(String(body?.round), 10);
   const choice = String(body?.choice ?? "");
@@ -32,9 +39,9 @@ export async function POST(request: Request) {
   const away = String(body?.away ?? "Away");
   const session = body?.session ? String(body.session) : null;
 
-  if (!identity || !Number.isFinite(fixtureId) || !Number.isFinite(round) || !choice) {
+  if (!Number.isFinite(fixtureId) || !Number.isFinite(round) || !choice) {
     return NextResponse.json(
-      { ok: false, error: "identity, fixtureId, round and choice are required." },
+      { ok: false, error: "fixtureId, round and choice are required." },
       { status: 400 },
     );
   }

@@ -29,6 +29,12 @@ const next = spawn(process.execPath, [nextBin, "dev"], {
     // used in mock mode, same as TXLINE_*).
     GEMINI_API_KEY: "mock-gemini-key",
     GEMINI_API_BASE: "http://127.0.0.1:3998",
+    // Auth: use your real Supabase when configured; otherwise fall back to
+    // the mock GoTrue on the fake server so sign-in still works locally.
+    NEXT_PUBLIC_SUPABASE_URL:
+      process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:3998",
+    NEXT_PUBLIC_SUPABASE_ANON_KEY:
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "mock-anon-key",
   },
 });
 
