@@ -13,6 +13,14 @@ import {
   type ReactNode,
 } from "react";
 import type { PlayerRecord, StoredPlayer } from "@/lib/player";
+import { Coin } from "@/components/coin";
+import {
+  formatAmount,
+  MIN_STAKE,
+  parseStake,
+  stakePlaceholder,
+  type Currency,
+} from "@/lib/money";
 import { authFetch } from "@/lib/api-client";
 
 export interface SlipSelection {
@@ -103,15 +111,27 @@ export function BetSlipTray({
   onPlayerUpdate: (p: PlayerRecord) => void;
 }) {
   const { selections, remove, clear, open, setOpen } = useBetSlip();
+  const [currency, setCurrency] = useState<Currency>("COIN");
   const [stake, setStake] = useState("50");
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placed, setPlaced] = useState<string | null>(null);
 
   const combined = selections.reduce((acc, s) => acc * s.odds, 1);
-  const stakeNum = Math.floor(Number(stake) || 0);
-  const potential = Math.floor(stakeNum * combined);
-  const coins = player.player?.coin_balance ?? 0;
+  const stakeBase = parseStake(stake, currency); // coins or lamports
+  const potential = Math.floor(stakeBase * combined);
+  const balance =
+    currency === "SOL"
+      ? (player.player?.sol_balance ?? 0)
+      : (player.player?.coin_balance ?? 0);
+  const enough = stakeBase >= MIN_STAKE[currency] && stakeBase <= balance;
+
+  // Reset the stake field to a sensible default when switching currency.
+  function switchCurrency(next: Currency) {
+    setCurrency(next);
+    setStake(stakePlaceholder[next]);
+    setError(null);
+  }
 
   useEffect(() => {
     if (selections.length === 0) setOpen(false);
@@ -125,7 +145,8 @@ export function BetSlipTray({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          stake: stakeNum,
+          stake: stakeBase,
+          currency,
           legs: selections.map((s) => ({
             fixtureId: s.fixtureId,
             marketKey: s.marketKey,
@@ -141,7 +162,7 @@ export function BetSlipTray({
       if (body.player) onPlayerUpdate(body.player as PlayerRecord);
       clear();
       setPlaced(
-        `Placed! ${stakeNum} coins at ${combined.toFixed(2)} pays ${potential}. Track it in the My Bets tab.`,
+        `Placed! ${formatAmount(stakeBase, currency)} at ${combined.toFixed(2)} pays ${formatAmount(potential, currency)}. Track it in My Bets.`,
       );
       window.setTimeout(() => setPlaced(null), 6000);
     } catch (err) {
@@ -206,39 +227,71 @@ export function BetSlipTray({
             ))}
           </div>
 
+          {/* Stake in coins or devnet SOL */}
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              className={`pill tab ${currency === "COIN" ? "active" : ""}`}
+              style={{ flex: 1, justifyContent: "center", gap: 5 }}
+              onClick={() => switchCurrency("COIN")}
+            >
+              <Coin size={14} /> Coins
+            </button>
+            <button
+              className={`pill tab ${currency === "SOL" ? "active" : ""}`}
+              style={{ flex: 1, justifyContent: "center" }}
+              onClick={() => switchCurrency("SOL")}
+            >
+              ◎ SOL
+            </button>
+          </div>
+
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <input
               className="input"
-              style={{ maxWidth: 120 }}
-              inputMode="numeric"
+              style={{ maxWidth: 130 }}
+              inputMode="decimal"
               value={stake}
-              onChange={(e) => setStake(e.target.value.replace(/[^\d]/g, ""))}
-              aria-label="Stake in coins"
+              onChange={(e) =>
+                setStake(
+                  currency === "SOL"
+                    ? e.target.value.replace(/[^\d.]/g, "")
+                    : e.target.value.replace(/[^\d]/g, ""),
+                )
+              }
+              aria-label={`Stake in ${currency === "SOL" ? "SOL" : "coins"}`}
             />
             <span className="muted" style={{ fontSize: 12, flex: 1 }}>
-              coins · you have {coins.toLocaleString()}
+              {currency === "SOL" ? "SOL" : "coins"} · you have{" "}
+              {formatAmount(balance, currency)}
             </span>
             <span style={{ textAlign: "right", display: "grid", gap: 1 }}>
               <span className="muted" style={{ fontSize: 11 }}>
                 odds {combined.toFixed(2)}
               </span>
               <span style={{ fontWeight: 700, color: "var(--color-ember-orange)" }}>
-                pays {potential.toLocaleString()}
+                pays {formatAmount(potential, currency)}
               </span>
             </span>
           </div>
 
           <button
             className="btn btn-primary"
-            disabled={placing || stakeNum < 10 || stakeNum > coins}
+            disabled={placing || !enough}
             onClick={place}
           >
             {placing
               ? "Placing..."
-              : stakeNum > coins
-                ? "Not enough coins"
-                : `Place bet · ${stakeNum} coins`}
+              : stakeBase > balance
+                ? currency === "SOL"
+                  ? "Not enough SOL"
+                  : "Not enough coins"
+                : `Place bet · ${formatAmount(stakeBase, currency)}`}
           </button>
+          {currency === "SOL" && balance < MIN_STAKE.SOL && (
+            <p className="caption muted" style={{ textAlign: "center" }}>
+              Deposit test SOL in the Deposit tab to bet with SOL.
+            </p>
+          )}
           {error && <p className="error-text">{error}</p>}
         </div>
       )}

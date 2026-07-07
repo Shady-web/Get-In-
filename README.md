@@ -30,13 +30,19 @@ on-chain World Cup tier, Solana).
 - **Replay Mode**: finished matches (started 6h-2w ago) replay on a
   timeline with a scrubber and x1/x10/x60 speed. Cards price from the odds
   as they stood at that moment; scoring works exactly like live.
-- **Coin economy**: every player starts with 1,000 coins and can claim 500
-  daily. Tap any full-time price (Markets tab, or the winner odds in a
-  replay) to build a Bet Slip: one selection = single, several (across
-  matches) = accumulator at the product of leg odds. Slips settle
-  automatically from the scores data - in live matches and in Replay Mode.
-  Open slips show a live Cash Out value (potential return x current implied
-  probability of the pending legs x 0.95) that animates as odds move.
+- **Coin economy + SOL betting**: every player starts with 1,000 coins and
+  can claim 500 daily. Tap any full-time price (Markets tab, or the winner
+  odds in a replay) to build a Bet Slip: one selection = single, several
+  (across matches) = accumulator at the product of leg odds. Stake in
+  **coins or devnet SOL** (toggle on the slip); SOL stakes and payouts move
+  the custodial balance you funded from the faucet, tracked in lamports.
+  Slips settle automatically from the scores data - in live matches and in
+  Replay Mode. Open slips show a live Cash Out value (potential return x
+  current implied probability of the pending legs x 0.95) that animates as
+  odds move.
+- **My Bets**: open and settled bets in separate sections, with a counter
+  badge on the tab for how many are still running and per-leg won/lost/
+  pending status on every accumulator.
 - **My Bets tab**: every slip with live cash-out values; open and settled
   history in one place.
 - **Private rooms**: create a room, get a 6-char code + share link, friends
@@ -101,6 +107,7 @@ Create a project at supabase.com, then run in the SQL editor:
 6. `supabase/schema-v6.sql`
 7. `supabase/schema-v7.sql`
 8. `supabase/schema-v8.sql`
+9. `supabase/schema-v9.sql`
 
 Then enable the auth providers: Dashboard -> Authentication -> Providers ->
 turn on **Email** (password sign-in) and **Google** (paste a Google OAuth

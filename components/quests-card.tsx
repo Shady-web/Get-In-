@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlayerRecord, StoredPlayer } from "@/lib/player";
 import { authFetch } from "@/lib/api-client";
+import { Coin } from "@/components/coin";
 
 interface QuestStatus {
   id: string;
@@ -113,14 +114,28 @@ export function QuestsCard({
                 className="pill tab active"
                 disabled={claiming === q.id}
                 onClick={() => void claim(q)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
               >
-                {claiming === q.id ? "..." : `Claim +${q.reward} 🪙`}
+                {claiming === q.id ? (
+                  "..."
+                ) : (
+                  <>
+                    Claim +{q.reward} <Coin size={13} />
+                  </>
+                )}
               </button>
             ) : (
               <span
-                style={{ color: "var(--color-ember-orange)", fontSize: 12, fontWeight: 600 }}
+                style={{
+                  color: "var(--color-ember-orange)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
               >
-                +{q.reward} 🪙
+                +{q.reward} <Coin size={13} />
               </span>
             )}
           </div>

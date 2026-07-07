@@ -12,6 +12,7 @@ interface WalletInfo {
   lamports: number;
   sol: number;
   usd: number;
+  onchain: number;
   rate: number;
   stale: boolean;
 }
@@ -53,7 +54,7 @@ export function WalletPanel() {
   return (
     <section style={{ display: "grid", gap: "var(--element-gap)", maxWidth: 640, margin: "0 auto", width: "100%" }}>
       <div className="card fade-in" style={{ display: "grid", gap: 10, textAlign: "center" }}>
-        <p className="caption section-label">Your balance</p>
+        <p className="caption section-label">Playable balance</p>
         {wallet ? (
           <>
             <p className="display" style={{ fontSize: 44 }}>
@@ -63,8 +64,11 @@ export function WalletPanel() {
               </span>
             </p>
             <p className="muted" style={{ fontSize: 14 }}>
-              ≈ ${wallet.usd.toLocaleString()} at $
-              {wallet.rate}/SOL{wallet.stale ? " · last known (RPC offline)" : ""}
+              ≈ ${wallet.usd.toLocaleString()} at ${wallet.rate}/SOL
+              {wallet.stale ? " · last known (RPC offline)" : ""}
+            </p>
+            <p className="caption muted">
+              Bet with this SOL from any market. Deposits are credited here.
             </p>
           </>
         ) : error ? (
