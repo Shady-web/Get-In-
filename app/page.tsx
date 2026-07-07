@@ -99,7 +99,9 @@ export default function Landing() {
   return (
     <main className="shell confetti" style={{ justifyContent: "center", gap: 32 }}>
       <header style={{ textAlign: "center", display: "grid", gap: 10 }}>
-        <p className="caption section-label">⚽ World Cup 2026 · Live Predictions</p>
+        <p className="caption" style={{ color: "var(--color-snow)" }}>
+          ⚽ World Cup 2026 · Live Predictions
+        </p>
         <h1 className="display">
           <span className="brand-gradient">GetIN</span>
           <span style={{ color: "var(--color-ember-orange)" }}>!!!</span>
