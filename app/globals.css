@@ -68,26 +68,6 @@ body {
   min-height: 100dvh;
 }
 
-/* Festival hairline: the five playground colors in one thin ribbon */
-body::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  z-index: 50;
-  background: linear-gradient(
-    90deg,
-    #0ae448,
-    #abff84,
-    #00bae2,
-    #9d95ff,
-    #fec5fb,
-    #ff8709
-  );
-}
-
 /* Confetti field for hero sections: neon playground dots, no images needed */
 .confetti {
   background-image:
