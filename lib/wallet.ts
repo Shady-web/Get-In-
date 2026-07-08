@@ -4,11 +4,20 @@
 // deposit test SOL themselves. Secrets never leave the server; API responses
 // carry the public key only.
 
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+} from "@solana/web3.js";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
 export const SOL_USD_RATE = 150; // hard-coded display rate: 1 SOL = $150
 export const LAMPORTS_PER_SOL = 1_000_000_000;
+export const MIN_WITHDRAW_LAMPORTS = 6_700_000; // 0.0067 SOL
+const NETWORK_FEE_BUFFER = 10_000; // leave room for the tx fee on-chain
 
 const RPC_URL = () => process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com";
 
@@ -26,6 +35,101 @@ function requireDb() {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error("Supabase is not configured on the server.");
   return supabase;
+}
+
+/** Load the custodial Keypair for a player (server-side only). */
+async function loadKeypair(playerId: string): Promise<Keypair> {
+  const supabase = requireDb();
+  const { data } = await supabase
+    .from("wallets")
+    .select("secret")
+    .eq("player", playerId)
+    .maybeSingle();
+  if (!data?.secret) throw new Error("No wallet found for this account.");
+  const bytes = Uint8Array.from(JSON.parse(data.secret as string) as number[]);
+  return Keypair.fromSecretKey(bytes);
+}
+
+/**
+ * Send devnet SOL from the player's custodial wallet to an external address
+ * and debit their spendable balance. Min 0.0067 SOL. The keypair is loaded,
+ * signs, and is discarded server-side; it never reaches the browser.
+ */
+export async function withdrawSol(
+  playerId: string,
+  toAddress: string,
+  lamports: number,
+): Promise<{ signature: string; lamports: number; balance: number }> {
+  const supabase = requireDb();
+
+  const amount = Math.floor(lamports);
+  if (!Number.isFinite(amount) || amount < MIN_WITHDRAW_LAMPORTS) {
+    throw new Error(`Minimum withdrawal is ${MIN_WITHDRAW_LAMPORTS / LAMPORTS_PER_SOL} SOL.`);
+  }
+  let destination: PublicKey;
+  try {
+    destination = new PublicKey(toAddress.trim());
+  } catch {
+    throw new Error("That is not a valid Solana address.");
+  }
+
+  // Check the spendable (custodial) balance first.
+  const { data: row } = await supabase
+    .from("players")
+    .select("sol_balance")
+    .eq("id", playerId)
+    .single();
+  const spendable = Number(row?.sol_balance ?? 0);
+  if (spendable < amount) {
+    throw new Error(
+      `Not enough SOL: you have ${(spendable / LAMPORTS_PER_SOL).toFixed(4)} SOL spendable.`,
+    );
+  }
+
+  const keypair = await loadKeypair(playerId);
+  const connection = new Connection(RPC_URL(), "confirmed");
+
+  // The custodial wallet pays the network fee on top of the sent amount.
+  const onchain = await connection.getBalance(keypair.publicKey);
+  if (onchain < amount + NETWORK_FEE_BUFFER) {
+    throw new Error("On-chain balance is too low to cover the network fee right now.");
+  }
+
+  const tx = new Transaction().add(
+    SystemProgram.transfer({
+      fromPubkey: keypair.publicKey,
+      toPubkey: destination,
+      lamports: amount,
+    }),
+  );
+  let signature: string;
+  try {
+    signature = await sendAndConfirmTransaction(connection, tx, [keypair], {
+      commitment: "confirmed",
+    });
+  } catch (err) {
+    throw new Error(
+      `Withdrawal failed on-chain: ${err instanceof Error ? err.message : "unknown error"}.`,
+    );
+  }
+
+  // Debit the spendable balance and re-anchor sol_seen to the new on-chain
+  // total, so the next deposit check measures deposits from here.
+  const balance = spendable - amount;
+  let newOnchain = onchain - amount;
+  try {
+    newOnchain = await connection.getBalance(keypair.publicKey);
+  } catch {
+    /* estimate is fine */
+  }
+  await supabase
+    .from("players")
+    .update({ sol_balance: balance, sol_seen: newOnchain })
+    .eq("id", playerId);
+  balanceCache.set(keypair.publicKey.toBase58(), { at: Date.now(), lamports: newOnchain });
+  await logLedger(playerId, "withdrawal", -amount, "SOL", destination.toBase58());
+
+  return { signature, lamports: amount, balance };
 }
 
 /** Get (or lazily create) the player's custodial wallet. Returns pubkey only. */

@@ -56,9 +56,28 @@ const opt = (id: string, label: string, odds: number): GameOption => ({
 export const PREMATCH_ROUND = -1;
 
 /**
+ * Winner odds for the card. Prefer the live 1X2 market; fall back to the
+ * win-probability split, then to a flat default. This keeps the prediction
+ * card ALWAYS open, even when the odds feed is momentarily missing.
+ */
+function winnerOdds(live: LiveState): { home: number; draw: number; away: number } {
+  if (live.odds) return live.odds;
+  if (live.prob) {
+    const fromPct = (p: number) => Math.max(1.05, Math.round((100 / Math.max(1, p)) * 100) / 100);
+    return {
+      home: fromPct(live.prob.home),
+      draw: fromPct(live.prob.draw),
+      away: fromPct(live.prob.away),
+    };
+  }
+  return { home: 2.5, draw: 3.2, away: 2.8 };
+}
+
+/**
  * Build the card for the fixture's current round. Before kickoff this is a
- * pre-match winner pick (round -1) whenever odds exist; after the final
- * whistle there is no card. Deterministic given the same state.
+ * pre-match winner pick (round -1); after the final whistle there is no
+ * card. The card is always available while the match is not final, even
+ * when the odds feed is momentarily empty. Deterministic given the state.
  */
 export function buildCard(
   live: LiveState,
@@ -67,18 +86,18 @@ export function buildCard(
   if (isFinal(live.statusId)) return null;
 
   // Pre-match: no clock yet (or explicitly not started). Lock in a winner
-  // call before kickoff, priced from the pre-match 1X2 market.
+  // call before kickoff, priced from the 1X2 market (or a fallback).
   if (live.clockSeconds === null || live.statusId === null || live.statusId === "NS") {
-    if (!live.odds) return null;
+    const o = winnerOdds(live);
     return {
       fixtureId: live.fixtureId,
       round: PREMATCH_ROUND,
       kind: "result",
       question: "Call it before kickoff: who wins?",
       options: [
-        opt("home", names.home, live.odds.home),
-        opt("draw", "Draw", live.odds.draw),
-        opt("away", names.away, live.odds.away),
+        opt("home", names.home, o.home),
+        opt("draw", "Draw", o.draw),
+        opt("away", names.away, o.away),
       ],
       baseline: { goals: 0, corners: 0, clockSeconds: 0, deadlineSeconds: null },
     };
@@ -100,17 +119,17 @@ export function buildCard(
   };
 
   if (kind === "result") {
-    // Straight from the TxLINE 1X2 market. Needs odds to exist.
-    if (!live.odds) return null;
+    // From the TxLINE 1X2 market, with a fallback so the card never closes.
+    const o = winnerOdds(live);
     return {
       fixtureId: live.fixtureId,
       round,
       kind,
       question: "Who takes it at full time?",
       options: [
-        opt("home", names.home, live.odds.home),
-        opt("draw", "Draw", live.odds.draw),
-        opt("away", names.away, live.odds.away),
+        opt("home", names.home, o.home),
+        opt("draw", "Draw", o.draw),
+        opt("away", names.away, o.away),
       ],
       baseline, // deadlineSeconds null: settles at FT
     };
