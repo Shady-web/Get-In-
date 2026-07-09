@@ -7,6 +7,7 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { authFetch } from "@/lib/api-client";
 import { WalletPanel } from "@/components/wallet-panel";
 import { Coin } from "@/components/coin";
+import { MatchStats } from "@/components/match-stats";
 import { formatAmount, type Currency } from "@/lib/money";
 import { MarketsPanel } from "@/components/markets-panel";
 import { Flag } from "@/components/flag";
@@ -175,7 +176,7 @@ export default function MatchScreen() {
             [
               ["matches", "Matches"],
               ["bets", "My Bets"],
-              ["wallet", "Deposit"],
+              ["wallet", "Wallet"],
               ["rooms", "Rooms"],
               ["leaders", "Leaders"],
             ] as const
@@ -184,13 +185,14 @@ export default function MatchScreen() {
               key={key}
               className={`pill tab ${tab === key ? "active" : ""}`}
               onClick={() => setTab(key)}
-              style={{ position: "relative" }}
             >
-              {label}
-              {key === "bets" && openBets > 0 && (
-                <span className="count-badge" aria-label={`${openBets} open bets`}>
-                  {openBets}
-                </span>
+              {key === "bets" && openBets > 0 ? (
+                <>
+                  {label}{" "}
+                  <span className="tab-count">{openBets}</span>
+                </>
+              ) : (
+                label
               )}
             </button>
           ))}
@@ -872,6 +874,9 @@ function LiveMatch({
           }
         />
 
+        {/* Recent form for both teams, to size up before predicting */}
+        <MatchStats fixtureId={fixture.FixtureId} />
+
         {/* Match-winner odds live DIRECTLY under the stats, betting-app style */}
         {state?.odds && !isFinal(state.statusId) && (
           <div className="card fade-in" style={{ display: "grid", gap: 10 }}>
@@ -1263,30 +1268,6 @@ function Leaders({
   const [rows, setRows] = useState<LeaderRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
-  const [claimMsg, setClaimMsg] = useState<string | null>(null);
-  const [claiming, setClaiming] = useState(false);
-
-  async function claim() {
-    setClaiming(true);
-    setClaimMsg(null);
-    try {
-      const res = await authFetch("/api/coins/claim", { method: "POST" });
-      const body = await res.json();
-      if (!res.ok || !body.ok) {
-        if (body?.nextClaimAt) {
-          const hrs = Math.ceil((body.nextClaimAt - Date.now()) / 3600_000);
-          throw new Error(`Already claimed. Next 500 coins in ~${hrs}h.`);
-        }
-        throw new Error(body?.error ?? "Claim failed.");
-      }
-      onPlayerUpdate(body.player as PlayerRecord);
-      setClaimMsg("+500 coins claimed! 🎉");
-    } catch (err) {
-      setClaimMsg(err instanceof Error ? err.message : "Claim failed.");
-    } finally {
-      setClaiming(false);
-    }
-  }
 
   async function onDownloadCard() {
     setShareError(null);
@@ -1356,14 +1337,6 @@ function Leaders({
             World Cup 2026
           </p>
         </section>
-        <button className="btn btn-primary" onClick={claim} disabled={claiming}>
-          {claiming ? "Claiming..." : "Claim 500 daily coins 🪙"}
-        </button>
-        {claimMsg && (
-          <p style={{ fontSize: 13, textAlign: "center", color: "var(--color-ash)" }}>
-            {claimMsg}
-          </p>
-        )}
         <button className="btn btn-ghost" onClick={onDownloadCard}>
           Download share card
         </button>

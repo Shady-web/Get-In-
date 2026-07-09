@@ -13,15 +13,26 @@ export default function Landing() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [signedInAs, setSignedInAs] = useState<string | null>(null);
 
-  // Already signed in? Straight to the matches.
+  // Detect an existing session but do NOT auto-redirect: that trapped you in
+  // the last account and blocked signing into another. Instead offer a
+  // "continue" shortcut while keeping the form usable for a different login.
   useEffect(() => {
     const supabase = getSupabaseBrowser();
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace("/match");
+      if (data.session) {
+        setSignedInAs(data.session.user.email ?? "your account");
+      }
     });
-  }, [router]);
+  }, []);
+
+  async function useAnotherAccount() {
+    await getSupabaseBrowser()?.auth.signOut();
+    setSignedInAs(null);
+    setError(null);
+  }
 
   function requireSupabase() {
     const supabase = getSupabaseBrowser();
@@ -131,6 +142,39 @@ export default function Landing() {
       </header>
 
       <section className="card" style={{ display: "grid", gap: 12 }}>
+        {signedInAs && (
+          <div
+            style={{
+              display: "grid",
+              gap: 8,
+              padding: "10px 12px",
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-cards)",
+            }}
+          >
+            <p style={{ fontSize: 13 }}>
+              Signed in as{" "}
+              <strong style={{ color: "var(--color-snow)" }}>{signedInAs}</strong>
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1, minHeight: 40 }}
+                onClick={() => router.push("/match")}
+              >
+                Continue
+              </button>
+              <button
+                className="btn btn-ghost"
+                style={{ flex: 1, minHeight: 40 }}
+                onClick={() => void useAnotherAccount()}
+              >
+                Use another account
+              </button>
+            </div>
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
           <button
             className={`pill tab ${mode === "signin" ? "active" : ""}`}

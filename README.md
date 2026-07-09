@@ -30,16 +30,24 @@ on-chain World Cup tier, Solana).
 - **Replay Mode**: finished matches (started 6h-2w ago) replay on a
   timeline with a scrubber and x1/x10/x60 speed. Cards price from the odds
   as they stood at that moment; scoring works exactly like live.
-- **Coin economy + SOL betting**: every player starts with 1,000 coins and
-  can claim 500 daily. Tap any full-time price (Markets tab, or the winner
-  odds in a replay) to build a Bet Slip: one selection = single, several
-  (across matches) = accumulator at the product of leg odds. Stake in
-  **coins or devnet SOL** (toggle on the slip); SOL stakes and payouts move
-  the custodial balance you funded from the faucet, tracked in lamports.
-  Slips settle automatically from the scores data - in live matches and in
-  Replay Mode. Open slips show a live Cash Out value (potential return x
-  current implied probability of the pending legs x 0.95) that animates as
-  odds move.
+- **Coin economy + SOL betting**: every player starts at 0 coins and earns
+  them from daily quests and winning bets (no daily handout). Tap any
+  full-time price (Markets tab, or the winner odds in a replay) to build a
+  Bet Slip: one selection = single, several (across matches) = accumulator
+  at the product of leg odds. Stake in **coins or devnet SOL** (toggle on
+  the slip); SOL stakes and payouts move the custodial balance you funded
+  from the faucet, tracked in lamports. Slips settle automatically from the
+  scores data - in live matches and in Replay Mode. Open slips show a live
+  Cash Out value (potential return x current implied probability of the
+  pending legs x 0.95) that animates as odds move.
+- **Wallet (Deposit + Withdraw)**: one Wallet tab with the balance pinned
+  on top and a Deposit / Withdraw toggle so the two flows never crowd each
+  other. Fund the custodial devnet wallet from the public faucet, and
+  withdraw devnet SOL to any external address (min 0.0067 SOL). The signing
+  key stays server-side.
+- **Recent form**: open any match to see each team's last 3 results
+  (W/D/L, scores, opponents) before you predict. Assembled from the
+  fixtures schedule + final scores; hides itself when there's no history.
 - **My Bets**: open and settled bets in separate sections, with a counter
   badge on the tab for how many are still running and per-leg won/lost/
   pending status on every accumulator.
@@ -108,6 +116,7 @@ Create a project at supabase.com, then run in the SQL editor:
 7. `supabase/schema-v7.sql`
 8. `supabase/schema-v8.sql`
 9. `supabase/schema-v9.sql`
+10. `supabase/schema-v10.sql`
 
 Then enable the auth providers: Dashboard -> Authentication -> Providers ->
 turn on **Email** (password sign-in) and **Google** (paste a Google OAuth
@@ -188,9 +197,10 @@ Two ways around that:
 | `POST /api/game/pick` | Save a pick with its odds snapshot |
 | `GET /api/markets/{fixtureId}` | Every priced market, normalized |
 | `GET /api/pundit/{fixtureId}` | Pundit ticker takes (live, or `?vt=` for replay) |
+| `GET /api/stats/{fixtureId}` | Recent form (last 3 results) for both teams |
 | `GET /api/quests` / `POST /api/quests` | Today's quest board / claim a reward |
 | `GET /api/badges` | Badge wall (awards new milestones on read) |
-| `POST /api/coins/claim` | Claim 500 daily coins |
+| `GET /api/wallet` / `POST /api/wallet/withdraw` | Balance + address / withdraw SOL |
 | `POST /api/slips` / `GET /api/slips` | Place bet slips / list + settle them |
 | `POST /api/slips/cashout` | Cash an open slip out at current value |
 | `GET /api/wallet` | Custodial devnet address + SOL/USD balance |

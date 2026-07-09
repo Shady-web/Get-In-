@@ -17,10 +17,18 @@ interface WalletInfo {
   stale: boolean;
 }
 
+const MIN_WITHDRAW_SOL = 0.0067;
+
 export function WalletPanel() {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [mode, setMode] = useState<"deposit" | "withdraw">("deposit");
+  const [toAddress, setToAddress] = useState("");
+  const [amount, setAmount] = useState("");
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawMsg, setWithdrawMsg] = useState<string | null>(null);
+  const [withdrawErr, setWithdrawErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -33,6 +41,31 @@ export function WalletPanel() {
       setError(err instanceof Error ? err.message : "Wallet unavailable.");
     }
   }, []);
+
+  async function withdraw() {
+    setWithdrawing(true);
+    setWithdrawMsg(null);
+    setWithdrawErr(null);
+    try {
+      const res = await authFetch("/api/wallet/withdraw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: toAddress.trim(), sol: Number(amount) }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Withdrawal failed.");
+      setWithdrawMsg(
+        `Sent ${(body.lamports / 1e9).toFixed(4)} SOL. Tx ${String(body.signature).slice(0, 8)}…`,
+      );
+      setAmount("");
+      setToAddress("");
+      void load();
+    } catch (err) {
+      setWithdrawErr(err instanceof Error ? err.message : "Withdrawal failed.");
+    } finally {
+      setWithdrawing(false);
+    }
+  }
 
   useEffect(() => {
     void load();
@@ -78,6 +111,25 @@ export function WalletPanel() {
         )}
       </div>
 
+      {/* One action at a time: Deposit and Withdraw never crowd each other. */}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          className={`pill tab ${mode === "deposit" ? "active" : ""}`}
+          style={{ flex: 1, justifyContent: "center" }}
+          onClick={() => setMode("deposit")}
+        >
+          Deposit
+        </button>
+        <button
+          className={`pill tab ${mode === "withdraw" ? "active" : ""}`}
+          style={{ flex: 1, justifyContent: "center" }}
+          onClick={() => setMode("withdraw")}
+        >
+          Withdraw
+        </button>
+      </div>
+
+      {mode === "deposit" ? (
       <div className="card fade-in" style={{ display: "grid", gap: 12 }}>
         <p className="caption section-label">Deposit test SOL</p>
         <p className="muted" style={{ fontSize: 13 }}>
@@ -118,6 +170,50 @@ export function WalletPanel() {
           Devnet only · test tokens · no real value
         </p>
       </div>
+      ) : (
+      /* Withdraw to an external devnet address */
+      <div className="card fade-in" style={{ display: "grid", gap: 12 }}>
+        <p className="caption section-label">Withdraw SOL</p>
+        <p className="muted" style={{ fontSize: 13 }}>
+          Send devnet SOL from your GetIN wallet to any external devnet
+          address. Minimum {MIN_WITHDRAW_SOL} SOL.
+        </p>
+        <input
+          className="input"
+          placeholder="Destination devnet address"
+          value={toAddress}
+          onChange={(e) => setToAddress(e.target.value)}
+          disabled={withdrawing}
+          aria-label="Destination address"
+        />
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            className="input"
+            style={{ maxWidth: 160 }}
+            inputMode="decimal"
+            placeholder="Amount in SOL"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+            disabled={withdrawing}
+            aria-label="Amount in SOL"
+          />
+          <span className="muted" style={{ fontSize: 12, flex: 1 }}>
+            {wallet ? `${wallet.sol.toLocaleString(undefined, { maximumFractionDigits: 4 })} SOL spendable` : ""}
+          </span>
+        </div>
+        <button
+          className="btn btn-primary"
+          disabled={withdrawing || !toAddress.trim() || Number(amount) < MIN_WITHDRAW_SOL}
+          onClick={() => void withdraw()}
+        >
+          {withdrawing ? "Sending…" : "Withdraw SOL"}
+        </button>
+        {withdrawMsg && (
+          <p style={{ fontSize: 13, color: "var(--color-tape-green)" }}>{withdrawMsg}</p>
+        )}
+        {withdrawErr && <p className="error-text">{withdrawErr}</p>}
+      </div>
+      )}
     </section>
   );
 }

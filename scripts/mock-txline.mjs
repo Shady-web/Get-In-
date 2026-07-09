@@ -47,6 +47,26 @@ const fixtures = [
   },
 ];
 
+// Finished past fixtures so the "Recent form" card has last-3 history.
+// [FixtureId, daysAgo, p1, p1Id, p2, p2Id, homeGoals, awayGoals]
+const PAST = [
+  [90010, 3, "Testland", 1, "Farland", 11, 2, 0],
+  [90011, 6, "Nearland", 12, "Testland", 1, 1, 1],
+  [90012, 9, "Testland", 1, "Highland", 13, 3, 1],
+  [90013, 2, "Mockovia", 2, "Farland", 11, 0, 3],
+  [90014, 5, "Nearland", 12, "Mockovia", 2, 2, 1],
+  [90015, 8, "Mockovia", 2, "Highland", 13, 1, 1],
+];
+for (const [id, daysAgo, p1, p1Id, p2, p2Id] of PAST) {
+  fixtures.push({
+    Ts: started, StartTime: started - daysAgo * 24 * 3600_000,
+    Competition: "World Cup", CompetitionId: 72,
+    Participant1: p1, Participant2: p2, FixtureId: id,
+    Participant1IsHome: true, Participant1Id: p1Id, Participant2Id: p2Id, FixtureGroupId: 9,
+  });
+}
+const pastById = new Map(PAST.map((r) => [r[0], r]));
+
 const RED_CARD_AT = 60 * 60; // Mockovia see red at 60'
 
 const sc = (h, a, ch, ca, rh = 0, ra = 0) => ({
@@ -236,6 +256,22 @@ const server = http.createServer((req, res) => {
 
   if (req.url === "/auth/guest/start") return json({ token: "mock-jwt" });
   if (req.url.startsWith("/api/fixtures/snapshot")) return json(fixtures);
+
+  // Finished past fixtures for the Recent-form card: a single FT entry.
+  {
+    const m = /^\/api\/(scores|odds)\/snapshot\/(\d+)/.exec(req.url);
+    if (m && pastById.has(Number(m[2]))) {
+      if (m[1] === "odds") return json([]);
+      const [id, , , , , , h, a] = pastById.get(Number(m[2]));
+      return json([
+        {
+          fixtureId: id, ts: Date.now(), seq: 1, statusSoccerId: "F",
+          clock: { running: false, seconds: 5640 },
+          scoreSoccer: sc(h, a, 4, 3),
+        },
+      ]);
+    }
+  }
 
   if (req.url.startsWith("/api/scores/historical/90003")) return json(replayScores);
   if (req.url.startsWith("/api/odds/updates/90003")) return json(replayOdds);
