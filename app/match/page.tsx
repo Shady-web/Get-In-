@@ -33,16 +33,16 @@ interface Fixture {
   LiveScore?: { home: number; away: number } | null;
 }
 
-/** Replay window per TxLINE: started between 2 weeks and 6 hours ago. */
-const REPLAY_MIN_AGE_MS = 6 * 60 * 60 * 1000;
-const REPLAY_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+// Replay shows recently finished matches: available from full time until
+// roughly 2 hours after it. A typical match runs ~2h from kickoff, so a 4h
+// cap on the kickoff age keeps it for ~2h past the final whistle.
+const REPLAY_MAX_AGE_MS = 4 * 60 * 60 * 1000;
 const POLL_MS = 7_000;
 
 type Selection = { fixture: Fixture; mode: "live" | "replay" };
 
 function isReplayable(f: Fixture, now: number): boolean {
-  const age = now - f.StartTime;
-  return age >= REPLAY_MIN_AGE_MS && age <= REPLAY_MAX_AGE_MS;
+  return f.LiveStatus === "finished" && now - f.StartTime <= REPLAY_MAX_AGE_MS;
 }
 
 function kickoffLabel(startTime: number): string {
@@ -315,12 +315,10 @@ function FixtureList({
   // Trust the server's LiveStatus (drawn from the real scores feed). A match
   // deep in extra time or penalties is LIVE no matter what the clock says.
   const live = (fixtures ?? []).filter((f) => f.LiveStatus === "live");
-  const justFinished = (fixtures ?? []).filter(
-    (f) => f.LiveStatus === "finished" && now - f.StartTime < REPLAY_MIN_AGE_MS,
-  );
   const upcoming = (fixtures ?? [])
     .filter((f) => (f.LiveStatus ? f.LiveStatus === "upcoming" : f.StartTime > now))
     .sort((a, b) => a.StartTime - b.StartTime);
+  // Recently finished matches you can replay (until ~2h after full time).
   const replayable = (fixtures ?? [])
     .filter((f) => isReplayable(f, now))
     .sort((a, b) => b.StartTime - a.StartTime);
@@ -387,31 +385,6 @@ function FixtureList({
         )}
       </section>
 
-      {justFinished.length > 0 && (
-        <section style={{ display: "grid", gap: "var(--element-gap)" }}>
-          <p className="caption section-label">Full time</p>
-          <div className="fixture-grid">
-            {justFinished.map((f) => (
-              <FixtureRow
-                key={f.FixtureId}
-                fixture={f}
-                onClick={() => onPick({ fixture: f, mode: "live" })}
-                right={
-                  <span style={{ display: "grid", gap: 2, justifyItems: "end" }}>
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>
-                      {f.LiveScore ? `${f.LiveScore.home}:${f.LiveScore.away}` : "FT"}
-                    </span>
-                    <span className="muted" style={{ fontSize: 11 }}>
-                      {f.Phase ?? "Full time"}
-                    </span>
-                  </span>
-                }
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
       {upcoming.length > 0 && (
         <section style={{ display: "grid", gap: "var(--element-gap)" }}>
           <p className="caption section-label">Coming up</p>
@@ -436,8 +409,9 @@ function FixtureList({
         <p className="caption section-label">Replay mode</p>
         {fixtures && replayable.length === 0 && (
           <p className="muted fade-in" style={{ fontSize: 14 }}>
-            No finished matches in the replay window yet (matches become
-            replayable 6 hours after kickoff and stay for 2 weeks).
+            Just-finished matches show up here to replay from full time until
+            about 2 hours after. Nothing has wrapped up in that window right
+            now, so check back after the next match ends.
           </p>
         )}
         <div className="fixture-grid">
@@ -447,8 +421,15 @@ function FixtureList({
               fixture={f}
               onClick={() => onPick({ fixture: f, mode: "replay" })}
               right={
-                <span style={{ color: "var(--color-ember-orange)", fontSize: 12, fontWeight: 500 }}>
-                  REPLAY
+                <span style={{ display: "grid", gap: 2, justifyItems: "end" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>
+                    {f.LiveScore ? `${f.LiveScore.home}:${f.LiveScore.away}` : "FT"}
+                  </span>
+                  <span
+                    style={{ color: "var(--color-orangey)", fontSize: 11, fontWeight: 600 }}
+                  >
+                    REPLAY
+                  </span>
                 </span>
               }
             />

@@ -91,8 +91,8 @@ export function MatchStats({ fixtureId }: { fixtureId: number }) {
 
   if (gone) return null;
 
-  // Hide entirely if neither team has any results to show.
-  if (stats && stats.home.form.length === 0 && stats.away.form.length === 0) return null;
+  const noHistory =
+    stats !== null && stats.home.form.length === 0 && stats.away.form.length === 0;
 
   return (
     <div className="card fade-in" style={{ display: "grid", gap: open ? 14 : 0 }}>
@@ -119,11 +119,18 @@ export function MatchStats({ fixtureId }: { fixtureId: number }) {
 
       {open &&
         (stats ? (
-          <div style={{ display: "grid", gap: 16 }}>
-            <TeamRow team={stats.home} />
-            <div style={{ height: 1, background: "var(--color-border)" }} />
-            <TeamRow team={stats.away} />
-          </div>
+          noHistory ? (
+            <p className="muted" style={{ fontSize: 13 }}>
+              No recent results for these teams in the schedule yet. Form
+              appears once they have finished matches on record.
+            </p>
+          ) : (
+            <div style={{ display: "grid", gap: 16 }}>
+              <TeamRow team={stats.home} />
+              <div style={{ height: 1, background: "var(--color-border)" }} />
+              <TeamRow team={stats.away} />
+            </div>
+          )
         ) : (
           <div className="skeleton" style={{ height: 96 }} />
         ))}

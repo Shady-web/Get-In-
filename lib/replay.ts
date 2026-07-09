@@ -49,20 +49,27 @@ export async function getReplayTimeline(fixtureId: number): Promise<ReplayTimeli
   const hit = cache.get(fixtureId);
   if (hit) return hit;
 
-  const [scoresRaw, oddsRaw] = await Promise.allSettled([
+  // Historical is the richest source but only covers matches started 6h+ ago.
+  // For a just-finished match, fall back to the live updates/snapshot feed,
+  // which still holds the match's event history for a while after full time.
+  const [historicalRaw, updatesRaw, snapshotRaw, oddsRaw] = await Promise.allSettled([
     txlineGet(`/scores/historical/${fixtureId}`),
+    txlineGet(`/scores/updates/${fixtureId}`),
+    txlineGet(`/scores/snapshot/${fixtureId}`),
     txlineGet(`/odds/updates/${fixtureId}`),
   ]);
 
-  if (scoresRaw.status === "rejected") {
-    throw new Error(
-      `No historical scores for fixture ${fixtureId} (replay covers matches started 2 weeks to 6 hours ago). ${scoresRaw.reason?.message ?? ""}`,
-    );
+  // Use the first source that yields real per-frame history.
+  let scoreFrames: ScoreFrame[] = [];
+  for (const src of [historicalRaw, updatesRaw, snapshotRaw]) {
+    if (src.status !== "fulfilled") continue;
+    const frames = parseScoreFrames(src.value);
+    if (frames.length > scoreFrames.length) scoreFrames = frames;
   }
-
-  const scoreFrames = parseScoreFrames(scoresRaw.value);
   if (scoreFrames.length === 0) {
-    throw new Error(`Historical feed for fixture ${fixtureId} came back empty.`);
+    throw new Error(
+      `No replay data for fixture ${fixtureId} yet. Very recent matches can take a few minutes to become replayable.`,
+    );
   }
   const oddsFrames = parseOddsFrames(
     oddsRaw.status === "fulfilled" ? oddsRaw.value : null,

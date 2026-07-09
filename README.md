@@ -27,9 +27,10 @@ on-chain World Cup tier, Solana).
   Points = round(odds x 10), so unlikely calls pay more. Picks store the
   odds snapshot; settlement is automatic (correct picks add points and
   extend your streak, a miss resets it to 0).
-- **Replay Mode**: finished matches (started 6h-2w ago) replay on a
-  timeline with a scrubber and x1/x10/x60 speed. Cards price from the odds
-  as they stood at that moment; scoring works exactly like live.
+- **Replay Mode**: just-finished matches replay on a timeline (scrubber,
+  x1/x10/x60 speed) from full time until about 2 hours after. Cards price
+  from the odds as they stood at that moment; scoring works exactly like
+  live.
 - **Coin economy + SOL betting**: every player starts at 0 coins and earns
   them from daily quests and winning bets (no daily handout). Tap any
   full-time price (Markets tab, or the winner odds in a replay) to build a
