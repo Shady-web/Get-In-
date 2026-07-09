@@ -23,6 +23,7 @@ export function WalletPanel() {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [mode, setMode] = useState<"deposit" | "withdraw">("deposit");
   const [toAddress, setToAddress] = useState("");
   const [amount, setAmount] = useState("");
   const [withdrawing, setWithdrawing] = useState(false);
@@ -110,6 +111,25 @@ export function WalletPanel() {
         )}
       </div>
 
+      {/* One action at a time: Deposit and Withdraw never crowd each other. */}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          className={`pill tab ${mode === "deposit" ? "active" : ""}`}
+          style={{ flex: 1, justifyContent: "center" }}
+          onClick={() => setMode("deposit")}
+        >
+          Deposit
+        </button>
+        <button
+          className={`pill tab ${mode === "withdraw" ? "active" : ""}`}
+          style={{ flex: 1, justifyContent: "center" }}
+          onClick={() => setMode("withdraw")}
+        >
+          Withdraw
+        </button>
+      </div>
+
+      {mode === "deposit" ? (
       <div className="card fade-in" style={{ display: "grid", gap: 12 }}>
         <p className="caption section-label">Deposit test SOL</p>
         <p className="muted" style={{ fontSize: 13 }}>
@@ -150,8 +170,8 @@ export function WalletPanel() {
           Devnet only · test tokens · no real value
         </p>
       </div>
-
-      {/* Withdraw to an external devnet address */}
+      ) : (
+      /* Withdraw to an external devnet address */
       <div className="card fade-in" style={{ display: "grid", gap: 12 }}>
         <p className="caption section-label">Withdraw SOL</p>
         <p className="muted" style={{ fontSize: 13 }}>
@@ -193,6 +213,7 @@ export function WalletPanel() {
         )}
         {withdrawErr && <p className="error-text">{withdrawErr}</p>}
       </div>
+      )}
     </section>
   );
 }

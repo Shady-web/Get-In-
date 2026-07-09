@@ -1066,3 +1066,17 @@ a {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---- Recent-form pills ---------------------------------------------------- */
+
+.form-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 800;
+  flex: none;
+}

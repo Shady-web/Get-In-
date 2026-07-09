@@ -7,6 +7,7 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { authFetch } from "@/lib/api-client";
 import { WalletPanel } from "@/components/wallet-panel";
 import { Coin } from "@/components/coin";
+import { MatchStats } from "@/components/match-stats";
 import { formatAmount, type Currency } from "@/lib/money";
 import { MarketsPanel } from "@/components/markets-panel";
 import { Flag } from "@/components/flag";
@@ -175,7 +176,7 @@ export default function MatchScreen() {
             [
               ["matches", "Matches"],
               ["bets", "My Bets"],
-              ["wallet", "Deposit"],
+              ["wallet", "Wallet"],
               ["rooms", "Rooms"],
               ["leaders", "Leaders"],
             ] as const
@@ -872,6 +873,9 @@ function LiveMatch({
             </p>
           }
         />
+
+        {/* Recent form for both teams, to size up before predicting */}
+        <MatchStats fixtureId={fixture.FixtureId} />
 
         {/* Match-winner odds live DIRECTLY under the stats, betting-app style */}
         {state?.odds && !isFinal(state.statusId) && (

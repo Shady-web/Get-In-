@@ -40,9 +40,14 @@ on-chain World Cup tier, Solana).
   scores data - in live matches and in Replay Mode. Open slips show a live
   Cash Out value (potential return x current implied probability of the
   pending legs x 0.95) that animates as odds move.
-- **Deposit + Withdraw**: fund your custodial devnet wallet from the public
-  faucet, and withdraw devnet SOL to any external address (min 0.0067 SOL)
-  straight from the Deposit tab. The signing key stays server-side.
+- **Wallet (Deposit + Withdraw)**: one Wallet tab with the balance pinned
+  on top and a Deposit / Withdraw toggle so the two flows never crowd each
+  other. Fund the custodial devnet wallet from the public faucet, and
+  withdraw devnet SOL to any external address (min 0.0067 SOL). The signing
+  key stays server-side.
+- **Recent form**: open any match to see each team's last 3 results
+  (W/D/L, scores, opponents) before you predict. Assembled from the
+  fixtures schedule + final scores; hides itself when there's no history.
 - **My Bets**: open and settled bets in separate sections, with a counter
   badge on the tab for how many are still running and per-leg won/lost/
   pending status on every accumulator.
@@ -192,6 +197,7 @@ Two ways around that:
 | `POST /api/game/pick` | Save a pick with its odds snapshot |
 | `GET /api/markets/{fixtureId}` | Every priced market, normalized |
 | `GET /api/pundit/{fixtureId}` | Pundit ticker takes (live, or `?vt=` for replay) |
+| `GET /api/stats/{fixtureId}` | Recent form (last 3 results) for both teams |
 | `GET /api/quests` / `POST /api/quests` | Today's quest board / claim a reward |
 | `GET /api/badges` | Badge wall (awards new milestones on read) |
 | `GET /api/wallet` / `POST /api/wallet/withdraw` | Balance + address / withdraw SOL |
