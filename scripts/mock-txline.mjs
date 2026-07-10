@@ -67,6 +67,14 @@ for (const [id, daysAgo, p1, p1Id, p2, p2Id] of PAST) {
 }
 const pastById = new Map(PAST.map((r) => [r[0], r]));
 
+// A match that finished ~30 minutes ago, inside the 2h replay window.
+const kickoffRecent = started - 2.5 * 3600_000;
+fixtures.push({
+  Ts: started, StartTime: kickoffRecent, Competition: "World Cup", CompetitionId: 72,
+  Participant1: "Rivertown", Participant2: "Hillside", FixtureId: 90004,
+  Participant1IsHome: true, Participant1Id: 21, Participant2Id: 22, FixtureGroupId: 9,
+});
+
 const RED_CARD_AT = 60 * 60; // Mockovia see red at 60'
 
 const sc = (h, a, ch, ca, rh = 0, ra = 0) => ({
@@ -200,6 +208,24 @@ const replayOdds = [
   Pct: [p1, px, p2],
 }));
 
+// Recently-finished match 90004: same script, timestamps ~2.5h ago.
+const recentScores = replayScript.map(([t, st, h, a, ch, ca, ra], i) => ({
+  fixtureId: 90004, ts: kickoffRecent + t * 1000, seq: i + 1, statusSoccerId: st,
+  clock: { running: st !== "HT" && st !== "F", seconds: t },
+  scoreSoccer: sc(h, a, ch, ca, 0, ra),
+}));
+const recentOdds = [
+  [0, "40.000", "30.000", "30.000"],
+  [720, "58.000", "26.000", "16.000"],
+  [4680, "72.000", "18.000", "10.000"],
+].map(([t, p1, px, p2], i) => ({
+  FixtureId: 90004, MessageId: `r${i}`, Ts: kickoffRecent + Number(t) * 1000,
+  Bookmaker: "MockPrice", BookmakerId: 7, SuperOddsType: "1x2", InRunning: t > 0,
+  MarketPeriod: "FT", PriceNames: ["1", "X", "2"],
+  Prices: [p1, px, p2].map((p) => Math.round(100000 / parseFloat(p))),
+  Pct: [p1, px, p2],
+}));
+
 // --- Server -----------------------------------------------------------------------
 
 const server = http.createServer((req, res) => {
@@ -275,6 +301,12 @@ const server = http.createServer((req, res) => {
 
   if (req.url.startsWith("/api/scores/historical/90003")) return json(replayScores);
   if (req.url.startsWith("/api/odds/updates/90003")) return json(replayOdds);
+
+  // Recently-finished replayable match.
+  if (req.url.startsWith("/api/scores/historical/90004")) return json(recentScores);
+  if (req.url.startsWith("/api/scores/snapshot/90004")) return json(recentScores);
+  if (req.url.startsWith("/api/odds/updates/90004")) return json(recentOdds);
+  if (req.url.startsWith("/api/odds/snapshot/90004")) return json([]);
 
   if (req.url.startsWith("/api/scores/snapshot/90001")) {
     const t = Math.min((Date.now() - kickoffLive) / 1000, FT_SECONDS);

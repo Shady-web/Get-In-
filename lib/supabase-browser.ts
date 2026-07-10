@@ -10,14 +10,13 @@ let cached: SupabaseClient | null | undefined;
 export function getSupabaseBrowser(): SupabaseClient | null {
   if (cached !== undefined) return cached;
   // Tolerate copy-paste artifacts (quotes/whitespace) and validate, so a
-  // typo shows up as a console message instead of a hard crash.
-  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "")
-    .trim()
-    .replace(/^["']|["']$/g, "")
-    .replace(/\/+$/, "");
-  const key = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "")
-    .trim()
-    .replace(/^["']|["']$/g, "");
+  // typo shows up as a console message instead of a hard crash. Take only
+  // the first token: a multi-line paste can append the next env line to a
+  // value, which would otherwise break the Authorization header.
+  const firstToken = (v: string | undefined) =>
+    (v ?? "").trim().replace(/^["']|["']$/g, "").split(/\s/)[0] ?? "";
+  const url = firstToken(process.env.NEXT_PUBLIC_SUPABASE_URL).replace(/\/+$/, "");
+  const key = firstToken(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   let valid = false;
   try {
     const parsed = new URL(url);

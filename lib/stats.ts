@@ -4,7 +4,8 @@
 // endpoint is needed - it is assembled from data the free tier exposes.
 
 import { txlineGet } from "@/lib/txline";
-import { getLiveState } from "@/lib/live";
+import { getScoresSnapshot } from "@/lib/scores-snapshot";
+import { foldScores } from "@/lib/txline-parse";
 import { isFinal } from "@/lib/game-core";
 
 interface RawFixture {
@@ -51,35 +52,39 @@ function keysForSide(f: RawFixture, side: 1 | 2): string {
     : teamKey(f.Participant2Id, f.Participant2);
 }
 
-async function buildTeamForm(
+/** Final score for a fixture from the scores snapshot, or null if not final. */
+async function finalScore(
+  fixtureId: number,
+): Promise<{ home: number; away: number } | null> {
+  try {
+    const folded = foldScores(await getScoresSnapshot(fixtureId));
+    if (folded.score && isFinal(folded.statusId)) return folded.score;
+  } catch {
+    /* skip */
+  }
+  return null;
+}
+
+function buildTeamForm(
   key: string,
   name: string,
-  finished: RawFixture[],
-  now: number,
-): Promise<TeamForm> {
-  // This team's finished fixtures, newest first.
-  const mine = finished
+  candidates: RawFixture[],
+  scores: Map<number, { home: number; away: number }>,
+): TeamForm {
+  const mine = candidates
     .filter((f) => keysForSide(f, 1) === key || keysForSide(f, 2) === key)
-    .sort((a, b) => b.StartTime - a.StartTime)
-    .slice(0, RECENT_COUNT * 2); // over-fetch: some may lack a usable score
+    .sort((a, b) => b.StartTime - a.StartTime);
 
   const form: FormResult[] = [];
   for (const f of mine) {
     if (form.length >= RECENT_COUNT) break;
-    let state;
-    try {
-      state = await getLiveState(f.FixtureId);
-    } catch {
-      continue;
-    }
-    if (!state.score || !isFinal(state.statusId)) continue;
-
+    const score = scores.get(f.FixtureId);
+    if (!score) continue;
     const isHome = keysForSide(f, 1) === key;
-    const mineGoals = isHome ? state.score.home : state.score.away;
-    const oppGoals = isHome ? state.score.away : state.score.home;
-    const opponent = isHome ? f.Participant2 : f.Participant1;
+    const mineGoals = isHome ? score.home : score.away;
+    const oppGoals = isHome ? score.away : score.home;
     form.push({
-      opponent,
+      opponent: isHome ? f.Participant2 : f.Participant1,
       home: isHome,
       score: `${mineGoals}-${oppGoals}`,
       result: mineGoals > oppGoals ? "W" : mineGoals < oppGoals ? "L" : "D",
@@ -92,7 +97,7 @@ async function buildTeamForm(
   const l = form.filter((r) => r.result === "L").length;
   const summary =
     form.length === 0
-      ? "No recent matches yet"
+      ? "No recent matches"
       : [w ? `${w}W` : "", d ? `${d}D` : "", l ? `${l}L` : ""].filter(Boolean).join("-");
 
   return { name, form, summary };
@@ -109,15 +114,33 @@ export async function getMatchStats(fixtureId: number): Promise<MatchStats> {
   const target = fixtures.find((f) => f.FixtureId === fixtureId);
   if (!target) throw new Error("Fixture not found in the schedule.");
 
-  // Candidate past matches: kicked off already and not this fixture.
-  const finished = fixtures.filter((f) => f.FixtureId !== fixtureId && f.StartTime < now);
+  const homeKey = keysForSide(target, 1);
+  const awayKey = keysForSide(target, 2);
 
-  const [home, away] = await Promise.all([
-    buildTeamForm(keysForSide(target, 1), target.Participant1, finished, now),
-    buildTeamForm(keysForSide(target, 2), target.Participant2, finished, now),
-  ]);
+  // Past fixtures involving either team (kicked off already, not this one),
+  // newest first. Cap the set so we make a bounded number of score fetches.
+  const involvesEither = (f: RawFixture) =>
+    keysForSide(f, 1) === homeKey ||
+    keysForSide(f, 2) === homeKey ||
+    keysForSide(f, 1) === awayKey ||
+    keysForSide(f, 2) === awayKey;
+  const candidates = fixtures
+    .filter((f) => f.FixtureId !== fixtureId && f.StartTime < now && involvesEither(f))
+    .sort((a, b) => b.StartTime - a.StartTime)
+    .slice(0, RECENT_COUNT * 4); // enough to cover 3 each, both teams
 
-  const stats: MatchStats = { fixtureId, home, away };
+  // Fetch all candidate final scores in parallel (scores only, no odds).
+  const scoreEntries = await Promise.all(
+    candidates.map(async (f) => [f.FixtureId, await finalScore(f.FixtureId)] as const),
+  );
+  const scores = new Map<number, { home: number; away: number }>();
+  for (const [id, score] of scoreEntries) if (score) scores.set(id, score);
+
+  const stats: MatchStats = {
+    fixtureId,
+    home: buildTeamForm(homeKey, target.Participant1, candidates, scores),
+    away: buildTeamForm(awayKey, target.Participant2, candidates, scores),
+  };
   cache.set(fixtureId, { at: Date.now(), stats });
   return stats;
 }

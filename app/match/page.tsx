@@ -8,7 +8,8 @@ import { authFetch } from "@/lib/api-client";
 import { WalletPanel } from "@/components/wallet-panel";
 import { Coin } from "@/components/coin";
 import { MatchStats } from "@/components/match-stats";
-import { formatAmount, type Currency } from "@/lib/money";
+import { EconomyExplainer, useEconomyExplainer } from "@/components/economy-explainer";
+import { coinsToLamports, formatAmount, type Currency } from "@/lib/money";
 import { MarketsPanel } from "@/components/markets-panel";
 import { Flag } from "@/components/flag";
 import { BetSlipProvider, BetSlipTray, useBetSlip } from "@/components/bet-slip";
@@ -33,16 +34,16 @@ interface Fixture {
   LiveScore?: { home: number; away: number } | null;
 }
 
-/** Replay window per TxLINE: started between 2 weeks and 6 hours ago. */
-const REPLAY_MIN_AGE_MS = 6 * 60 * 60 * 1000;
-const REPLAY_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+// Replay shows recently finished matches: available from full time until
+// roughly 2 hours after it. A typical match runs ~2h from kickoff, so a 4h
+// cap on the kickoff age keeps it for ~2h past the final whistle.
+const REPLAY_MAX_AGE_MS = 4 * 60 * 60 * 1000;
 const POLL_MS = 7_000;
 
 type Selection = { fixture: Fixture; mode: "live" | "replay" };
 
 function isReplayable(f: Fixture, now: number): boolean {
-  const age = now - f.StartTime;
-  return age >= REPLAY_MIN_AGE_MS && age <= REPLAY_MAX_AGE_MS;
+  return f.LiveStatus === "finished" && now - f.StartTime <= REPLAY_MAX_AGE_MS;
 }
 
 function kickoffLabel(startTime: number): string {
@@ -68,6 +69,16 @@ export default function MatchScreen() {
   const [selected, setSelected] = useState<Selection | null>(null);
   const [tab, setTab] = useState<"matches" | "bets" | "rooms" | "leaders" | "wallet">("matches");
   const [openBets, setOpenBets] = useState(0);
+  const [toast, setToast] = useState<{ kind: "won" | "lost" | "info"; title: string; text: string } | null>(null);
+  const slipStatusRef = useRef<Map<string, string>>(new Map());
+  const toastTimer = useRef<number | null>(null);
+  const explainer = useEconomyExplainer();
+
+  const showToast = useCallback((t: { kind: "won" | "lost" | "info"; title: string; text: string }) => {
+    setToast(t);
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 4600);
+  }, []);
 
   // Identity = the Supabase session. No session, no match screen.
   useEffect(() => {
@@ -121,14 +132,44 @@ export default function MatchScreen() {
         const res = await authFetch("/api/slips");
         const body = await res.json();
         if (!cancelled && body?.ok && Array.isArray(body.slips)) {
-          setOpenBets(body.slips.filter((s: { status: string }) => s.status === "pending").length);
+          const slips = body.slips as SlipView[];
+          setOpenBets(slips.filter((s) => s.status === "pending").length);
+          // Toast when a slip transitions from open to a settled result.
+          const prev = slipStatusRef.current;
+          if (prev.size > 0) {
+            for (const s of slips) {
+              const was = prev.get(s.id);
+              if (was === "pending" && s.status !== "pending") {
+                const ccy: Currency = s.currency === "SOL" ? "SOL" : "COIN";
+                if (s.status === "won") {
+                  showToast({
+                    kind: "won",
+                    title: "YOU CALLED IT!",
+                    text: `+${formatAmount(
+                      ccy === "COIN"
+                        ? coinsToLamports(Number(s.potential_return))
+                        : Number(s.potential_return),
+                      "SOL",
+                    )}`,
+                  });
+                } else if (s.status === "lost") {
+                  showToast({
+                    kind: "lost",
+                    title: "SO CLOSE",
+                    text: `-${formatAmount(Number(s.stake), ccy)} · better luck next call`,
+                  });
+                }
+              }
+            }
+          }
+          slipStatusRef.current = new Map(slips.map((s) => [s.id, s.status]));
         }
       } catch {
         /* leave the last count */
       }
     };
     void tick();
-    const id = window.setInterval(tick, 30_000);
+    const id = window.setInterval(tick, 12_000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
@@ -153,9 +194,14 @@ export default function MatchScreen() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {coins !== undefined && (
-            <span className="pill" title="Coin bankroll" style={{ gap: 5 }}>
-              <Coin size={15} /> {coins.toLocaleString()}
-            </span>
+            <button
+              className="coin-pill"
+              title="How the economy works"
+              onClick={explainer.openExplainer}
+            >
+              <Coin size={16} /> {coins.toLocaleString()}
+              <span style={{ opacity: 0.6, fontSize: 11 }}>ⓘ</span>
+            </button>
           )}
           <span className="pill" title={displayName(player)}>
             {displayName(player)}
@@ -235,6 +281,18 @@ export default function MatchScreen() {
       )}
 
       <BetSlipTray player={player} onPlayerUpdate={updatePlayerRecord} />
+      {explainer.open && <EconomyExplainer onClose={explainer.close} />}
+      {toast && (
+        <div className={`toast toast-${toast.kind} fade-in`} role="status">
+          <span className="toast-icon" aria-hidden>
+            {toast.kind === "won" ? "✓" : toast.kind === "lost" ? "✕" : "ℹ"}
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span className="toast-title">{toast.title}</span>
+            <span className="toast-text">{toast.text}</span>
+          </span>
+        </div>
+      )}
     </main>
     </BetSlipProvider>
   );
@@ -315,12 +373,10 @@ function FixtureList({
   // Trust the server's LiveStatus (drawn from the real scores feed). A match
   // deep in extra time or penalties is LIVE no matter what the clock says.
   const live = (fixtures ?? []).filter((f) => f.LiveStatus === "live");
-  const justFinished = (fixtures ?? []).filter(
-    (f) => f.LiveStatus === "finished" && now - f.StartTime < REPLAY_MIN_AGE_MS,
-  );
   const upcoming = (fixtures ?? [])
     .filter((f) => (f.LiveStatus ? f.LiveStatus === "upcoming" : f.StartTime > now))
     .sort((a, b) => a.StartTime - b.StartTime);
+  // Recently finished matches you can replay (until ~2h after full time).
   const replayable = (fixtures ?? [])
     .filter((f) => isReplayable(f, now))
     .sort((a, b) => b.StartTime - a.StartTime);
@@ -387,31 +443,6 @@ function FixtureList({
         )}
       </section>
 
-      {justFinished.length > 0 && (
-        <section style={{ display: "grid", gap: "var(--element-gap)" }}>
-          <p className="caption section-label">Full time</p>
-          <div className="fixture-grid">
-            {justFinished.map((f) => (
-              <FixtureRow
-                key={f.FixtureId}
-                fixture={f}
-                onClick={() => onPick({ fixture: f, mode: "live" })}
-                right={
-                  <span style={{ display: "grid", gap: 2, justifyItems: "end" }}>
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>
-                      {f.LiveScore ? `${f.LiveScore.home}:${f.LiveScore.away}` : "FT"}
-                    </span>
-                    <span className="muted" style={{ fontSize: 11 }}>
-                      {f.Phase ?? "Full time"}
-                    </span>
-                  </span>
-                }
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
       {upcoming.length > 0 && (
         <section style={{ display: "grid", gap: "var(--element-gap)" }}>
           <p className="caption section-label">Coming up</p>
@@ -436,8 +467,9 @@ function FixtureList({
         <p className="caption section-label">Replay mode</p>
         {fixtures && replayable.length === 0 && (
           <p className="muted fade-in" style={{ fontSize: 14 }}>
-            No finished matches in the replay window yet (matches become
-            replayable 6 hours after kickoff and stay for 2 weeks).
+            Just-finished matches show up here to replay from full time until
+            about 2 hours after. Nothing has wrapped up in that window right
+            now, so check back after the next match ends.
           </p>
         )}
         <div className="fixture-grid">
@@ -447,8 +479,15 @@ function FixtureList({
               fixture={f}
               onClick={() => onPick({ fixture: f, mode: "replay" })}
               right={
-                <span style={{ color: "var(--color-ember-orange)", fontSize: 12, fontWeight: 500 }}>
-                  REPLAY
+                <span style={{ display: "grid", gap: 2, justifyItems: "end" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>
+                    {f.LiveScore ? `${f.LiveScore.home}:${f.LiveScore.away}` : "FT"}
+                  </span>
+                  <span
+                    style={{ color: "var(--color-orangey)", fontSize: 11, fontWeight: 600 }}
+                  >
+                    REPLAY
+                  </span>
                 </span>
               }
             />
@@ -1516,7 +1555,7 @@ function MyBets({
               : ""}
           </span>
         </span>
-        {s.status === "pending" && typeof s.cashValue === "number" ? (
+        {s.status === "pending" && ccy === "SOL" && typeof s.cashValue === "number" ? (
           <button
             className="cashout-btn"
             onClick={() => setConfirmCash(s)}
@@ -1530,7 +1569,22 @@ function MyBets({
               className={`cash-value ${dir ? `flash-${dir}` : ""}`}
             >
               {dir === "up" ? "▲" : dir === "down" ? "▼" : ""}{" "}
-              {ccy === "SOL" ? `${(s.cashValue / 1e9).toFixed(3)}◎` : s.cashValue.toLocaleString()}
+              {`${(s.cashValue / 1e9).toFixed(3)}◎`}
+            </span>
+          </button>
+        ) : s.status === "pending" && ccy === "COIN" ? (
+          <button
+            className="cashout-btn"
+            disabled
+            aria-label="Cash out unavailable"
+            title="Coin calls settle at full time and pay out in SOL"
+            style={{ opacity: 0.55, cursor: "default" }}
+          >
+            <span className="caption" style={{ color: "var(--color-fog)" }}>
+              Cash out
+            </span>
+            <span className="cash-value" style={{ fontSize: 12 }}>
+              Unavailable
             </span>
           </button>
         ) : (
@@ -1554,7 +1608,12 @@ function MyBets({
               : s.status === "cashed"
                 ? `CASHED +${formatAmount(Number(s.cashout_amount ?? 0), ccy)}`
                 : s.status === "won"
-                  ? `WON +${formatAmount(Number(s.potential_return), ccy)}`
+                  ? `WON +${formatAmount(
+                      ccy === "COIN"
+                        ? coinsToLamports(Number(s.potential_return))
+                        : Number(s.potential_return),
+                      "SOL",
+                    )}`
                   : s.status.toUpperCase()}
           </span>
         )}

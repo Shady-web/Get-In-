@@ -27,9 +27,10 @@ on-chain World Cup tier, Solana).
   Points = round(odds x 10), so unlikely calls pay more. Picks store the
   odds snapshot; settlement is automatic (correct picks add points and
   extend your streak, a miss resets it to 0).
-- **Replay Mode**: finished matches (started 6h-2w ago) replay on a
-  timeline with a scrubber and x1/x10/x60 speed. Cards price from the odds
-  as they stood at that moment; scoring works exactly like live.
+- **Replay Mode**: just-finished matches replay on a timeline (scrubber,
+  x1/x10/x60 speed) from full time until about 2 hours after. Cards price
+  from the odds as they stood at that moment; scoring works exactly like
+  live.
 - **Coin economy + SOL betting**: every player starts at 0 coins and earns
   them from daily quests and winning bets (no daily handout). Tap any
   full-time price (Markets tab, or the winner odds in a replay) to build a
@@ -214,10 +215,15 @@ Two ways around that:
 
 ## Stack notes
 
-- Styling: GSAP design system tokens (via the refero-ui-styles workflow):
-  just-black canvas, warm cream text (never pure white), a shockingly-green
-  gradient as the only CTA voice, outlined pill controls, 8px cards,
-  curly-bracket section labels, no shadows (depth from gradients only).
-  One typeface (Inter Tight, GSAP's documented fallback).
+- Styling: the GetIN design system (stadium night). Floodlit pitch green +
+  electric-lime CTAs + trophy-gold GI coins on a deep green-black canvas.
+  Anton for display (scores, streaks, headings), Space Mono for every
+  number (odds, coins, stakes, clock), Archivo for body.
+- Coin economy rule: GI-coin calls ride to full time and settle
+  automatically (no early cash out) - a winning coin call pays out in SOL
+  at a fixed 15,000 coins = 1 SOL peg (the stake stays in coins; voids
+  refund coins). Only SOL calls can be cashed out early. An in-app "How
+  GetIN works" explainer (first visit + the coin pill in the header)
+  documents this.
 - Probability bar palette validated for colorblind safety and contrast.
 - `scripts/setup-txline.ts` handles Token-2022 mints and SSE responses.

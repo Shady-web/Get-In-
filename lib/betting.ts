@@ -9,6 +9,7 @@ import { getMarkets } from "@/lib/markets";
 import { getReplayTimeline, stateAt } from "@/lib/replay";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { logLedger } from "@/lib/wallet";
+import { coinsToLamports } from "@/lib/money";
 import { getOrCreatePlayer, isFinal, type PlayerRow } from "@/lib/game";
 
 export interface LegInput {
@@ -360,9 +361,18 @@ export async function settleSlipsForMatch(
       .eq("status", "pending");
     if (!error) {
       const ccy = (slip.currency ?? "COIN") as Currency;
-      deltas[ccy] += payout;
       results.push({ slipId, status: allVoid ? "void" : "won", payout });
-      await logLedger(player.id, allVoid ? "bet_void_refund" : "bet_payout", payout, ccy, slipId);
+      if (ccy === "COIN" && !allVoid) {
+        // Winning GI-coin calls pay out in SOL at the fixed peg; the coin
+        // stake was already spent at placement.
+        const lamports = coinsToLamports(payout);
+        deltas.SOL += lamports;
+        await logLedger(player.id, "bet_payout_sol", lamports, "SOL", slipId);
+      } else {
+        // SOL wins credit SOL; voids refund the stake in its own currency.
+        deltas[ccy] += payout;
+        await logLedger(player.id, allVoid ? "bet_void_refund" : "bet_payout", payout, ccy, slipId);
+      }
     }
   }
 
@@ -394,12 +404,15 @@ const CASHOUT_MARGIN = 0.95;
  * settle in minutes; no cash out there).
  */
 export function slipCashValue(
-  slip: { stake: number | string; potential_return: number | string },
+  slip: { stake: number | string; potential_return: number | string; currency?: Currency },
   legs: Pick<LegRow, "result" | "session" | "market_key" | "outcome_name" | "fixture_id">[],
   currentOddsOf: (
     leg: Pick<LegRow, "market_key" | "outcome_name" | "fixture_id">,
   ) => number | null,
 ): number | null {
+  // GI-coin calls ride to settlement: no early cash out. Only SOL calls are
+  // cashable while open.
+  if ((slip.currency ?? "COIN") !== "SOL") return null;
   let probProduct = 1;
   for (const leg of legs) {
     if (leg.result === "lost") return 0;
@@ -479,6 +492,9 @@ export async function cashOutSlip(
     .eq("status", "pending")
     .single();
   if (!slip) throw new Error("That slip is no longer open.");
+  if ((slip.currency ?? "COIN") !== "SOL") {
+    throw new Error("Coin calls settle automatically - cash out is for SOL calls only.");
+  }
 
   const legs = (slip.bet_legs ?? []) as LegRow[];
   const marketsByFixture = await oddsResolverFor(legs);
@@ -566,13 +582,23 @@ export async function voidStaleReplayLegs(identity: string): Promise<void> {
       .eq("status", "pending");
     if (payout > 0) {
       const ccy = (slip.currency ?? "COIN") as Currency;
-      const col = balanceCol(ccy);
       const p = await getOrCreatePlayer(identity);
-      await supabase
-        .from("players")
-        .update({ [col]: readBalance(p, col) + payout })
-        .eq("id", p.id);
-      await logLedger(p.id, allVoid ? "bet_void_refund" : "bet_payout", payout, ccy, slipId);
+      if (ccy === "COIN" && !allVoid) {
+        // Winning coin call pays out in SOL at the fixed peg.
+        const lamports = coinsToLamports(payout);
+        await supabase
+          .from("players")
+          .update({ sol_balance: readBalance(p, "sol_balance") + lamports })
+          .eq("id", p.id);
+        await logLedger(p.id, "bet_payout_sol", lamports, "SOL", slipId);
+      } else {
+        const col = balanceCol(ccy);
+        await supabase
+          .from("players")
+          .update({ [col]: readBalance(p, col) + payout })
+          .eq("id", p.id);
+        await logLedger(p.id, allVoid ? "bet_void_refund" : "bet_payout", payout, ccy, slipId);
+      }
     }
   }
 }
