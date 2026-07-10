@@ -1568,21 +1568,20 @@ function MyBets({
             </span>
           </button>
         ) : s.status === "pending" && ccy === "COIN" ? (
-          <span
-            style={{
-              textAlign: "right",
-              display: "grid",
-              gap: 2,
-              justifyItems: "end",
-            }}
+          <button
+            className="cashout-btn"
+            disabled
+            aria-label="Cash out unavailable"
+            title="Coin calls settle at full time and pay out in SOL"
+            style={{ opacity: 0.55, cursor: "default" }}
           >
-            <span className="caption" style={{ color: "var(--color-ember-orange)" }}>
-              Open
+            <span className="caption" style={{ color: "var(--color-fog)" }}>
+              Cash out
             </span>
-            <span className="muted" style={{ fontSize: 10.5, maxWidth: 120 }}>
-              Rides to full time · no cash out
+            <span className="cash-value" style={{ fontSize: 12 }}>
+              Unavailable
             </span>
-          </span>
+          </button>
         ) : (
           <span
             style={{
