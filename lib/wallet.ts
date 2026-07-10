@@ -1,9 +1,16 @@
 // Server-only custodial devnet wallets. On first login every player gets a
-// freshly generated Solana keypair stored in the wallets table. We NEVER
-// fund it (no airdrops, no house wallet): players hit the public faucet and
-// deposit test SOL themselves. Secrets never leave the server; API responses
-// carry the public key only.
+// freshly generated Solana keypair stored in the wallets table; players hit
+// the public faucet and deposit test SOL into it themselves. Secrets never
+// leave the server; API responses carry the public key only.
+//
+// Withdrawals, however, are paid from a single server-side HOUSE float (see
+// loadHouseKeypair): the user's internal sol_balance is the gate + debit, but
+// the coins land from the house wallet. That is what lets coin-converted SOL
+// winnings be withdrawn even though a user only ever deposited a little real
+// SOL. The house key is server-side only and never reaches the browser.
 
+import fs from "node:fs";
+import path from "node:path";
 import {
   Connection,
   Keypair,
@@ -21,6 +28,89 @@ const NETWORK_FEE_BUFFER = 10_000; // leave room for the tx fee on-chain
 
 const RPC_URL = () => process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com";
 
+/** Warn-below-this house balance (SOL). Override with HOUSE_LOW_SOL. */
+function houseLowLamports(): number {
+  const sol = Number(process.env.HOUSE_LOW_SOL);
+  return Math.floor((Number.isFinite(sol) && sol > 0 ? sol : 1) * LAMPORTS_PER_SOL);
+}
+
+// --- House float (server-side only) --------------------------------------------
+
+let houseKeypair: Keypair | null = null;
+
+/**
+ * Load the single house keypair that pays every withdrawal. Prefers the
+ * HOUSE_WALLET_SECRET env var (a JSON byte array — how Vercel gets it) and
+ * falls back to a gitignored .house-keypair.json for local dev. Memoized.
+ * Throws a clear, actionable error when neither is configured.
+ */
+export function loadHouseKeypair(): Keypair {
+  if (houseKeypair) return houseKeypair;
+
+  const secret = process.env.HOUSE_WALLET_SECRET?.trim();
+  if (secret) {
+    try {
+      houseKeypair = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(secret) as number[]));
+      return houseKeypair;
+    } catch {
+      throw new Error("HOUSE_WALLET_SECRET is set but is not a valid JSON secret-key array.");
+    }
+  }
+
+  const file = process.env.HOUSE_KEYPAIR_PATH || ".house-keypair.json";
+  const abs = path.resolve(file);
+  if (fs.existsSync(abs)) {
+    houseKeypair = Keypair.fromSecretKey(
+      Uint8Array.from(JSON.parse(fs.readFileSync(abs, "utf8")) as number[]),
+    );
+    return houseKeypair;
+  }
+
+  throw new Error(
+    "No house wallet configured. Run `npm run setup:house` for local dev, " +
+      "or set HOUSE_WALLET_SECRET in your environment for a deploy.",
+  );
+}
+
+/** The house float's address and on-chain balance (for the health check + script). */
+export async function getHouseBalance(): Promise<{
+  address: string;
+  lamports: number;
+  sol: number;
+}> {
+  const house = loadHouseKeypair();
+  const connection = new Connection(RPC_URL(), "confirmed");
+  const lamports = await connection.getBalance(house.publicKey);
+  return { address: house.publicKey.toBase58(), lamports, sol: lamports / LAMPORTS_PER_SOL };
+}
+
+let lastFloatCheck = 0;
+
+/**
+ * Best-effort health check: log the house float and warn in the console when
+ * it drops below the threshold, so it's known to top up before a demo. Called
+ * from the wallet route; throttled to once a minute and never throws.
+ */
+export async function checkHouseFloat(): Promise<void> {
+  if (Date.now() - lastFloatCheck < 60_000) return;
+  lastFloatCheck = Date.now();
+  try {
+    const { address, lamports, sol } = await getHouseBalance();
+    const threshold = houseLowLamports();
+    if (lamports < threshold) {
+      console.warn(
+        `[house] LOW FLOAT: ${sol.toFixed(4)} SOL at ${address} ` +
+          `(below ${(threshold / LAMPORTS_PER_SOL).toFixed(2)} SOL). ` +
+          "Top up from https://faucet.solana.com before the demo.",
+      );
+    } else {
+      console.log(`[house] float OK: ${sol.toFixed(4)} SOL at ${address}.`);
+    }
+  } catch (err) {
+    console.warn(`[house] float check skipped: ${err instanceof Error ? err.message : "unknown"}.`);
+  }
+}
+
 export interface WalletInfo {
   address: string;
   lamports: number; // spendable custodial balance (deposits + winnings - stakes)
@@ -37,23 +127,13 @@ function requireDb() {
   return supabase;
 }
 
-/** Load the custodial Keypair for a player (server-side only). */
-async function loadKeypair(playerId: string): Promise<Keypair> {
-  const supabase = requireDb();
-  const { data } = await supabase
-    .from("wallets")
-    .select("secret")
-    .eq("player", playerId)
-    .maybeSingle();
-  if (!data?.secret) throw new Error("No wallet found for this account.");
-  const bytes = Uint8Array.from(JSON.parse(data.secret as string) as number[]);
-  return Keypair.fromSecretKey(bytes);
-}
-
 /**
- * Send devnet SOL from the player's custodial wallet to an external address
- * and debit their spendable balance. Min 0.0067 SOL. The keypair is loaded,
- * signs, and is discarded server-side; it never reaches the browser.
+ * Send devnet SOL to an external address and debit the player's spendable
+ * balance. Min 0.0067 SOL. The user's internal sol_balance is the gate and
+ * the debit, but the coins are paid FROM THE HOUSE float — so winnings
+ * converted from coins are withdrawable even though the user only ever
+ * deposited a little real SOL. The house keypair signs server-side and is
+ * never exposed to the browser.
  */
 export async function withdrawSol(
   playerId: string,
@@ -73,7 +153,8 @@ export async function withdrawSol(
     throw new Error("That is not a valid Solana address.");
   }
 
-  // Check the spendable (custodial) balance first.
+  // Gate on the spendable (internal) balance — this includes coin-converted
+  // SOL winnings, which live in sol_balance but not on the user's own wallet.
   const { data: row } = await supabase
     .from("players")
     .select("sol_balance")
@@ -86,25 +167,28 @@ export async function withdrawSol(
     );
   }
 
-  const keypair = await loadKeypair(playerId);
+  // Pay from the house float. It covers the sent amount plus the network fee.
+  const house = loadHouseKeypair();
   const connection = new Connection(RPC_URL(), "confirmed");
-
-  // The custodial wallet pays the network fee on top of the sent amount.
-  const onchain = await connection.getBalance(keypair.publicKey);
-  if (onchain < amount + NETWORK_FEE_BUFFER) {
-    throw new Error("On-chain balance is too low to cover the network fee right now.");
+  const houseBalance = await connection.getBalance(house.publicKey);
+  if (houseBalance < amount + NETWORK_FEE_BUFFER) {
+    console.warn(
+      `[house] withdrawal blocked: float ${(houseBalance / LAMPORTS_PER_SOL).toFixed(4)} SOL ` +
+        `can't cover ${(amount / LAMPORTS_PER_SOL).toFixed(4)} SOL. Top up from the faucet.`,
+    );
+    throw new Error("The house float is topping up. Try this withdrawal again shortly.");
   }
 
   const tx = new Transaction().add(
     SystemProgram.transfer({
-      fromPubkey: keypair.publicKey,
+      fromPubkey: house.publicKey,
       toPubkey: destination,
       lamports: amount,
     }),
   );
   let signature: string;
   try {
-    signature = await sendAndConfirmTransaction(connection, tx, [keypair], {
+    signature = await sendAndConfirmTransaction(connection, tx, [house], {
       commitment: "confirmed",
     });
   } catch (err) {
@@ -113,20 +197,10 @@ export async function withdrawSol(
     );
   }
 
-  // Debit the spendable balance and re-anchor sol_seen to the new on-chain
-  // total, so the next deposit check measures deposits from here.
+  // Debit the spendable balance. The user's own wallet is untouched (the
+  // house paid), so sol_seen stays as-is and future deposits still credit.
   const balance = spendable - amount;
-  let newOnchain = onchain - amount;
-  try {
-    newOnchain = await connection.getBalance(keypair.publicKey);
-  } catch {
-    /* estimate is fine */
-  }
-  await supabase
-    .from("players")
-    .update({ sol_balance: balance, sol_seen: newOnchain })
-    .eq("id", playerId);
-  balanceCache.set(keypair.publicKey.toBase58(), { at: Date.now(), lamports: newOnchain });
+  await supabase.from("players").update({ sol_balance: balance }).eq("id", playerId);
   await logLedger(playerId, "withdrawal", -amount, "SOL", destination.toBase58());
 
   return { signature, lamports: amount, balance };

@@ -1,7 +1,7 @@
 // Server-only daily quests: 3 per day, rotating deterministically from the
 // date (same quests for every player, no cron). Progress is computed live
-// from data the app already stores (bet_slips, bet_legs, predictions);
-// rewards are paid once per player per quest per day via quest_claims.
+// from data the app already stores (bet_slips, bet_legs); rewards are paid
+// once per player per quest per day via quest_claims.
 
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOrCreatePlayer, type PlayerRow } from "@/lib/game";
@@ -18,7 +18,6 @@ export interface QuestRows {
     placedToday: boolean;
     settledToday: boolean;
   }[];
-  predictionsWonToday: number;
 }
 
 export interface QuestDef {
@@ -58,17 +57,9 @@ export const QUEST_POOL: QuestDef[] = [
       r.slips.filter((s) => s.legs >= 2 && s.status === "won" && s.settledToday).length,
   },
   {
-    id: "predict_5",
-    title: "Crystal ball",
-    detail: "Call 5 prediction cards right today",
-    reward: 200,
-    target: 5,
-    progress: (r) => r.predictionsWonToday,
-  },
-  {
     id: "cashout_1",
     title: "Cool head",
-    detail: "Cash out a bet today",
+    detail: "Cash out a SOL bet today",
     reward: 150,
     target: 1,
     progress: (r) => r.slips.filter((s) => s.status === "cashed" && s.settledToday).length,
@@ -131,21 +122,13 @@ async function fetchQuestRows(playerId: string, now = Date.now()): Promise<Quest
   const supabase = requireDb();
   const dayStart = `${dayKey(now)}T00:00:00.000Z`;
 
-  const [slipsRes, predsRes] = await Promise.all([
-    supabase
-      .from("bet_slips")
-      .select("stake, status, placed_at, settled_at, bet_legs(id)")
-      .eq("player", playerId)
-      .or(`placed_at.gte.${dayStart},settled_at.gte.${dayStart}`),
-    supabase
-      .from("predictions")
-      .select("id", { count: "exact", head: true })
-      .eq("player", playerId)
-      .eq("result", "won")
-      .gte("settled_at", dayStart),
-  ]);
+  const { data: slipsData } = await supabase
+    .from("bet_slips")
+    .select("stake, status, placed_at, settled_at, bet_legs(id)")
+    .eq("player", playerId)
+    .or(`placed_at.gte.${dayStart},settled_at.gte.${dayStart}`);
 
-  const slips = (slipsRes.data ?? []).map((s: any) => ({
+  const slips = (slipsData ?? []).map((s: any) => ({
     legs: Array.isArray(s.bet_legs) ? s.bet_legs.length : 0,
     stake: Number(s.stake ?? 0),
     status: String(s.status ?? "pending"),
@@ -153,7 +136,7 @@ async function fetchQuestRows(playerId: string, now = Date.now()): Promise<Quest
     settledToday: Boolean(s.settled_at && s.settled_at >= dayStart),
   }));
 
-  return { slips, predictionsWonToday: predsRes.count ?? 0 };
+  return { slips };
 }
 
 export interface QuestStatus {

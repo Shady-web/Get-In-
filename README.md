@@ -1,9 +1,10 @@
 # GetIN!!!
 
-A mobile-first (and desktop-friendly) World Cup live prediction game.
-Watch live matches, call what happens next before it happens, earn points
-scaled by the real odds, build streaks, and climb a global leaderboard.
-Finished matches can be replayed on a timeline and played like they're live.
+A mobile-first (and desktop-friendly) World Cup live betting game.
+Watch live matches, back your call with GI coins or devnet SOL at the real
+odds, cash out SOL bets as the prices move, and climb the coin and SOL
+leaderboards. Finished matches can be replayed on a timeline and bet on like
+they're live.
 
 Built for a World Cup hackathon with **Next.js (App Router) + TypeScript +
 Supabase + Vercel**, on live data from the **TxLINE** sports API (free
@@ -20,17 +21,18 @@ on-chain World Cup tier, Solana).
   the public faucet via the Wallet tab. Balances show in SOL and USD at a
   hard-coded 1 SOL = $150, and every money movement lands in a ledger
   table. A sitewide banner marks everything as devnet test tokens.
+- **House float**: a single server-side house wallet (created once with
+  `npm run setup:house`, funded from the faucet) pays every withdrawal.
+  Users still gate + debit their own internal `sol_balance`, but the coins
+  land from the house, so SOL winnings converted from coins are withdrawable
+  even though a user only deposited a little real SOL. The house key is
+  server-side only; a health check logs the float and warns when it's low.
 - **Live matches**: score, match clock, and a win-probability bar derived
   from the TxLINE 1X2 market (margin normalized away), updating every ~7s.
-- **The game**: every minute of match time deals a prediction card
-  (full-time result, goal-before-minute-X, corner-before-minute-X).
-  Points = round(odds x 10), so unlikely calls pay more. Picks store the
-  odds snapshot; settlement is automatic (correct picks add points and
-  extend your streak, a miss resets it to 0).
 - **Replay Mode**: just-finished matches replay on a timeline (scrubber,
-  x1/x10/x60 speed) from full time until about 2 hours after. Cards price
-  from the odds as they stood at that moment; scoring works exactly like
-  live.
+  x1/x10/x60 speed) from full time until about 2 hours after. Odds price
+  from where they stood at that moment; bets placed in a replay settle at
+  its full time, exactly like live.
 - **Coin economy + SOL betting**: every player starts at 0 coins and earns
   them from daily quests and winning bets (no daily handout). Tap any
   full-time price (Markets tab, or the winner odds in a replay) to build a
@@ -50,13 +52,8 @@ on-chain World Cup tier, Solana).
   (W/D/L, scores, opponents) before you predict. Assembled from the
   fixtures schedule + final scores; hides itself when there's no history.
 - **My Bets**: open and settled bets in separate sections, with a counter
-  badge on the tab for how many are still running and per-leg won/lost/
-  pending status on every accumulator.
-- **My Bets tab**: every slip with live cash-out values; open and settled
-  history in one place.
-- **Private rooms**: create a room, get a 6-char code + share link, friends
-  join and compete on a live per-room leaderboard ranked by coin profit
-  since joining, with rank-change animations.
+  badge on the tab for how many are still running, live cash-out values on
+  open SOL slips, and per-leg won/lost/pending status on every accumulator.
 - **Pundit ticker**: a scrolling feed of one-line AI hot takes on the match
   screen. A take is generated ONLY when a goal, a red card, or a >15-point
   win-probability swing happens (Gemini, gemini-2.0-flash, free tier), max
@@ -66,10 +63,11 @@ on-chain World Cup tier, Solana).
   the date; progress is computed from data the app already stores and each
   reward is claimable once per day.
 - **Badges**: milestone trophies (First Win, first cash out, 5-leg parlay
-  win, 10-win streak, 5,000-coin bankroll) awarded retroactively and kept
-  forever, shown as a badge wall in the Leaders tab.
-- **Leaderboard**: global top 20 ranked by coin bankroll, live via Supabase
-  Realtime (or polling fallback), plus a downloadable streak share card.
+  win, 5,000-coin bankroll) awarded retroactively and kept forever, shown
+  as a badge wall in the Leaders tab.
+- **Leaderboard**: two boards, top 20 each - highest GI-coin bankroll and
+  highest SOL balance - with a toggle, live via Supabase Realtime (or a
+  polling fallback).
 
 ## Security model
 
@@ -103,6 +101,19 @@ The script generates a Solana keypair (gitignored), pauses while you fund
 it (devnet faucet or a little real SOL), subscribes on-chain to the free
 World Cup tier (service level 12 on mainnet, 1 on devnet), activates and
 prints your API token.
+
+### 2b. Create the house float (one time, for withdrawals)
+
+```bash
+npm run setup:house                 # prints the address to fund + the secret
+npm run setup:house -- --balance    # check the float anytime
+```
+
+Fund the printed address from https://faucet.solana.com. For a deploy, put
+the printed `HOUSE_WALLET_SECRET` in your env vars (server-only). Locally it
+writes a gitignored `.house-keypair.json`. Every user withdrawal is signed
+by and paid from this wallet, so keep it topped up (the server logs warn
+when it drops below `HOUSE_LOW_SOL`, default 1 SOL).
 
 ### 3. Supabase
 
@@ -144,6 +155,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 # Optional: custom devnet RPC for wallet balances (default: public devnet)
 # SOLANA_RPC_URL=
 
+# House float that pays withdrawals (printed by `npm run setup:house`).
+# Server-side only; NEVER prefix with NEXT_PUBLIC_. Locally you can rely on
+# the gitignored .house-keypair.json instead of setting this.
+HOUSE_WALLET_SECRET=[12,34,...]
+# Optional: warn in the logs when the float drops below this many SOL (def 1).
+# HOUSE_LOW_SOL=1
+
 # Optional: Pundit ticker (free key: aistudio.google.com -> Get API key).
 # Server-side only. If unset, the ticker simply hides itself.
 GEMINI_API_KEY=...
@@ -157,12 +175,12 @@ npm run dev
 
 ## Testing without a live match
 
-Most features (goals, settlement, streaks) normally need a match in play.
-Two ways around that:
+Most features (goals, bet settlement) normally need a match in play. Two
+ways around that:
 
 - **Replay Mode** (real data): open any finished match from the Replay
-  section; the full game loop (cards, picks, settlement, points,
-  leaderboard) runs against its real history.
+  section; the full loop (odds, bets, settlement, leaderboard) runs against
+  its real history.
 - **Mock mode** (no TxLINE needed):
 
   ```bash
@@ -194,8 +212,7 @@ Two ways around that:
 | `GET /api/worldcup` | Fixtures schedule (optional `?competitionId=`) |
 | `GET /api/live/{fixtureId}` | Live score/clock/probabilities, cached ~7s |
 | `GET /api/replay/{fixtureId}` | Full historical timeline for playback |
-| `GET /api/game/card` | Current prediction card (+ settles picks & slips) |
-| `POST /api/game/pick` | Save a pick with its odds snapshot |
+| `GET /api/settle` | Settle the caller's due bet slips (live or `?session=&vt=` replay) |
 | `GET /api/markets/{fixtureId}` | Every priced market, normalized |
 | `GET /api/pundit/{fixtureId}` | Pundit ticker takes (live, or `?vt=` for replay) |
 | `GET /api/stats/{fixtureId}` | Recent form (last 3 results) for both teams |
@@ -203,13 +220,10 @@ Two ways around that:
 | `GET /api/badges` | Badge wall (awards new milestones on read) |
 | `GET /api/wallet` / `POST /api/wallet/withdraw` | Balance + address / withdraw SOL |
 | `POST /api/slips` / `GET /api/slips` | Place bet slips / list + settle them |
-| `POST /api/slips/cashout` | Cash an open slip out at current value |
-| `GET /api/wallet` | Custodial devnet address + SOL/USD balance |
+| `POST /api/slips/cashout` | Cash an open SOL slip out at current value |
 | `POST /api/auth/register` | Sign-up (email + username + password) |
 | `POST /api/auth/lookup` | Username -> email for the combined login field |
-| `POST /api/rooms` / `GET /api/rooms` | Create/join rooms / list mine |
-| `GET /api/rooms/{code}` | Room standings by profit since joining |
-| `GET /api/leaderboard` | Top 20 players by coin bankroll |
+| `GET /api/leaderboard` | Top 20 by coin bankroll and by SOL balance |
 | `POST /api/player` | Bootstrap player + wallet for the signed-in user |
 | `GET /api/test` | End-to-end TxLINE health check |
 
@@ -217,8 +231,8 @@ Two ways around that:
 
 - Styling: the GetIN design system (stadium night). Floodlit pitch green +
   electric-lime CTAs + trophy-gold GI coins on a deep green-black canvas.
-  Anton for display (scores, streaks, headings), Space Mono for every
-  number (odds, coins, stakes, clock), Archivo for body.
+  Anton for display (scores, headings), Space Mono for every number (odds,
+  coins, stakes, clock), Archivo for body.
 - Coin economy rule: GI-coin calls ride to full time and settle
   automatically (no early cash out) - a winning coin call pays out in SOL
   at a fixed 15,000 coins = 1 SOL peg (the stake stays in coins; voids

@@ -17,7 +17,7 @@ import { PunditTicker } from "@/components/pundit-ticker";
 import { QuestsCard } from "@/components/quests-card";
 import { BadgeWall } from "@/components/badge-wall";
 import type { LiveState } from "@/lib/live";
-import { buildCard, isFinal, type GameCard, type GameOption, type SettledResult } from "@/lib/game-core";
+import { isFinal } from "@/lib/game-core";
 import { stateAt, type ReplayTimeline } from "@/lib/replay-core";
 
 interface Fixture {
@@ -67,7 +67,7 @@ export default function MatchScreen() {
   const [player, setPlayer] = useState<StoredPlayer | null>(null);
   const [checked, setChecked] = useState(false);
   const [selected, setSelected] = useState<Selection | null>(null);
-  const [tab, setTab] = useState<"matches" | "bets" | "rooms" | "leaders" | "wallet">("matches");
+  const [tab, setTab] = useState<"matches" | "bets" | "leaders" | "wallet">("matches");
   const [openBets, setOpenBets] = useState(0);
   const [toast, setToast] = useState<{ kind: "won" | "lost" | "info"; title: string; text: string } | null>(null);
   const slipStatusRef = useRef<Map<string, string>>(new Map());
@@ -223,7 +223,6 @@ export default function MatchScreen() {
               ["matches", "Matches"],
               ["bets", "My Bets"],
               ["wallet", "Wallet"],
-              ["rooms", "Rooms"],
               ["leaders", "Leaders"],
             ] as const
           ).map(([key, label]) => (
@@ -247,16 +246,10 @@ export default function MatchScreen() {
 
       {selected ? (
         selected.mode === "live" ? (
-          <LiveMatch
-            fixture={selected.fixture}
-            player={player}
-            onBack={() => setSelected(null)}
-            onPlayerUpdate={updatePlayerRecord}
-          />
+          <LiveMatch fixture={selected.fixture} onBack={() => setSelected(null)} />
         ) : (
           <ReplayMatch
             fixture={selected.fixture}
-            player={player}
             onBack={() => setSelected(null)}
             onPlayerUpdate={updatePlayerRecord}
           />
@@ -274,10 +267,8 @@ export default function MatchScreen() {
         />
       ) : tab === "wallet" ? (
         <WalletPanel />
-      ) : tab === "rooms" ? (
-        <Rooms player={player} />
       ) : (
-        <Leaders player={player} onPlayerUpdate={updatePlayerRecord} />
+        <Leaders player={player} />
       )}
 
       <BetSlipTray player={player} onPlayerUpdate={updatePlayerRecord} />
@@ -381,20 +372,8 @@ function FixtureList({
     .filter((f) => isReplayable(f, now))
     .sort((a, b) => b.StartTime - a.StartTime);
 
-  const points = player.player?.total_points ?? 0;
-  const streak = player.player?.current_streak ?? 0;
-
   return (
     <>
-      <section style={{ display: "flex", gap: 10 }}>
-        <span className="pill">
-          <span className="k">Points</span> {points}
-        </span>
-        <span className="pill">
-          <span className="k">Streak</span> {streak}
-        </span>
-      </section>
-
       <section style={{ display: "grid", gap: "var(--element-gap)" }}>
         <p className="caption section-label">Live now</p>
 
@@ -632,193 +611,64 @@ function ScoreCard({
   );
 }
 
-// --- Prediction game panel ---------------------------------------------------------
+// --- Replay settlement heartbeat ---------------------------------------------------
 
-interface ReplayGameHooks {
+/**
+ * Invisible: while a replay plays, poll the settle endpoint with the virtual
+ * clock so bets placed in the replay settle at its full time (live bets
+ * settle from the global My Bets poll and at read time in /api/slips).
+ */
+function ReplaySettler({
+  fixtureId,
+  session,
+  getVt,
+  onPlayerUpdate,
+}: {
+  fixtureId: number;
   session: string;
   getVt: () => number;
-  localCard: GameCard | null; // built client-side each tick
-}
-
-function PredictionPanel({
-  fixture,
-  player,
-  onPlayerUpdate,
-  replay,
-}: {
-  fixture: Fixture;
-  player: StoredPlayer;
   onPlayerUpdate: (p: PlayerRecord) => void;
-  replay?: ReplayGameHooks;
 }) {
-  const [serverCard, setServerCard] = useState<GameCard | null>(null);
-  const [pickedRound, setPickedRound] = useState<number | null>(null);
-  const [pickedOption, setPickedOption] = useState<GameOption | null>(null);
-  const [feed, setFeed] = useState<SettledResult[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // Replay renders its locally built card (perfectly synced to the scrubber);
-  // live renders the server's card. Settlement always goes through the server.
-  const card = replay ? replay.localCard : serverCard;
-
-  const pollCard = useCallback(async () => {
-    if (document.hidden) return;
-    try {
-      const qs = new URLSearchParams({
-        fixtureId: String(fixture.FixtureId),
-        home: fixture.Participant1,
-        away: fixture.Participant2,
-      });
-      if (replay) {
-        qs.set("session", replay.session);
-        qs.set("vt", String(Math.floor(replay.getVt())));
-      }
-      const res = await authFetch(`/api/game/card?${qs}`);
-      const body = await res.json();
-      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Game unavailable.");
-
-      setServerCard(body.card ?? null);
-      if (Array.isArray(body.settled) && body.settled.length > 0) {
-        setFeed((prev) => [...body.settled, ...prev].slice(0, 4));
-      }
-      if (body.player) onPlayerUpdate(body.player as PlayerRecord);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Game unavailable.");
-    }
-  }, [fixture, onPlayerUpdate, replay]);
-
   useEffect(() => {
-    void pollCard();
-    const id = window.setInterval(() => void pollCard(), replay ? 5_000 : POLL_MS);
-    return () => window.clearInterval(id);
-  }, [pollCard, replay]);
-
-  async function pick(option: GameOption) {
-    if (!card || saving) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await authFetch("/api/game/pick", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fixtureId: fixture.FixtureId,
-          round: card.round,
-          choice: option.id,
-          home: fixture.Participant1,
-          away: fixture.Participant2,
-          ...(replay
-            ? { session: replay.session, vt: Math.floor(replay.getVt()) }
-            : {}),
-        }),
-      });
-      const body = await res.json();
-      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Pick failed.");
-      setPickedRound(card.round);
-      setPickedOption(body.pick as GameOption);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Pick failed.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const locked = card !== null && pickedRound === card.round;
-
-  return (
-    <div className="card fade-in" style={{ display: "grid", gap: 14, alignSelf: "start" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <p className="caption section-label">Prediction</p>
-        {card && (
-          <span className="muted" style={{ fontSize: 12 }}>
-            {card.round === -1
-              ? "Pre-match · settles at full time"
-              : `Round ${card.round} · new card every minute`}
-          </span>
-        )}
-      </div>
-
-      {card ? (
-        <>
-          <h3 className="heading-sm" key={card.round}>
-            {card.question}
-          </h3>
-          <div style={{ display: "grid", gap: 8 }}>
-            {card.options.map((o) => {
-              const chosen = locked && pickedOption?.id === o.id;
-              return (
-                <button
-                  key={o.id}
-                  className={`option-btn ${chosen ? "chosen" : ""}`}
-                  disabled={locked || saving}
-                  onClick={() => pick(o)}
-                >
-                  <span className="team">{o.label}</span>
-                  <span className="points-badge">+{o.points} pts</span>
-                </button>
-              );
-            })}
-          </div>
-          {locked && pickedOption && (
-            <p style={{ fontSize: 13, color: "var(--color-tape-green)" }}>
-              Locked in: {pickedOption.label} for +{pickedOption.points} pts.
-              Settles automatically.
-            </p>
-          )}
-        </>
-      ) : (
-        <p className="muted" style={{ fontSize: 13 }}>
-          Picks open as soon as the market prices this match (pre-match calls
-          included). Check back shortly.
-        </p>
-      )}
-
-      {feed.length > 0 && (
-        <div style={{ display: "grid", gap: 6 }}>
-          {feed.map((r, i) => (
-            <p
-              key={i}
-              className="fade-in"
-              style={{
-                fontSize: 13,
-                color:
-                  r.result === "won"
-                    ? "var(--color-tape-green)"
-                    : "var(--color-ember-orange)",
-              }}
-            >
-              {r.result === "won"
-                ? `Called it! +${r.points} pts (${r.question})`
-                : `Missed: ${r.question} Streak reset.`}
-            </p>
-          ))}
-        </div>
-      )}
-
-      {error && <p className="error-text">{error}</p>}
-    </div>
-  );
+    let cancelled = false;
+    const tick = async () => {
+      if (document.hidden) return;
+      try {
+        const qs = new URLSearchParams({
+          fixtureId: String(fixtureId),
+          session,
+          vt: String(Math.floor(getVt())),
+        });
+        const res = await authFetch(`/api/settle?${qs}`);
+        const body = await res.json();
+        if (!cancelled && body?.ok && body.player) {
+          onPlayerUpdate(body.player as PlayerRecord);
+        }
+      } catch {
+        /* transient: the next tick retries */
+      }
+    };
+    const id = window.setInterval(tick, 5_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [fixtureId, session, getVt, onPlayerUpdate]);
+  return null;
 }
 
 // --- Live match view -----------------------------------------------------------
 
 function LiveMatch({
   fixture,
-  player,
   onBack,
-  onPlayerUpdate,
 }: {
   fixture: Fixture;
-  player: StoredPlayer;
   onBack: () => void;
-  onPlayerUpdate: (p: PlayerRecord) => void;
 }) {
   const [state, setState] = useState<LiveState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [clockText, setClockText] = useState<string | null>(null);
-  const [view, setView] = useState<"game" | "markets">("game");
   const stateRef = useRef<LiveState | null>(null);
   const { toggle, isSelected } = useBetSlip();
 
@@ -875,19 +725,6 @@ function LiveMatch({
           style={{ cursor: "pointer", color: "var(--color-fog)" }}
         >
           ← Matches
-        </button>
-        <span style={{ flex: 1 }} />
-        <button
-          className={`pill tab ${view === "game" ? "active" : ""}`}
-          onClick={() => setView("game")}
-        >
-          Game
-        </button>
-        <button
-          className={`pill tab ${view === "markets" ? "active" : ""}`}
-          onClick={() => setView("markets")}
-        >
-          Markets
         </button>
       </div>
 
@@ -971,15 +808,7 @@ function LiveMatch({
           </div>
         )}
 
-        {view === "game" ? (
-          <PredictionPanel
-            fixture={fixture}
-            player={player}
-            onPlayerUpdate={onPlayerUpdate}
-          />
-        ) : (
-          <MarketsPanel fixture={fixture} />
-        )}
+        <MarketsPanel fixture={fixture} />
 
         <PunditTicker
           fixtureId={fixture.FixtureId}
@@ -999,12 +828,10 @@ const SPEEDS = [1, 10, 60] as const;
 
 function ReplayMatch({
   fixture,
-  player,
   onBack,
   onPlayerUpdate,
 }: {
   fixture: Fixture;
-  player: StoredPlayer;
   onBack: () => void;
   onPlayerUpdate: (p: PlayerRecord) => void;
 }) {
@@ -1063,22 +890,7 @@ function ReplayMatch({
     [timeline, vt],
   );
 
-  const localCard = useMemo(
-    () =>
-      state
-        ? buildCard(state, {
-            home: fixture.Participant1,
-            away: fixture.Participant2,
-          })
-        : null,
-    [state, fixture],
-  );
-
   const getVt = useCallback(() => vtRef.current, []);
-  const replayHooks = useMemo(
-    () => ({ session, getVt, localCard }),
-    [session, getVt, localCard],
-  );
 
   const ended = timeline !== null && vt >= timeline.duration;
   const { toggle, isSelected } = useBetSlip();
@@ -1250,11 +1062,11 @@ function ReplayMatch({
             </div>
           </div>
 
-          <PredictionPanel
-            fixture={fixture}
-            player={player}
+          <ReplaySettler
+            fixtureId={fixture.FixtureId}
+            session={session}
+            getVt={getVt}
             onPlayerUpdate={onPlayerUpdate}
-            replay={replayHooks}
           />
 
           <PunditTicker
@@ -1273,10 +1085,8 @@ function ReplayMatch({
 
 interface LeaderRow {
   wallet_or_nickname: string;
-  total_points: number;
-  best_streak: number;
-  current_streak: number;
-  coins?: number;
+  coins: number;
+  sol: number; // lamports
 }
 
 interface SlipView {
@@ -1297,38 +1107,17 @@ interface SlipView {
   }[];
 }
 
-function Leaders({
-  player,
-  onPlayerUpdate,
-}: {
-  player: StoredPlayer;
-  onPlayerUpdate: (p: PlayerRecord) => void;
-}) {
-  const [rows, setRows] = useState<LeaderRow[] | null>(null);
+function Leaders({ player }: { player: StoredPlayer }) {
+  const [boards, setBoards] = useState<{ byCoins: LeaderRow[]; bySol: LeaderRow[] } | null>(null);
+  const [mode, setMode] = useState<"coins" | "sol">("coins");
   const [error, setError] = useState<string | null>(null);
-  const [shareError, setShareError] = useState<string | null>(null);
-
-  async function onDownloadCard() {
-    setShareError(null);
-    try {
-      const { downloadStreakCard } = await import("@/lib/share-card");
-      await downloadStreakCard({
-        name: displayName(player),
-        streak: player.player?.current_streak ?? 0,
-        points: player.player?.total_points ?? 0,
-        bestStreak: player.player?.best_streak ?? 0,
-      });
-    } catch (err) {
-      setShareError(err instanceof Error ? err.message : "Could not create the image.");
-    }
-  }
 
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/leaderboard");
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body?.error ?? "Leaderboard unavailable.");
-      setRows(body.players);
+      setBoards({ byCoins: body.byCoins ?? [], bySol: body.bySol ?? [] });
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Leaderboard unavailable.");
@@ -1354,38 +1143,35 @@ function Leaders({
     return () => window.clearInterval(id);
   }, [load]);
 
-  const me = player.player;
+  const rows = boards ? (mode === "coins" ? boards.byCoins : boards.bySol) : null;
   const shortName = (n: string) =>
     /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(n) ? `${n.slice(0, 4)}...${n.slice(-4)}` : n;
 
   return (
     <div className="leaders-grid">
       <div style={{ display: "grid", gap: 8 }}>
-        {/* Share-my-streak card: screenshot this */}
-        <section className="share-card fade-in" aria-label="Share my streak">
-          <p className="caption section-label">GetIN!!! streak</p>
-          <p className="share-streak">{me?.current_streak ?? 0}</p>
-          <p className="muted" style={{ fontSize: 14 }}>
-            correct calls in a row by{" "}
-            <span style={{ color: "var(--color-snow)", fontWeight: 600 }}>
-              {displayName(player)}
-            </span>
-          </p>
-          <p className="caption muted">
-            {me?.total_points ?? 0} pts total · best streak {me?.best_streak ?? 0} ·
-            World Cup 2026
-          </p>
-        </section>
-        <button className="btn btn-ghost" onClick={onDownloadCard}>
-          Download share card
-        </button>
-        {shareError && <p className="error-text">{shareError}</p>}
-
         <BadgeWall />
       </div>
 
       <section style={{ display: "grid", gap: "var(--element-gap)", alignSelf: "start" }}>
-        <p className="caption section-label">Leaderboard</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <p className="caption section-label">Leaderboard</p>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              className={`pill tab ${mode === "coins" ? "active" : ""}`}
+              style={{ gap: 5 }}
+              onClick={() => setMode("coins")}
+            >
+              <Coin size={13} /> Coins
+            </button>
+            <button
+              className={`pill tab ${mode === "sol" ? "active" : ""}`}
+              onClick={() => setMode("sol")}
+            >
+              ◎ SOL
+            </button>
+          </div>
+        </div>
 
         {error && <p className="error-text">{error}</p>}
         {!rows && !error && (
@@ -1416,10 +1202,8 @@ function Leaders({
               <span style={{ flex: 1, fontWeight: mine ? 600 : 400, minWidth: 0 }}>
                 {shortName(r.wallet_or_nickname)}
               </span>
-              <span className="muted" style={{ fontSize: 12 }}>
-                streak {r.current_streak}
-              </span>
               <span
+                className="mono"
                 style={{
                   fontWeight: 600,
                   fontVariantNumeric: "tabular-nums",
@@ -1428,12 +1212,12 @@ function Leaders({
                   gap: 5,
                 }}
               >
-                {r.coins !== undefined ? (
+                {mode === "coins" ? (
                   <>
                     <Coin size={14} /> {r.coins.toLocaleString()}
                   </>
                 ) : (
-                  r.total_points
+                  <>◎ {(r.sol / 1e9).toFixed(3)}</>
                 )}
               </span>
             </div>
@@ -1688,304 +1472,6 @@ function MyBets({
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-// --- Private rooms ------------------------------------------------------------------
-
-interface RoomInfo {
-  id: string;
-  code: string;
-  name: string;
-  members: number;
-}
-
-interface RoomStanding {
-  name: string;
-  coins: number;
-  profit: number;
-}
-
-function Rooms({ player }: { player: StoredPlayer }) {
-  const [rooms, setRooms] = useState<RoomInfo[] | null>(null);
-  const [active, setActive] = useState<RoomInfo | null>(null);
-  const [standings, setStandings] = useState<RoomStanding[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [joinCode, setJoinCode] = useState("");
-  const [newName, setNewName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
-  // Rank tracking for the change animations.
-  const prevRankRef = useRef<Map<string, number>>(new Map());
-  const rankDirRef = useRef<Map<string, "up" | "down">>(new Map());
-
-  const loadRooms = useCallback(async () => {
-    try {
-      const res = await authFetch("/api/rooms");
-      const body = await res.json();
-      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Rooms unavailable.");
-      setRooms(body.rooms as RoomInfo[]);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Rooms unavailable.");
-    }
-  }, []);
-
-  const loadStandings = useCallback(async (code: string) => {
-    try {
-      const res = await fetch(`/api/rooms/${code}`);
-      const body = await res.json();
-      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Room unavailable.");
-      const next = body.standings as RoomStanding[];
-      next.forEach((s, i) => {
-        const prev = prevRankRef.current.get(s.name);
-        if (prev !== undefined && prev !== i) {
-          rankDirRef.current.set(s.name, i < prev ? "up" : "down");
-        }
-        prevRankRef.current.set(s.name, i);
-      });
-      setStandings(next);
-      setActive(body.room as RoomInfo);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Room unavailable.");
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadRooms();
-  }, [loadRooms]);
-
-  // Share links land on /match?room=CODE: auto-join once identity exists.
-  useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get("room");
-    if (!code || !/^[A-Za-z0-9]{6}$/.test(code)) return;
-    window.history.replaceState(null, "", "/match");
-    void (async () => {
-      try {
-        const res = await authFetch("/api/rooms", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code }),
-        });
-        const body = await res.json();
-        if (res.ok && body.ok) {
-          await loadRooms();
-          await loadStandings(body.room.code);
-        }
-      } catch {
-        /* bad link: the rooms list still renders */
-      }
-    })();
-  }, [loadRooms, loadStandings]);
-
-  // Live standings: refetch on any players change (realtime) or every 10s.
-  useEffect(() => {
-    if (!active) return;
-    const supabase = getSupabaseBrowser();
-    if (supabase) {
-      const channel = supabase
-        .channel(`room-${active.code}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "players" }, () => {
-          void loadStandings(active.code);
-        })
-        .subscribe();
-      return () => {
-        void supabase.removeChannel(channel);
-      };
-    }
-    const id = window.setInterval(() => void loadStandings(active.code), 10_000);
-    return () => window.clearInterval(id);
-  }, [active, loadStandings]);
-
-  async function act(payload: Record<string, string>) {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await authFetch("/api/rooms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const body = await res.json();
-      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Room action failed.");
-      setJoinCode("");
-      setNewName("");
-      await loadRooms();
-      await loadStandings(body.room.code);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Room action failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function copyLink() {
-    if (!active) return;
-    const link = `${window.location.origin}/match?room=${active.code}`;
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2500);
-    } catch {
-      window.prompt("Copy the invite link:", link);
-    }
-  }
-
-  const shortName = (n: string) =>
-    /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(n) ? `${n.slice(0, 4)}...${n.slice(-4)}` : n;
-
-  // --- Room detail view ---
-  if (active) {
-    return (
-      <div style={{ display: "grid", gap: "var(--element-gap)" }}>
-        <button
-          className="pill"
-          onClick={() => {
-            setActive(null);
-            setStandings(null);
-            prevRankRef.current.clear();
-            rankDirRef.current.clear();
-          }}
-          style={{ cursor: "pointer", justifySelf: "start", color: "var(--color-fog)" }}
-        >
-          ← My rooms
-        </button>
-
-        <div className="card fade-in" style={{ display: "grid", gap: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <p className="caption section-label">{active.name}</p>
-            <span className="muted" style={{ fontSize: 12 }}>
-              {active.members} {active.members === 1 ? "player" : "players"}
-            </span>
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <span className="room-code">{active.code}</span>
-            <button className="btn btn-ghost" style={{ width: "auto", minHeight: 40 }} onClick={copyLink}>
-              {copied ? "Link copied ✓" : "Copy invite link"}
-            </button>
-          </div>
-          <p className="muted" style={{ fontSize: 12 }}>
-            Friends join with the code or the link. Ranked by coin profit since
-            joining this room.
-          </p>
-        </div>
-
-        <section style={{ display: "grid", gap: 8 }}>
-          <p className="caption section-label">Room standings</p>
-          {!standings && <div className="skeleton" style={{ height: 120 }} />}
-          {standings?.map((s, i) => {
-            const mine = s.name === (player.player?.wallet_or_nickname ?? player.label);
-            const dir = rankDirRef.current.get(s.name) ?? null;
-            return (
-              <div
-                key={`${s.name}:${i}`}
-                className={`row fade-in ${dir ? `rank-${dir}` : ""}`}
-                style={mine ? { border: "1px solid var(--color-slate)" } : undefined}
-              >
-                <span className="muted" style={{ width: 26, fontVariantNumeric: "tabular-nums" }}>
-                  {i === 0 ? "🏆" : i + 1}
-                </span>
-                <span style={{ flex: 1, fontWeight: mine ? 600 : 400, minWidth: 0 }} className="team">
-                  {shortName(s.name)}
-                  {dir === "up" ? " ▲" : dir === "down" ? " ▼" : ""}
-                </span>
-                <span
-                  style={{
-                    fontWeight: 700,
-                    fontVariantNumeric: "tabular-nums",
-                    color:
-                      s.profit > 0
-                        ? "var(--color-tape-green)"
-                        : s.profit < 0
-                          ? "var(--color-festival-red)"
-                          : "var(--color-fog)",
-                  }}
-                >
-                  {s.profit > 0 ? "+" : ""}
-                  {s.profit.toLocaleString()}
-                </span>
-              </div>
-            );
-          })}
-        </section>
-        {error && <p className="error-text">{error}</p>}
-      </div>
-    );
-  }
-
-  // --- Rooms list / create / join ---
-  return (
-    <div style={{ display: "grid", gap: "var(--element-gap)" }}>
-      <div className="card fade-in" style={{ display: "grid", gap: 10 }}>
-        <p className="caption section-label">Create a room</p>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            className="input"
-            placeholder="Room name (optional)"
-            value={newName}
-            maxLength={40}
-            onChange={(e) => setNewName(e.target.value)}
-          />
-          <button
-            className="btn btn-primary"
-            style={{ width: "auto", flex: "none" }}
-            disabled={busy}
-            onClick={() => void act({ name: newName })}
-          >
-            Create
-          </button>
-        </div>
-        <div className="divider">or join with a code</div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            className="input"
-            placeholder="6-char code"
-            value={joinCode}
-            maxLength={6}
-            style={{ textTransform: "uppercase", letterSpacing: 2 }}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            onKeyDown={(e) => e.key === "Enter" && joinCode.length === 6 && void act({ code: joinCode })}
-          />
-          <button
-            className="btn btn-ghost"
-            style={{ width: "auto", flex: "none" }}
-            disabled={busy || joinCode.length !== 6}
-            onClick={() => void act({ code: joinCode })}
-          >
-            Join
-          </button>
-        </div>
-        {error && <p className="error-text">{error}</p>}
-      </div>
-
-      <section style={{ display: "grid", gap: 8 }}>
-        <p className="caption section-label">My rooms</p>
-        {!rooms && !error && <div className="skeleton" style={{ height: 64 }} />}
-        {rooms && rooms.length === 0 && (
-          <p className="muted fade-in" style={{ fontSize: 14 }}>
-            No rooms yet. Create one and send your friends the code.
-          </p>
-        )}
-        {rooms?.map((r) => (
-          <button
-            key={r.id}
-            className="row fixture-row fade-in"
-            onClick={() => void loadStandings(r.code)}
-          >
-            <span style={{ flex: 1, display: "grid", gap: 2, minWidth: 0 }}>
-              <span style={{ fontWeight: 600, fontSize: 15 }}>{r.name}</span>
-              <span className="muted" style={{ fontSize: 12 }}>
-                {r.members} {r.members === 1 ? "player" : "players"}
-              </span>
-            </span>
-            <span className="room-code" style={{ fontSize: 13 }}>
-              {r.code}
-            </span>
-          </button>
-        ))}
-      </section>
     </div>
   );
 }

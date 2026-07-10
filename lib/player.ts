@@ -6,12 +6,8 @@ export interface PlayerRecord {
   id: string;
   wallet_or_nickname: string; // mirrors username
   username?: string | null;
-  total_points: number;
-  best_streak: number;
-  current_streak?: number;
   coin_balance?: number;
   sol_balance?: number; // lamports
-  last_claim?: string | null;
 }
 
 export interface StoredPlayer {
