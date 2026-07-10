@@ -14,6 +14,7 @@ import {
 } from "react";
 import type { PlayerRecord, StoredPlayer } from "@/lib/player";
 import { Coin } from "@/components/coin";
+import { Solana } from "@/components/solana";
 import {
   coinsToLamports,
   formatAmount,
@@ -239,10 +240,10 @@ export function BetSlipTray({
             </button>
             <button
               className={`pill tab ${currency === "SOL" ? "active" : ""}`}
-              style={{ flex: 1, justifyContent: "center" }}
+              style={{ flex: 1, justifyContent: "center", gap: 5 }}
               onClick={() => switchCurrency("SOL")}
             >
-              ◎ SOL
+              <Solana size={14} /> SOL
             </button>
           </div>
 

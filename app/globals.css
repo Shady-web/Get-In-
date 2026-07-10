@@ -1152,6 +1152,22 @@ a {
   cursor: pointer;
 }
 
+/* SOL balance pill: same shape as the coin pill, Solana teal/purple tint. */
+.sol-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: rgba(20, 241, 149, 0.09);
+  border: 1.5px solid rgba(153, 69, 255, 0.4);
+  color: var(--color-snow);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 13px;
+}
+
 /* ---- Toast (settlement / info) ------------------------------------------- */
 
 .toast {
