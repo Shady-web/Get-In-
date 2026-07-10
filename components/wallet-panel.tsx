@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { authFetch } from "@/lib/api-client";
+import { Solana } from "@/components/solana";
 
 interface WalletInfo {
   address: string;
@@ -90,8 +91,18 @@ export function WalletPanel() {
         <p className="caption section-label">Playable balance</p>
         {wallet ? (
           <>
-            <p className="display" style={{ fontSize: 44 }}>
-              {wallet.sol.toLocaleString(undefined, { maximumFractionDigits: 4 })}{" "}
+            <p
+              className="display"
+              style={{
+                fontSize: 44,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+                justifyContent: "center",
+              }}
+            >
+              <Solana size={34} />
+              {wallet.sol.toLocaleString(undefined, { maximumFractionDigits: 4 })}
               <span className="muted" style={{ fontSize: 22 }}>
                 SOL
               </span>

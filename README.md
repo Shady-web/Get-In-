@@ -232,7 +232,10 @@ ways around that:
 - Styling: the GetIN design system (stadium night). Floodlit pitch green +
   electric-lime CTAs + trophy-gold GI coins on a deep green-black canvas.
   Anton for display (scores, headings), Space Mono for every number (odds,
-  coins, stakes, clock), Archivo for body.
+  coins, stakes, clock), Archivo for body. Two balances ride in the header:
+  the gold GI-coin pill and a SOL pill carrying the official Solana mark
+  (`components/solana.tsx`), which also stands in for SOL everywhere it's
+  shown (stake toggle, cash-out value, SOL leaderboard, wallet).
 - Coin economy rule: GI-coin calls ride to full time and settle
   automatically (no early cash out) - a winning coin call pays out in SOL
   at a fixed 15,000 coins = 1 SOL peg (the stake stays in coins; voids

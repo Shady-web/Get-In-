@@ -5,7 +5,8 @@
 // Documents GI coins, test SOL, and the cash-out rule (coin calls ride to
 // settlement; SOL calls can be cashed out).
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Solana } from "@/components/solana";
 
 const SEEN_KEY = "getin.economySeen";
 
@@ -33,12 +34,12 @@ export function useEconomyExplainer() {
   return { open, openExplainer: () => setOpen(true), close };
 }
 
-const STEPS: [string, string][] = [
+const STEPS: [ReactNode, string][] = [
   ["🎯", "Quests + wins"],
   ["🪙", "Earn GI coins"],
   ["⚡", "Stake a market"],
   ["🏆", "Win"],
-  ["◎", "SOL payout"],
+  [<Solana key="sol" size={18} />, "SOL payout"],
   ["⭐", "Climb leaders"],
 ];
 
@@ -48,7 +49,7 @@ function Bullet({
   title,
   body,
 }: {
-  icon: string;
+  icon: ReactNode;
   color: string;
   title: string;
   body: string;
@@ -166,7 +167,7 @@ export function EconomyExplainer({ onClose }: { onClose: () => void }) {
             body="Your free play-money balance, earned from daily quests, winning calls and correct picks. Stake them on any market - a winning coin call pays out in SOL (at 15,000 coins = 1 SOL) and rides to full time (settles automatically, no early cash out)."
           />
           <Bullet
-            icon="◎"
+            icon={<Solana size={17} />}
             color="#5ff29a"
             title="Test SOL"
             body="Real devnet tokens you deposit from the faucet (no real value). Stake SOL too - SOL calls pay out withdrawable SOL, and you can cash a SOL call out early before it settles."

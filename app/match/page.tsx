@@ -7,6 +7,7 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { authFetch } from "@/lib/api-client";
 import { WalletPanel } from "@/components/wallet-panel";
 import { Coin } from "@/components/coin";
+import { Solana } from "@/components/solana";
 import { MatchStats } from "@/components/match-stats";
 import { EconomyExplainer, useEconomyExplainer } from "@/components/economy-explainer";
 import { coinsToLamports, formatAmount, type Currency } from "@/lib/money";
@@ -184,6 +185,7 @@ export default function MatchScreen() {
   if (!checked || !player) return null;
 
   const coins = player.player?.coin_balance;
+  const solLamports = player.player?.sol_balance;
 
   return (
     <BetSlipProvider>
@@ -201,6 +203,22 @@ export default function MatchScreen() {
             >
               <Coin size={16} /> {coins.toLocaleString()}
               <span style={{ opacity: 0.6, fontSize: 11 }}>ⓘ</span>
+            </button>
+          )}
+          {solLamports !== undefined && (
+            <button
+              className="sol-pill"
+              title="Playable SOL balance · open Wallet"
+              style={{ cursor: "pointer" }}
+              onClick={() => {
+                setSelected(null);
+                setTab("wallet");
+              }}
+            >
+              <Solana size={15} />{" "}
+              {(solLamports / 1_000_000_000).toLocaleString(undefined, {
+                maximumFractionDigits: 3,
+              })}
             </button>
           )}
           <span className="pill" title={displayName(player)}>
@@ -1166,9 +1184,10 @@ function Leaders({ player }: { player: StoredPlayer }) {
             </button>
             <button
               className={`pill tab ${mode === "sol" ? "active" : ""}`}
+              style={{ gap: 5 }}
               onClick={() => setMode("sol")}
             >
-              ◎ SOL
+              <Solana size={13} /> SOL
             </button>
           </div>
         </div>
@@ -1217,7 +1236,9 @@ function Leaders({ player }: { player: StoredPlayer }) {
                     <Coin size={14} /> {r.coins.toLocaleString()}
                   </>
                 ) : (
-                  <>◎ {(r.sol / 1e9).toFixed(3)}</>
+                  <>
+                    <Solana size={14} /> {(r.sol / 1e9).toFixed(3)}
+                  </>
                 )}
               </span>
             </div>
@@ -1353,7 +1374,7 @@ function MyBets({
               className={`cash-value ${dir ? `flash-${dir}` : ""}`}
             >
               {dir === "up" ? "▲" : dir === "down" ? "▼" : ""}{" "}
-              {`${(s.cashValue / 1e9).toFixed(3)}◎`}
+              {(s.cashValue / 1e9).toFixed(3)} <Solana size={12} />
             </span>
           </button>
         ) : s.status === "pending" && ccy === "COIN" ? (
