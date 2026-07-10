@@ -220,8 +220,10 @@ Two ways around that:
   Anton for display (scores, streaks, headings), Space Mono for every
   number (odds, coins, stakes, clock), Archivo for body.
 - Coin economy rule: GI-coin calls ride to full time and settle
-  automatically (no early cash out); only SOL calls can be cashed out
-  early. An in-app "How GetIN works" explainer (first visit + the coin
-  pill in the header) documents this.
+  automatically (no early cash out) - a winning coin call pays out in SOL
+  at a fixed 15,000 coins = 1 SOL peg (the stake stays in coins; voids
+  refund coins). Only SOL calls can be cashed out early. An in-app "How
+  GetIN works" explainer (first visit + the coin pill in the header)
+  documents this.
 - Probability bar palette validated for colorblind safety and contrast.
 - `scripts/setup-txline.ts` handles Token-2022 mints and SSE responses.

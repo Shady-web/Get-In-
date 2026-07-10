@@ -163,7 +163,7 @@ export function EconomyExplainer({ onClose }: { onClose: () => void }) {
             icon="🪙"
             color="#FFC530"
             title="GI Coins"
-            body="Your free play-money balance. Earn them from daily quests, winning calls and correct picks. Stake them on any market - coin calls pay out more coins and ride to full time (they settle automatically, no early cash out)."
+            body="Your free play-money balance, earned from daily quests, winning calls and correct picks. Stake them on any market - a winning coin call pays out in SOL (at 15,000 coins = 1 SOL) and rides to full time (settles automatically, no early cash out)."
           />
           <Bullet
             icon="◎"

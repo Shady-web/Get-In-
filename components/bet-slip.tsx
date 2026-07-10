@@ -15,6 +15,7 @@ import {
 import type { PlayerRecord, StoredPlayer } from "@/lib/player";
 import { Coin } from "@/components/coin";
 import {
+  coinsToLamports,
   formatAmount,
   MIN_STAKE,
   parseStake,
@@ -308,8 +309,10 @@ export function BetSlipTray({
                 Potential return
               </span>
               <span className="muted" style={{ fontSize: 10.5 }}>
-                {currency === "SOL" ? "Pays withdrawable SOL" : "Pays coins"} · odds{" "}
-                {combined.toFixed(2)}
+                {currency === "SOL"
+                  ? "Pays withdrawable SOL"
+                  : `Pays ≈ ${formatAmount(coinsToLamports(potential), "SOL")} on a win`}{" "}
+                · odds {combined.toFixed(2)}
               </span>
             </span>
             <span
@@ -336,7 +339,7 @@ export function BetSlipTray({
           <p className="caption muted" style={{ textAlign: "center" }}>
             {currency === "SOL"
               ? "SOL calls pay withdrawable SOL and can be cashed out early."
-              : "Coin calls ride to full time - they settle automatically, no cash out."}
+              : "Coin calls ride to full time and pay out in SOL when they win (no cash out)."}
           </p>
           {currency === "SOL" && balance < MIN_STAKE.SOL && (
             <p className="caption muted" style={{ textAlign: "center" }}>

@@ -9,7 +9,7 @@ import { WalletPanel } from "@/components/wallet-panel";
 import { Coin } from "@/components/coin";
 import { MatchStats } from "@/components/match-stats";
 import { EconomyExplainer, useEconomyExplainer } from "@/components/economy-explainer";
-import { formatAmount, type Currency } from "@/lib/money";
+import { coinsToLamports, formatAmount, type Currency } from "@/lib/money";
 import { MarketsPanel } from "@/components/markets-panel";
 import { Flag } from "@/components/flag";
 import { BetSlipProvider, BetSlipTray, useBetSlip } from "@/components/bet-slip";
@@ -145,7 +145,12 @@ export default function MatchScreen() {
                   showToast({
                     kind: "won",
                     title: "YOU CALLED IT!",
-                    text: `+${formatAmount(Number(s.potential_return), ccy)}`,
+                    text: `+${formatAmount(
+                      ccy === "COIN"
+                        ? coinsToLamports(Number(s.potential_return))
+                        : Number(s.potential_return),
+                      "SOL",
+                    )}`,
                   });
                 } else if (s.status === "lost") {
                   showToast({
@@ -1603,7 +1608,12 @@ function MyBets({
               : s.status === "cashed"
                 ? `CASHED +${formatAmount(Number(s.cashout_amount ?? 0), ccy)}`
                 : s.status === "won"
-                  ? `WON +${formatAmount(Number(s.potential_return), ccy)}`
+                  ? `WON +${formatAmount(
+                      ccy === "COIN"
+                        ? coinsToLamports(Number(s.potential_return))
+                        : Number(s.potential_return),
+                      "SOL",
+                    )}`
                   : s.status.toUpperCase()}
           </span>
         )}
