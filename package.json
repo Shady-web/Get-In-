@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "setup:txline": "tsx scripts/setup-txline.ts",
+    "setup:house": "tsx scripts/setup-house.ts",
     "test:pundit": "tsx scripts/test-pundit.ts",
     "test:quests": "tsx scripts/test-quests.ts"
   },

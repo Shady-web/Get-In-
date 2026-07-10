@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { errorStatus, requireUser } from "@/lib/auth";
 import { getOrCreatePlayer } from "@/lib/game";
-import { getWalletInfo } from "@/lib/wallet";
+import { checkHouseFloat, getWalletInfo } from "@/lib/wallet";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +17,9 @@ export async function GET(request: Request) {
     const user = await requireUser(request);
     const player = await getOrCreatePlayer(user.userId);
     const wallet = await getWalletInfo(player.id, Number(player.sol_balance ?? 0));
+    // Health check: logs the house float and warns (server console) when it's
+    // low, so it's known to top up before a demo. Throttled; never throws.
+    void checkHouseFloat();
     return NextResponse.json({ ok: true, wallet });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Wallet unavailable.";

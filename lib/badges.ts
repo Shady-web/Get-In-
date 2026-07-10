@@ -16,9 +16,8 @@ export interface BadgeDef {
 
 export const BADGE_DEFS: BadgeDef[] = [
   { id: "first_win", icon: "🏅", name: "First Win", hint: "Win any bet slip" },
-  { id: "first_cashout", icon: "💸", name: "Cool Head", hint: "Cash out a bet early" },
+  { id: "first_cashout", icon: "💸", name: "Cool Head", hint: "Cash out a SOL bet early" },
   { id: "parlay_5", icon: "🎰", name: "Parlay Pro", hint: "Win an accumulator with 5+ legs" },
-  { id: "streak_10", icon: "🔥", name: "On Fire", hint: "Hit a 10-win prediction streak" },
   { id: "bankroll_5k", icon: "👑", name: "High Roller", hint: "Grow your bankroll to 5,000 coins" },
 ];
 
@@ -31,18 +30,13 @@ export async function getBadges(identity: string): Promise<BadgeStatus[]> {
   if (!supabase) throw new Error("Supabase is not configured on the server.");
   const player = await getOrCreatePlayer(identity);
 
-  const [ownedRes, slipsRes, predRes] = await Promise.all([
+  const [ownedRes, slipsRes] = await Promise.all([
     supabase.from("badges").select("badge_id, earned_at").eq("player", player.id),
     supabase
       .from("bet_slips")
       .select("status, bet_legs(id)")
       .eq("player", player.id)
       .in("status", ["won", "cashed"]),
-    supabase
-      .from("predictions")
-      .select("id", { count: "exact", head: true })
-      .eq("player", player.id)
-      .eq("result", "won"),
   ]);
 
   const owned = new Map(
@@ -54,10 +48,9 @@ export async function getBadges(identity: string): Promise<BadgeStatus[]> {
   }));
 
   const conditions: Record<string, boolean> = {
-    first_win: slips.some((s) => s.status === "won") || (predRes.count ?? 0) > 0,
+    first_win: slips.some((s) => s.status === "won"),
     first_cashout: slips.some((s) => s.status === "cashed"),
     parlay_5: slips.some((s) => s.status === "won" && s.legs >= 5),
-    streak_10: (player.best_streak ?? 0) >= 10,
     bankroll_5k: (player.coin_balance ?? 0) >= 5_000,
   };
 

@@ -3,8 +3,9 @@
 .env.local
 .env.*.local
 
-# The Solana keypair this setup script generates
+# Solana keypairs the setup scripts generate (TxLINE + devnet house float)
 .txline-keypair.json
+.house-keypair.json
 *.keypair.json
 
 # Node
@@ -16,3 +17,6 @@ yarn-error.log*
 .next/
 out/
 next-env.d.ts
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo

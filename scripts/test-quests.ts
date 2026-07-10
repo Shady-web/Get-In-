@@ -28,10 +28,7 @@ const slip = (over: Partial<QuestRows["slips"][number]>): QuestRows["slips"][num
   settledToday: false,
   ...over,
 });
-const rows = (slips: QuestRows["slips"], predictionsWonToday = 0): QuestRows => ({
-  slips,
-  predictionsWonToday,
-});
+const rows = (slips: QuestRows["slips"]): QuestRows => ({ slips });
 const progress = (id: string, r: QuestRows) => QUEST_POOL.find((q) => q.id === id)!.progress(r);
 
 // 1. Rotation: 3 distinct quests, deterministic for a given day.
@@ -108,10 +105,7 @@ check(
   350,
 );
 
-// 8. predict_5 comes straight off the counter.
-check("predict_5", progress("predict_5", rows([], 4)), 4);
-
-// 9. Day key shape (drives the quest_claims.day column).
+// 8. Day key shape (drives the quest_claims.day column).
 check("dayKey shape", /^\d{4}-\d{2}-\d{2}$/.test(dayKey()), true);
 
 console.log(`daily quests: ${passed} passed, ${failed} failed`);
