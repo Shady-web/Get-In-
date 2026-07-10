@@ -1,13 +1,24 @@
 import type { ReactNode } from "react";
-import { Inter_Tight } from "next/font/google";
+import { Anton, Archivo, Space_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-// GSAP's primary font is Mori; Inter Tight is its documented fallback.
-const interTight = Inter_Tight({
+// GetIN design system fonts: Anton (condensed display), Archivo (body),
+// Space Mono (all numbers). Exposed as CSS variables the styles consume.
+const anton = Anton({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400"],
+  variable: "--font-display",
+});
+const archivo = Archivo({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "900"],
   variable: "--font-app",
+});
+const spaceMono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-mono",
 });
 
 export const metadata = {
@@ -18,12 +29,15 @@ export const metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0e100f",
+  themeColor: "#060f0a",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={interTight.variable}>
+    <html
+      lang="en"
+      className={`${anton.variable} ${archivo.variable} ${spaceMono.variable}`}
+    >
       <body>
         <div className="devnet-banner" role="note">
           Devnet · test tokens · no real value

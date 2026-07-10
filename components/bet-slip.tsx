@@ -262,15 +262,61 @@ export function BetSlipTray({
             />
             <span className="muted" style={{ fontSize: 12, flex: 1 }}>
               {currency === "SOL" ? "SOL" : "coins"} · you have{" "}
-              {formatAmount(balance, currency)}
+              <span className="mono">{formatAmount(balance, currency)}</span>
             </span>
-            <span style={{ textAlign: "right", display: "grid", gap: 1 }}>
-              <span className="muted" style={{ fontSize: 11 }}>
-                odds {combined.toFixed(2)}
+          </div>
+
+          {/* Quick-stake chips */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            {(currency === "SOL"
+              ? ([0.05, 0.1, 0.25, "MAX"] as const)
+              : ([25, 50, 100, "MAX"] as const)
+            ).map((c) => {
+              const isMax = c === "MAX";
+              const val = isMax
+                ? currency === "SOL"
+                  ? balance / 1_000_000_000
+                  : balance
+                : (c as number);
+              return (
+                <button
+                  key={String(c)}
+                  className="pill tab"
+                  style={{ justifyContent: "center", height: 40 }}
+                  onClick={() => setStake(isMax ? String(val) : String(c))}
+                >
+                  {isMax ? "MAX" : c}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Potential return */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 14px",
+              borderRadius: "var(--radius-buttons)",
+              background: "rgba(0, 168, 90, 0.08)",
+              border: "1.5px solid rgba(0, 168, 90, 0.28)",
+            }}
+          >
+            <span style={{ display: "grid", gap: 2 }}>
+              <span className="caption" style={{ color: "#5ff29a" }}>
+                Potential return
               </span>
-              <span style={{ fontWeight: 700, color: "var(--color-ember-orange)" }}>
-                pays {formatAmount(potential, currency)}
+              <span className="muted" style={{ fontSize: 10.5 }}>
+                {currency === "SOL" ? "Pays withdrawable SOL" : "Pays coins"} · odds{" "}
+                {combined.toFixed(2)}
               </span>
+            </span>
+            <span
+              className="mono"
+              style={{ fontWeight: 700, fontSize: 20, color: "var(--color-tape-green)" }}
+            >
+              {formatAmount(potential, currency)}
             </span>
           </div>
 
@@ -285,11 +331,16 @@ export function BetSlipTray({
                 ? currency === "SOL"
                   ? "Not enough SOL"
                   : "Not enough coins"
-                : `Place bet · ${formatAmount(stakeBase, currency)}`}
+                : `Place call · ${formatAmount(stakeBase, currency)}`}
           </button>
+          <p className="caption muted" style={{ textAlign: "center" }}>
+            {currency === "SOL"
+              ? "SOL calls pay withdrawable SOL and can be cashed out early."
+              : "Coin calls ride to full time - they settle automatically, no cash out."}
+          </p>
           {currency === "SOL" && balance < MIN_STAKE.SOL && (
             <p className="caption muted" style={{ textAlign: "center" }}>
-              Deposit test SOL in the Deposit tab to bet with SOL.
+              Deposit test SOL in the Wallet tab to bet with SOL.
             </p>
           )}
           {error && <p className="error-text">{error}</p>}

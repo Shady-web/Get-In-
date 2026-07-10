@@ -394,12 +394,15 @@ const CASHOUT_MARGIN = 0.95;
  * settle in minutes; no cash out there).
  */
 export function slipCashValue(
-  slip: { stake: number | string; potential_return: number | string },
+  slip: { stake: number | string; potential_return: number | string; currency?: Currency },
   legs: Pick<LegRow, "result" | "session" | "market_key" | "outcome_name" | "fixture_id">[],
   currentOddsOf: (
     leg: Pick<LegRow, "market_key" | "outcome_name" | "fixture_id">,
   ) => number | null,
 ): number | null {
+  // GI-coin calls ride to settlement: no early cash out. Only SOL calls are
+  // cashable while open.
+  if ((slip.currency ?? "COIN") !== "SOL") return null;
   let probProduct = 1;
   for (const leg of legs) {
     if (leg.result === "lost") return 0;
@@ -479,6 +482,9 @@ export async function cashOutSlip(
     .eq("status", "pending")
     .single();
   if (!slip) throw new Error("That slip is no longer open.");
+  if ((slip.currency ?? "COIN") !== "SOL") {
+    throw new Error("Coin calls settle automatically - cash out is for SOL calls only.");
+  }
 
   const legs = (slip.bet_legs ?? []) as LegRow[];
   const marketsByFixture = await oddsResolverFor(legs);

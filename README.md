@@ -215,10 +215,13 @@ Two ways around that:
 
 ## Stack notes
 
-- Styling: GSAP design system tokens (via the refero-ui-styles workflow):
-  just-black canvas, warm cream text (never pure white), a shockingly-green
-  gradient as the only CTA voice, outlined pill controls, 8px cards,
-  curly-bracket section labels, no shadows (depth from gradients only).
-  One typeface (Inter Tight, GSAP's documented fallback).
+- Styling: the GetIN design system (stadium night). Floodlit pitch green +
+  electric-lime CTAs + trophy-gold GI coins on a deep green-black canvas.
+  Anton for display (scores, streaks, headings), Space Mono for every
+  number (odds, coins, stakes, clock), Archivo for body.
+- Coin economy rule: GI-coin calls ride to full time and settle
+  automatically (no early cash out); only SOL calls can be cashed out
+  early. An in-app "How GetIN works" explainer (first visit + the coin
+  pill in the header) documents this.
 - Probability bar palette validated for colorblind safety and contrast.
 - `scripts/setup-txline.ts` handles Token-2022 mints and SSE responses.

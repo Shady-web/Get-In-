@@ -8,6 +8,7 @@ import { authFetch } from "@/lib/api-client";
 import { WalletPanel } from "@/components/wallet-panel";
 import { Coin } from "@/components/coin";
 import { MatchStats } from "@/components/match-stats";
+import { EconomyExplainer, useEconomyExplainer } from "@/components/economy-explainer";
 import { formatAmount, type Currency } from "@/lib/money";
 import { MarketsPanel } from "@/components/markets-panel";
 import { Flag } from "@/components/flag";
@@ -68,6 +69,16 @@ export default function MatchScreen() {
   const [selected, setSelected] = useState<Selection | null>(null);
   const [tab, setTab] = useState<"matches" | "bets" | "rooms" | "leaders" | "wallet">("matches");
   const [openBets, setOpenBets] = useState(0);
+  const [toast, setToast] = useState<{ kind: "won" | "lost" | "info"; title: string; text: string } | null>(null);
+  const slipStatusRef = useRef<Map<string, string>>(new Map());
+  const toastTimer = useRef<number | null>(null);
+  const explainer = useEconomyExplainer();
+
+  const showToast = useCallback((t: { kind: "won" | "lost" | "info"; title: string; text: string }) => {
+    setToast(t);
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 4600);
+  }, []);
 
   // Identity = the Supabase session. No session, no match screen.
   useEffect(() => {
@@ -121,14 +132,39 @@ export default function MatchScreen() {
         const res = await authFetch("/api/slips");
         const body = await res.json();
         if (!cancelled && body?.ok && Array.isArray(body.slips)) {
-          setOpenBets(body.slips.filter((s: { status: string }) => s.status === "pending").length);
+          const slips = body.slips as SlipView[];
+          setOpenBets(slips.filter((s) => s.status === "pending").length);
+          // Toast when a slip transitions from open to a settled result.
+          const prev = slipStatusRef.current;
+          if (prev.size > 0) {
+            for (const s of slips) {
+              const was = prev.get(s.id);
+              if (was === "pending" && s.status !== "pending") {
+                const ccy: Currency = s.currency === "SOL" ? "SOL" : "COIN";
+                if (s.status === "won") {
+                  showToast({
+                    kind: "won",
+                    title: "YOU CALLED IT!",
+                    text: `+${formatAmount(Number(s.potential_return), ccy)}`,
+                  });
+                } else if (s.status === "lost") {
+                  showToast({
+                    kind: "lost",
+                    title: "SO CLOSE",
+                    text: `-${formatAmount(Number(s.stake), ccy)} · better luck next call`,
+                  });
+                }
+              }
+            }
+          }
+          slipStatusRef.current = new Map(slips.map((s) => [s.id, s.status]));
         }
       } catch {
         /* leave the last count */
       }
     };
     void tick();
-    const id = window.setInterval(tick, 30_000);
+    const id = window.setInterval(tick, 12_000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
@@ -153,9 +189,14 @@ export default function MatchScreen() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {coins !== undefined && (
-            <span className="pill" title="Coin bankroll" style={{ gap: 5 }}>
-              <Coin size={15} /> {coins.toLocaleString()}
-            </span>
+            <button
+              className="coin-pill"
+              title="How the economy works"
+              onClick={explainer.openExplainer}
+            >
+              <Coin size={16} /> {coins.toLocaleString()}
+              <span style={{ opacity: 0.6, fontSize: 11 }}>ⓘ</span>
+            </button>
           )}
           <span className="pill" title={displayName(player)}>
             {displayName(player)}
@@ -235,6 +276,18 @@ export default function MatchScreen() {
       )}
 
       <BetSlipTray player={player} onPlayerUpdate={updatePlayerRecord} />
+      {explainer.open && <EconomyExplainer onClose={explainer.close} />}
+      {toast && (
+        <div className={`toast toast-${toast.kind} fade-in`} role="status">
+          <span className="toast-icon" aria-hidden>
+            {toast.kind === "won" ? "✓" : toast.kind === "lost" ? "✕" : "ℹ"}
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span className="toast-title">{toast.title}</span>
+            <span className="toast-text">{toast.text}</span>
+          </span>
+        </div>
+      )}
     </main>
     </BetSlipProvider>
   );
@@ -1497,7 +1550,7 @@ function MyBets({
               : ""}
           </span>
         </span>
-        {s.status === "pending" && typeof s.cashValue === "number" ? (
+        {s.status === "pending" && ccy === "SOL" && typeof s.cashValue === "number" ? (
           <button
             className="cashout-btn"
             onClick={() => setConfirmCash(s)}
@@ -1511,9 +1564,25 @@ function MyBets({
               className={`cash-value ${dir ? `flash-${dir}` : ""}`}
             >
               {dir === "up" ? "▲" : dir === "down" ? "▼" : ""}{" "}
-              {ccy === "SOL" ? `${(s.cashValue / 1e9).toFixed(3)}◎` : s.cashValue.toLocaleString()}
+              {`${(s.cashValue / 1e9).toFixed(3)}◎`}
             </span>
           </button>
+        ) : s.status === "pending" && ccy === "COIN" ? (
+          <span
+            style={{
+              textAlign: "right",
+              display: "grid",
+              gap: 2,
+              justifyItems: "end",
+            }}
+          >
+            <span className="caption" style={{ color: "var(--color-ember-orange)" }}>
+              Open
+            </span>
+            <span className="muted" style={{ fontSize: 10.5, maxWidth: 120 }}>
+              Rides to full time · no cash out
+            </span>
+          </span>
         ) : (
           <span
             style={{
