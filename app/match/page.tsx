@@ -19,6 +19,7 @@ import { QuestsCard } from "@/components/quests-card";
 import { BadgeWall } from "@/components/badge-wall";
 import type { LiveState } from "@/lib/live";
 import { isFinal } from "@/lib/game-core";
+import { winnerOdds, isIndicativeOdds } from "@/lib/odds";
 import { stateAt, type ReplayTimeline } from "@/lib/replay-core";
 
 interface Fixture {
@@ -771,25 +772,26 @@ function LiveMatch({
         {/* Recent form for both teams, to size up before predicting */}
         <MatchStats fixtureId={fixture.FixtureId} />
 
-        {/* Match-winner odds live DIRECTLY under the stats, betting-app style */}
-        {state?.odds && !isFinal(state.statusId) && (
+        {/* Match-winner odds live DIRECTLY under the stats, betting-app style.
+            Always available before full time, even before a book opens - the
+            odds fall back to the win-probability split, then a flat default. */}
+        {state && !isFinal(state.statusId) && (() => {
+          const wo = winnerOdds(state);
+          const indicative = isIndicativeOdds(state);
+          return (
           <div className="card fade-in" style={{ display: "grid", gap: 10 }}>
             <div
               style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}
             >
               <p className="caption section-label">Match winner</p>
               <span className="muted" style={{ fontSize: 11 }}>
-                tap odds · pays coins
+                {indicative ? "indicative · tap to bet" : "tap odds · pays coins"}
               </span>
             </div>
             <div className="quick-odds">
               {(["part1", "draw", "part2"] as const).map((name) => {
                 const odds =
-                  name === "part1"
-                    ? state.odds!.home
-                    : name === "part2"
-                      ? state.odds!.away
-                      : state.odds!.draw;
+                  name === "part1" ? wo.home : name === "part2" ? wo.away : wo.draw;
                 const label =
                   name === "part1"
                     ? fixture.Participant1
@@ -824,7 +826,8 @@ function LiveMatch({
               })}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         <MarketsPanel fixture={fixture} />
 

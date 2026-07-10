@@ -34,8 +34,12 @@ on-chain World Cup tier, Solana).
   from where they stood at that moment; bets placed in a replay settle at
   its full time, exactly like live.
 - **Coin economy + SOL betting**: every player starts at 0 coins and earns
-  them from daily quests and winning bets (no daily handout). Tap any
-  full-time price (Markets tab, or the winner odds in a replay) to build a
+  them from daily quests and winning bets (no daily handout). Every match you
+  can open - live OR upcoming - is always bettable: the Match Winner market
+  is guaranteed, pricing from the live 1X2 odds when the book is open, else
+  from the win-probability split, else flat indicative odds (labelled as
+  such) until a book opens. Tap any full-time price (Markets tab, or the
+  winner odds in a replay) to build a
   Bet Slip: one selection = single, several (across matches) = accumulator
   at the product of leg odds. Stake in **coins or devnet SOL** (toggle on
   the slip); SOL stakes and payouts move the custodial balance you funded
@@ -49,8 +53,10 @@ on-chain World Cup tier, Solana).
   withdraw devnet SOL to any external address (min 0.0067 SOL). The signing
   key stays server-side.
 - **Recent form**: open any match to see each team's last 3 results
-  (W/D/L, scores, opponents) before you predict. Assembled from the
-  fixtures schedule + final scores; hides itself when there's no history.
+  (W/D/L, scores, opponents) before you bet. Assembled from the fixtures
+  schedule + final scores, reading finished games from the historical feed
+  (the live snapshot only covers current matches); hides itself only when
+  the feed genuinely has no prior results for either team.
 - **My Bets**: open and settled bets in separate sections, with a counter
   badge on the tab for how many are still running, live cash-out values on
   open SOL slips, and per-leg won/lost/pending status on every accumulator.

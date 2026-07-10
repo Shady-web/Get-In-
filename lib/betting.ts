@@ -11,6 +11,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { logLedger } from "@/lib/wallet";
 import { coinsToLamports } from "@/lib/money";
 import { getOrCreatePlayer, isFinal, type PlayerRow } from "@/lib/game";
+import { winnerOdds } from "@/lib/odds";
 
 export interface LegInput {
   fixtureId: number;
@@ -164,13 +165,14 @@ async function resolveLeg(input: LegInput): Promise<{
     return { matchId: String(input.fixtureId), odds: outcome.price, marketLabel: market.label };
   }
 
-  // Match-winner fallback: even if the snapshot momentarily misses the exact
-  // market key, the 1X2 prices come straight from the live state. Pre-match
-  // and in-play bets on the winner should basically never bounce.
-  if (superType.includes("1X2") && live.odds) {
+  // Match-winner is ALWAYS bettable on a match that hasn't finished: use the
+  // live 1X2 prices, else derive from the win probabilities, else a flat
+  // default (winnerOdds handles all three). This mirrors the Match Winner the
+  // markets route always surfaces, so a winner pick never bounces.
+  if (superType.includes("1X2")) {
     return {
       matchId: String(input.fixtureId),
-      odds: pick1X2Odds(live.odds, input.outcomeName),
+      odds: pick1X2Odds(winnerOdds(live), input.outcomeName),
       marketLabel: "Match winner",
     };
   }
