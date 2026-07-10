@@ -52,7 +52,12 @@ function keysForSide(f: RawFixture, side: 1 | 2): string {
     : teamKey(f.Participant2Id, f.Participant2);
 }
 
-/** Final score for a fixture from the scores snapshot, or null if not final. */
+/**
+ * Final score for a finished fixture, or null if it isn't final / unknown.
+ * The live snapshot only covers matches that are live or just finished; older
+ * finished fixtures (the norm for "last 3 games") live ONLY in the historical
+ * feed, so fall back to that - this is why recent form used to come back empty.
+ */
 async function finalScore(
   fixtureId: number,
 ): Promise<{ home: number; away: number } | null> {
@@ -60,7 +65,13 @@ async function finalScore(
     const folded = foldScores(await getScoresSnapshot(fixtureId));
     if (folded.score && isFinal(folded.statusId)) return folded.score;
   } catch {
-    /* skip */
+    /* fall through to the historical feed */
+  }
+  try {
+    const folded = foldScores(await txlineGet(`/scores/historical/${fixtureId}`));
+    if (folded.score && isFinal(folded.statusId)) return folded.score;
+  } catch {
+    /* no history for this fixture: skip it */
   }
   return null;
 }
