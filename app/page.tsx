@@ -120,7 +120,9 @@ export default function Landing() {
         </p>
         <h1 className="display">
           <span className="brand-gradient">GetIN</span>
-          <span style={{ color: "var(--color-ember-orange)" }}>!!!</span>
+          <span style={{ color: "var(--color-lime)", textShadow: "0 0 24px rgba(190,255,80,0.4)" }}>
+            !!!
+          </span>
         </h1>
         <p style={{ fontSize: 15, color: "var(--color-ash)" }}>
           Call the result before the whistle. Climb the board.

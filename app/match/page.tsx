@@ -48,6 +48,42 @@ function isReplayable(f: Fixture, now: number): boolean {
   return f.LiveStatus === "finished" && now - f.StartTime <= REPLAY_MAX_AGE_MS;
 }
 
+// --- Bottom-nav icons (inline SVG keeps the tab bar crisp, no assets) ---------
+
+const NAV_ICONS: Record<string, React.ReactNode> = {
+  matches: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path
+        d="M12 7.6l4.2 3-1.6 4.9H9.4l-1.6-4.9z"
+        fill="currentColor"
+        stroke="none"
+      />
+      <path d="M12 3v4.6M20.6 10l-4.4.6M17.5 19.3l-2.9-3.8M6.5 19.3l2.9-3.8M3.4 10l4.4.6" />
+    </svg>
+  ),
+  bets: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+      <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h13A1.5 1.5 0 0 1 20 8.5v1.6a2 2 0 0 0 0 3.8v1.6a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 15.5v-1.6a2 2 0 0 0 0-3.8z" />
+      <path d="M14.5 7v10" strokeDasharray="1.6 2.4" />
+    </svg>
+  ),
+  wallet: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+      <rect x="3.5" y="6" width="17" height="13" rx="2.5" />
+      <path d="M16.5 6V5a1.5 1.5 0 0 0-1.8-1.5L5 5.4" />
+      <path d="M15.5 11h5v3.5h-5a1.75 1.75 0 1 1 0-3.5z" />
+    </svg>
+  ),
+  leaders: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+      <path d="M8 4h8v4.5a4 4 0 0 1-8 0z" />
+      <path d="M8 5.5H5.5a0 0 0 0 0 0 0c0 2.5 1 4 2.8 4.4M16 5.5h2.5c0 2.5-1 4-2.8 4.4" />
+      <path d="M12 12.5v3M9 20h6M10 15.5h4l.6 4.5H9.4z" />
+    </svg>
+  ),
+};
+
 function kickoffLabel(startTime: number): string {
   const d = new Date(startTime);
   const today = new Date();
@@ -235,33 +271,36 @@ export default function MatchScreen() {
         </div>
       </header>
 
-      {!selected && (
-        <nav style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
-          {(
-            [
-              ["matches", "Matches"],
-              ["bets", "My Bets"],
-              ["wallet", "Wallet"],
-              ["leaders", "Leaders"],
-            ] as const
-          ).map(([key, label]) => (
+      <nav className="bottom-nav" aria-label="Main">
+        {(
+          [
+            ["matches", "Matches"],
+            ["bets", "My Bets"],
+            ["wallet", "Wallet"],
+            ["leaders", "Leaders"],
+          ] as const
+        ).map(([key, label]) => {
+          // With a match open, the Matches tab reads as the active section.
+          const active = selected ? key === "matches" : tab === key;
+          return (
             <button
               key={key}
-              className={`pill tab ${tab === key ? "active" : ""}`}
-              onClick={() => setTab(key)}
+              className={`nav-item ${active ? "active" : ""}`}
+              aria-current={active ? "page" : undefined}
+              onClick={() => {
+                setSelected(null);
+                setTab(key);
+              }}
             >
-              {key === "bets" && openBets > 0 ? (
-                <>
-                  {label}{" "}
-                  <span className="tab-count">{openBets}</span>
-                </>
-              ) : (
-                label
+              {NAV_ICONS[key]}
+              <span>{label}</span>
+              {key === "bets" && openBets > 0 && (
+                <span className="nav-badge">{openBets}</span>
               )}
             </button>
-          ))}
-        </nav>
-      )}
+          );
+        })}
+      </nav>
 
       {selected ? (
         selected.mode === "live" ? (
@@ -321,29 +360,36 @@ function FixtureRow({
   left?: React.ReactNode;
   onClick: () => void;
 }) {
+  // Teams stack one per line (never wrap mid-name), so every card in the
+  // list renders the same shape no matter how long the country names are.
+  const teamLine: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    fontWeight: 600,
+    fontSize: 14.5,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    minWidth: 0,
+  };
   return (
     <button className="row fixture-row fade-in" onClick={onClick}>
       {left}
-      <span style={{ flex: 1, display: "grid", gap: 2, minWidth: 0 }}>
-        <span
-          style={{
-            fontWeight: 600,
-            fontSize: 15,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            flexWrap: "wrap",
-          }}
-        >
+      <span style={{ flex: 1, display: "grid", gap: 4, minWidth: 0 }}>
+        <span style={teamLine}>
           <Flag country={fixture.Participant1} />
-          {fixture.Participant1}
-          <span className="muted" style={{ fontWeight: 400 }}>
-            vs
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+            {fixture.Participant1}
           </span>
-          <Flag country={fixture.Participant2} />
-          {fixture.Participant2}
         </span>
-        <span className="muted" style={{ fontSize: 12 }}>
+        <span style={teamLine}>
+          <Flag country={fixture.Participant2} />
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+            {fixture.Participant2}
+          </span>
+        </span>
+        <span className="muted" style={{ fontSize: 11 }}>
           {fixture.Competition}
         </span>
       </span>
