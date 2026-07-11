@@ -235,11 +235,17 @@ ways around that:
 
 ## Stack notes
 
-- Styling: the GetIN design system (stadium night). Floodlit pitch green +
-  electric-lime CTAs + trophy-gold GI coins on a deep green-black canvas.
-  Anton for display (scores, headings), Space Mono for every number (odds,
-  coins, stakes, clock), Archivo for body. Two balances ride in the header:
-  the gold GI-coin pill and a SOL pill carrying the official Solana mark
+- Styling: "Floodlit Glass" - a refero.design synthesis (Authkit's frosted
+  glass midnight x Perk's single electric-lime accent) tuned to a World Cup
+  night match. A fixed stadium scene sits behind everything (pitch-marking
+  grid, centre circle, floodlight halos); surfaces are translucent glass
+  plates with inset hairlines and glow-halo elevation (no hard borders or
+  drop shadows); electric lime #beff50 is the only filled accent. Mobile
+  first: an app-style glass bottom tab bar (docked inline on desktop),
+  sticky blurred topbar, thumb-sized odds chips. Anton for display with an
+  ice-gradient scoreboard fill, Space Mono for every number and eyebrow
+  label, Archivo for body. Two balances ride in the header: the gold
+  GI-coin pill and a SOL pill carrying the official Solana mark
   (`components/solana.tsx`), which also stands in for SOL everywhere it's
   shown (stake toggle, cash-out value, SOL leaderboard, wallet).
 - Coin economy rule: GI-coin calls ride to full time and settle

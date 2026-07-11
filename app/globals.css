@@ -1,50 +1,70 @@
-/* GetIN!!! - GetIN design system (stadium night).
-   Floodlit pitch green + electric lime CTA + trophy gold coins, on a deep
-   green-black stadium canvas. Anton for display, Space Mono for numbers,
-   Archivo for body. Tight cards, crisp borders, lime floodlight on emphasis. */
+/* GetIN!!! — "Floodlit Glass" design system.
+   Refero synthesis: Authkit's frosted-glass midnight (glass plates lit from
+   behind, inset hairline strokes, glow-halo elevation, blueprint grid) fused
+   with Perk's single-accent discipline (one electric-lime fill, everything
+   else monochrome glass) — tuned to a World Cup night match: the blueprint
+   grid reads as pitch markings, the halos as stadium floodlights.
+
+   Rules of the system:
+   - Electric lime #beff50 is the ONLY filled accent (CTAs, selection, active
+     nav). Green #2fe27a is data-only (live, wins, prices). Gold is coins.
+   - No solid borders: 1px inset hairlines at low-alpha mint.
+   - Elevation = inset frost highlight + soft halo, never hard drop shadows.
+   - Backdrop blur only on fixed chrome (topbar, bottom nav, sheets, toasts)
+     so scrolling stays fast on phones. Cards are translucent plates.
+   - Mobile first: app-style glass bottom tab bar; desktop gets it inline. */
 
 :root {
   /* Accents by role */
-  --color-tape-green: #2fe27a; /* live / wins / odds */
-  --color-brand-green: #00a85a;
-  --color-lime: #d6fb3d; /* primary CTA accent */
+  --color-lime: #beff50; /* THE accent: primary CTA + selection */
+  --color-tape-green: #3ce88a; /* live / wins / prices (data green) */
+  --color-brand-green: #00b562;
   --color-gold: #ffc530; /* trophy gold */
-  --color-ember-orange: #ffd86b; /* GI coins / points / potential (gold) */
-  --color-signal-blue: #75aadb; /* away side */
-  --color-festival-red: #ff6b6b; /* losses */
-  --color-orangey: #ff6b6b;
-  --color-lilac: #9d95ff;
-  --color-pink: #fec5fb;
-  --color-core-green: #c4f0d7;
-  --gradient-green: linear-gradient(90deg, #00a85a, #2fe27a);
+  --color-ember-orange: #ffd86b; /* GI coins / potential (gold text) */
+  --color-signal-blue: #7fb4e6; /* away side */
+  --color-festival-red: #ff7a7a; /* losses */
+  --color-orangey: #ff7a7a;
+  --color-lilac: #a89dff;
+  --color-pink: #f8b8f2;
+  --color-core-green: #c9f2da;
+  --gradient-green: linear-gradient(90deg, #beff50, #2fe27a);
+  --gradient-ice: linear-gradient(180deg, #f4fff8 20%, #9fe8c0 100%);
 
-  /* Neutrals: stadium-night ink greens, cream text */
-  --color-void: #0a1a05; /* dark ink for text on lime/green fills */
-  --color-obsidian: #060f0a;
-  --color-graphite: #0b1712;
-  --color-slate: #22402e; /* interactive border */
-  --color-iron: #5f7268;
-  --color-fog: rgba(234, 255, 242, 0.5);
-  --color-smoke: #5f7268;
-  --color-ash: rgba(234, 255, 242, 0.72);
-  --color-platinum: #eafff2;
-  --color-snow: #eafff2;
-  --color-border: #1d3527;
+  /* Neutrals: midnight pitch glass */
+  --color-void: #04100a; /* ink text on lime fills */
+  --color-obsidian: #030907;
+  --color-graphite: rgba(198, 244, 219, 0.05);
+  --color-slate: rgba(198, 247, 220, 0.26); /* interactive hairline */
+  --color-iron: #64786d;
+  --color-fog: rgba(226, 248, 236, 0.52);
+  --color-smoke: #64786d;
+  --color-ash: rgba(230, 250, 240, 0.74);
+  --color-platinum: #eefcf4;
+  --color-snow: #eefcf4;
+  --color-border: rgba(190, 244, 216, 0.12); /* universal hairline */
 
   --surface-canvas: var(--color-obsidian);
-  --surface-card: var(--color-graphite);
-  --surface-elevated-card: #0e1c14;
+  --surface-card: rgba(198, 244, 219, 0.05);
+  --surface-elevated-card: rgba(202, 246, 222, 0.09);
 
-  /* Radii */
-  --radius-buttons: 11px;
-  --radius-cards: 16px;
-  --radius-modals: 14px;
+  /* Elevation recipe (Authkit): frost top edge + inner glow + soft halo */
+  --frost-edge: inset 0 1px 0 rgba(220, 250, 235, 0.1);
+  --frost-glow: inset 0 18px 40px rgba(170, 240, 205, 0.04);
+  --halo: 0 16px 36px rgba(0, 0, 0, 0.38);
+
+  /* Radii: pills for controls, soft plates for cards */
+  --radius-buttons: 14px;
+  --radius-cards: 20px;
+  --radius-modals: 22px;
   --radius-pill: 999px;
 
   /* Spacing */
   --section-gap: 32px;
-  --card-padding: 15px;
+  --card-padding: 18px;
   --element-gap: 14px;
+
+  /* Chrome sizes */
+  --bottomnav-h: 66px;
 }
 
 * {
@@ -55,6 +75,7 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  background: var(--surface-canvas);
 }
 
 body {
@@ -63,36 +84,53 @@ body {
   font-family: var(--font-app), "Archivo", ui-sans-serif, system-ui,
     -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 15px;
-  line-height: 1.4;
+  line-height: 1.45;
   letter-spacing: -0.05px;
   min-height: 100dvh;
 }
 
-/* Display font (Anton): big scores, streaks, sheet headings, brand. */
+/* The stadium: a fixed scene behind everything. Floodlight halos in the top
+   corners, a faint centre circle, and a pitch-marking grid. Painted on a
+   fixed pseudo-element (not background-attachment) so iOS keeps it stable. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(560px 420px at 12% -6%, rgba(190, 255, 80, 0.09), transparent 62%),
+    radial-gradient(640px 460px at 92% -10%, rgba(47, 226, 122, 0.08), transparent 64%),
+    radial-gradient(closest-side circle at 50% 30%, transparent 118px, rgba(190, 244, 216, 0.05) 119px, rgba(190, 244, 216, 0.05) 121px, transparent 122px),
+    linear-gradient(rgba(190, 244, 216, 0.033) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(190, 244, 216, 0.033) 1px, transparent 1px),
+    radial-gradient(140% 100% at 50% 0%, #071510 0%, #030907 58%);
+  background-size: auto, auto, auto, 76px 76px, 76px 76px, auto;
+}
+
+/* Display font (Anton): scores, big headings, brand. */
 .font-display {
   font-family: var(--font-display), "Archivo", sans-serif;
   text-transform: uppercase;
   font-weight: 400;
 }
 
-/* Mono (Space Mono): every number - odds, coins, stakes, clock. */
+/* Mono (Space Mono): every number, and all eyebrow labels. */
 .mono {
   font-family: var(--font-mono), ui-monospace, monospace;
 }
 
-/* Confetti field for hero sections: neon playground dots, no images needed */
+/* Confetti — retired festival dots, kept as a soft light-leak for the login
+   hero (extra floodlight bloom, no dots). */
 .confetti {
-  background-image:
-    radial-gradient(circle 3px at 12% 20%, rgba(10, 228, 72, 0.5) 0 3px, transparent 3px),
-    radial-gradient(circle 2px at 78% 12%, rgba(0, 186, 226, 0.5) 0 2px, transparent 2px),
-    radial-gradient(circle 2px at 30% 70%, rgba(255, 135, 9, 0.45) 0 2px, transparent 2px),
-    radial-gradient(circle 3px at 88% 55%, rgba(157, 149, 255, 0.5) 0 3px, transparent 3px),
-    radial-gradient(circle 2px at 55% 30%, rgba(171, 255, 132, 0.4) 0 2px, transparent 2px),
-    radial-gradient(circle 2px at 8% 85%, rgba(254, 197, 251, 0.45) 0 2px, transparent 2px),
-    radial-gradient(circle 3px at 65% 82%, rgba(10, 228, 72, 0.35) 0 3px, transparent 3px);
+  background-image: radial-gradient(
+    420px 300px at 50% 12%,
+    rgba(190, 255, 80, 0.06),
+    transparent 70%
+  );
 }
 
-/* Brand gradient: shockingly green - the pitch under floodlights */
+/* Brand gradient: lime to pitch green, floodlight on grass. */
 .brand-gradient {
   background: var(--gradient-green);
   -webkit-background-clip: text;
@@ -104,7 +142,11 @@ a {
   color: inherit;
 }
 
-/* ---- Type scale (Mori -> Inter Tight fallback, weights 400/600) --------- */
+::selection {
+  background: rgba(190, 255, 80, 0.28);
+}
+
+/* ---- Type scale ----------------------------------------------------------- */
 
 .display {
   font-family: var(--font-display), "Archivo", sans-serif;
@@ -123,17 +165,19 @@ a {
 }
 
 .heading-sm {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
   line-height: 1.25;
   letter-spacing: -0.18px;
 }
 
+/* Eyebrow labels: mono, spaced caps — the dot-matrix scoreboard voice. */
 .caption {
-  font-size: 11px;
-  font-weight: 500;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 700;
   line-height: 1.5;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -141,9 +185,20 @@ a {
   color: var(--color-fog);
 }
 
-/* Section eyebrows, in cream */
 .section-label {
-  color: var(--color-snow);
+  color: var(--color-ash);
+}
+
+/* Lime tick before section eyebrows: a floodlight cue, cheap and everywhere. */
+.section-label::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-lime);
+  vertical-align: 3px;
+  margin-right: 7px;
 }
 
 /* ---- Layout ------------------------------------------------------------ */
@@ -151,18 +206,28 @@ a {
 .shell {
   max-width: 480px;
   margin: 0 auto;
-  padding: 0 20px calc(24px + env(safe-area-inset-bottom));
+  padding: 0 18px calc(var(--bottomnav-h) + 28px + env(safe-area-inset-bottom));
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
 
+/* Sticky glass topbar bleeding to the shell edges. */
 .topbar {
-  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 58px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin: 0 -18px;
+  padding: 0 18px;
+  background: rgba(3, 9, 7, 0.72);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .brand {
@@ -177,39 +242,42 @@ a {
 }
 
 .brand .bang {
-  color: var(--color-tape-green);
+  color: var(--color-lime);
+  text-shadow: 0 0 18px rgba(190, 255, 80, 0.45);
 }
 
-/* ---- Surfaces (8px radius, hairline borders, zero shadows) --------------- */
+/* ---- Surfaces: glass plates lit from behind ------------------------------- */
 
 .card {
   background: var(--surface-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-cards);
   padding: var(--card-padding);
+  box-shadow: var(--frost-edge), var(--frost-glow);
 }
 
 .row {
   background: var(--surface-card);
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-cards);
   padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
+  box-shadow: var(--frost-edge);
 }
 
-/* ---- Controls: outlined-only system, pills everywhere -------------------- */
+/* ---- Controls -------------------------------------------------------------- */
 
 .btn {
   appearance: none;
-  border: 1.5px solid var(--color-slate);
-  background: transparent;
+  border: 1px solid var(--color-border);
+  background: var(--surface-card);
   color: var(--color-snow);
   width: 100%;
-  min-height: 50px;
+  min-height: 52px;
   padding: 12px 24px;
-  border-radius: var(--radius-buttons);
+  border-radius: var(--radius-pill);
   font: inherit;
   font-size: 13.5px;
   font-weight: 800;
@@ -220,7 +288,9 @@ a {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: opacity 120ms ease, border-color 120ms ease, background 120ms ease, filter 120ms ease;
+  box-shadow: var(--frost-edge);
+  transition: opacity 130ms ease, border-color 130ms ease, background 130ms ease,
+    filter 130ms ease, box-shadow 130ms ease, transform 80ms ease;
 }
 
 .btn:disabled {
@@ -228,15 +298,25 @@ a {
   cursor: default;
 }
 
-/* Primary CTA: electric-lime fill with dark ink text. */
+.btn:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+/* Primary CTA: the one chromatic fill in the whole system. */
 .btn-primary {
   border: none;
   background: var(--color-lime);
   color: var(--color-void);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 10px 30px rgba(190, 255, 80, 0.22);
 }
 
 .btn-primary:not(:disabled):hover {
-  filter: brightness(1.08);
+  filter: brightness(1.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 12px 36px rgba(190, 255, 80, 0.3);
 }
 
 .btn-primary:not(:disabled):active {
@@ -244,27 +324,30 @@ a {
 }
 
 .btn-ghost {
-  border-color: var(--color-border);
+  background: rgba(198, 244, 219, 0.04);
 }
 
 .btn-ghost:not(:disabled):hover,
 .btn-ghost:not(:disabled):active {
-  border-color: var(--color-tape-green);
-  color: var(--color-tape-green);
+  border-color: var(--color-slate);
+  color: var(--color-snow);
+  background: var(--surface-elevated-card);
 }
 
 .input {
   width: 100%;
-  min-height: 48px;
+  min-height: 50px;
   padding: 12px 16px;
-  background: var(--surface-elevated-card);
-  border: 1.5px solid var(--color-slate);
+  background: rgba(3, 12, 8, 0.5);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-buttons);
   color: var(--color-snow);
   font: inherit;
   font-size: 15px;
   letter-spacing: -0.05px;
   outline: none;
+  box-shadow: var(--frost-edge);
+  transition: border-color 130ms ease, box-shadow 130ms ease;
 }
 
 .input::placeholder {
@@ -272,22 +355,24 @@ a {
 }
 
 .input:focus {
-  border-color: var(--color-tape-green);
+  border-color: rgba(190, 255, 80, 0.55);
+  box-shadow: var(--frost-edge), 0 0 0 3px rgba(190, 255, 80, 0.12);
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 6px 13px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
-  background: transparent;
+  background: rgba(198, 244, 219, 0.04);
   color: var(--color-snow);
   font-size: 12px;
-  font-weight: 500;
-  letter-spacing: -0.12px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
   white-space: nowrap;
+  box-shadow: var(--frost-edge);
 }
 
 .pill .k {
@@ -315,13 +400,116 @@ a {
   font-size: 13px;
 }
 
+/* ---- Tabs (pill variant, used for sub-toggles) ------------------------------- */
+
+.pill.tab {
+  cursor: pointer;
+  color: var(--color-fog);
+  transition: color 130ms ease, border-color 130ms ease, background 130ms ease;
+}
+
+.pill.tab:hover {
+  color: var(--color-ash);
+}
+
+.pill.tab.active {
+  color: var(--color-lime);
+  font-weight: 700;
+  border-color: rgba(190, 255, 80, 0.4);
+  background: rgba(190, 255, 80, 0.1);
+}
+
+/* ---- App navigation: glass bottom tab bar (mobile), inline pills (desktop) -- */
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: stretch;
+  height: calc(var(--bottomnav-h) + env(safe-area-inset-bottom));
+  padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
+  background: rgba(3, 9, 7, 0.82);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border-top: 1px solid var(--color-border);
+  box-shadow: inset 0 1px 0 rgba(220, 250, 235, 0.06);
+}
+
+.nav-item {
+  appearance: none;
+  background: none;
+  border: none;
+  border-radius: 14px;
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+  align-content: center;
+  color: var(--color-fog);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  position: relative;
+  transition: color 130ms ease, background 130ms ease;
+}
+
+.nav-item svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.nav-item.active {
+  color: var(--color-lime);
+}
+
+.nav-item.active::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 26px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--color-lime);
+  box-shadow: 0 2px 12px rgba(190, 255, 80, 0.6);
+}
+
+.nav-item:active {
+  background: rgba(198, 244, 219, 0.06);
+}
+
+/* Open-bets bubble pinned to the nav icon. */
+.nav-badge {
+  position: absolute;
+  top: 4px;
+  right: calc(50% - 22px);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: var(--color-lime);
+  color: var(--color-void);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- Live match view ------------------------------------------------------ */
 
-/* Series colors follow the taxonomy: green home, neutral draw, blue away */
 :root {
-  --series-home: #2fe27a;
-  --series-draw: #3a4a41;
-  --series-away: #75aadb;
+  --series-home: #3ce88a;
+  --series-draw: rgba(226, 248, 236, 0.22);
+  --series-away: #7fb4e6;
 }
 
 .live-dot {
@@ -329,6 +517,7 @@ a {
   height: 7px;
   border-radius: 99px;
   background: var(--color-tape-green);
+  box-shadow: 0 0 10px rgba(60, 232, 138, 0.8);
   animation: breathe 1.6s ease-in-out infinite;
 }
 
@@ -338,12 +527,16 @@ a {
   cursor: pointer;
   font: inherit;
   color: inherit;
-  transition: border-color 120ms ease;
+  transition: border-color 130ms ease, background 130ms ease, transform 80ms ease;
 }
 
-.fixture-row:not(:disabled):hover,
-.fixture-row:not(:disabled):active {
+.fixture-row:not(:disabled):hover {
   border-color: var(--color-slate);
+  background: var(--surface-elevated-card);
+}
+
+.fixture-row:not(:disabled):active {
+  transform: scale(0.99);
 }
 
 .fixture-row:disabled {
@@ -351,14 +544,19 @@ a {
   opacity: 0.55;
 }
 
+/* Scoreboard numerals: Anton with the Authkit ice-gradient fill. */
 .score-num {
   font-family: var(--font-display), "Archivo", sans-serif;
-  font-size: 52px;
+  font-size: 54px;
   font-weight: 400;
   line-height: 0.95;
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   display: inline-block;
+  background: var(--gradient-ice);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .score-pop {
@@ -367,7 +565,7 @@ a {
 
 @keyframes score-pop {
   0% { transform: scale(1); }
-  35% { transform: scale(1.35); color: var(--color-tape-green); }
+  35% { transform: scale(1.35); filter: drop-shadow(0 0 14px rgba(60, 232, 138, 0.7)); }
   100% { transform: scale(1); }
 }
 
@@ -379,11 +577,11 @@ a {
   letter-spacing: 0;
 }
 
-/* Probability bar: thin mark, 2px surface gaps, rounded data ends */
+/* Probability bar: glowing segments on glass */
 .prob-bar {
   display: flex;
   gap: 2px;
-  height: 12px;
+  height: 10px;
   border-radius: 6px;
   overflow: hidden;
 }
@@ -394,9 +592,15 @@ a {
   transition: width 650ms cubic-bezier(0.3, 0.8, 0.3, 1);
 }
 
-.prob-seg.home { background: var(--series-home); }
+.prob-seg.home {
+  background: var(--series-home);
+  box-shadow: 0 0 12px rgba(60, 232, 138, 0.4);
+}
 .prob-seg.draw { background: var(--series-draw); }
-.prob-seg.away { background: var(--series-away); }
+.prob-seg.away {
+  background: var(--series-away);
+  box-shadow: 0 0 12px rgba(127, 180, 230, 0.35);
+}
 
 .prob-labels {
   display: flex;
@@ -417,7 +621,7 @@ a {
 .prob-label .dot {
   width: 8px;
   height: 8px;
-  border-radius: 2px;
+  border-radius: 3px;
   flex: none;
 }
 
@@ -434,7 +638,7 @@ a {
   white-space: nowrap;
 }
 
-/* Quick odds: the SportyBet move - 1X2 chips DIRECTLY under the match stats */
+/* Quick odds: 1X2 chips directly under the stats. Thumb-sized on mobile. */
 .quick-odds {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -445,19 +649,26 @@ a {
   appearance: none;
   cursor: pointer;
   display: grid;
-  gap: 2px;
+  gap: 3px;
   justify-items: center;
-  padding: 10px 8px;
+  padding: 12px 8px;
+  min-height: 58px;
   background: var(--surface-elevated-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-buttons);
   color: var(--color-snow);
   font: inherit;
-  transition: border-color 120ms ease, background 120ms ease;
+  box-shadow: var(--frost-edge);
+  transition: border-color 130ms ease, background 130ms ease, box-shadow 130ms ease,
+    transform 80ms ease;
 }
 
 .odds-chip:not(:disabled):hover {
   border-color: var(--color-slate);
+}
+
+.odds-chip:not(:disabled):active {
+  transform: scale(0.97);
 }
 
 .odds-chip:disabled {
@@ -476,104 +687,41 @@ a {
 
 .odds-chip .price {
   font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--color-tape-green);
 }
 
 .odds-chip.selected {
-  border: 1.5px solid var(--color-lime);
-  background: rgba(214, 251, 61, 0.13);
-  box-shadow: 0 0 0 3px rgba(214, 251, 61, 0.18);
+  border-color: rgba(190, 255, 80, 0.65);
+  background: rgba(190, 255, 80, 0.12);
+  box-shadow:
+    var(--frost-edge),
+    0 0 0 3px rgba(190, 255, 80, 0.14),
+    0 6px 22px rgba(190, 255, 80, 0.16);
 }
 
 .odds-chip.selected .name {
   color: var(--color-snow);
 }
 
-/* ---- Tabs ------------------------------------------------------------------ */
-
-.pill.tab {
-  cursor: pointer;
-  color: var(--color-fog);
-}
-
-.pill.tab.active {
-  color: #5ff29a;
-  font-weight: 700;
-  border-color: var(--color-tape-green);
-  background: rgba(47, 226, 122, 0.14);
-}
-
-/* ---- Prediction game --------------------------------------------------------- */
-
-.option-btn {
-  appearance: none;
-  width: 100%;
-  min-height: 48px;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  background: var(--surface-elevated-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-buttons);
-  color: var(--color-snow);
-  font: inherit;
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: -0.15px;
-  cursor: pointer;
-  transition: border-color 120ms ease, opacity 120ms ease;
-}
-
-.option-btn:not(:disabled):hover,
-.option-btn:not(:disabled):active {
-  border-color: var(--color-slate);
-}
-
-.option-btn:disabled {
-  cursor: default;
-  opacity: 0.5;
-}
-
-.option-btn.chosen {
-  opacity: 1;
-  border: 1.5px solid var(--color-tape-green);
-  background: rgba(47, 226, 122, 0.13);
-}
-
-.option-btn .team {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.points-badge {
-  flex: none;
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-ember-orange);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  padding: 3px 10px;
-  font-variant-numeric: tabular-nums;
+.odds-chip.selected .price {
+  color: var(--color-lime);
 }
 
 /* ---- Markets tab (odds-board rows) ---------------------------------------- */
 
 .market-chip {
-  font-size: 10px;
-  font-weight: 500;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 9.5px;
+  font-weight: 700;
   color: var(--color-fog);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-buttons);
-  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  padding: 2px 9px;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.08em;
   white-space: nowrap;
 }
 
@@ -584,8 +732,9 @@ a {
   background: var(--surface-elevated-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-buttons);
-  padding: 8px 12px;
-  min-height: 42px;
+  padding: 9px 12px;
+  min-height: 46px;
+  box-shadow: var(--frost-edge);
 }
 
 .spark-empty {
@@ -602,13 +751,13 @@ a {
   font-variant-numeric: tabular-nums;
   min-width: 64px;
   text-align: right;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 2px 6px;
   color: var(--color-tape-green);
 }
 
-/* Flash on drift: green up, orange down (GSAP has no red; rows also carry
-   a direction glyph, so color is never the only cue). */
+/* Flash on drift: green up, red down (a direction glyph rides along, so
+   color is never the only cue). */
 .flash-up {
   animation: price-up 900ms ease-out;
   color: var(--color-tape-green);
@@ -620,16 +769,16 @@ a {
 }
 
 @keyframes price-up {
-  0% { background: rgba(10, 228, 72, 0.22); }
+  0% { background: rgba(60, 232, 138, 0.24); }
   100% { background: transparent; }
 }
 
 @keyframes price-down {
-  0% { background: rgba(255, 135, 9, 0.22); }
+  0% { background: rgba(255, 122, 122, 0.22); }
   100% { background: transparent; }
 }
 
-/* ---- Country flags ---------------------------------------------------------------- */
+/* ---- Country flags --------------------------------------------------------- */
 
 .flag-img {
   display: inline-block;
@@ -649,14 +798,14 @@ a {
   vertical-align: -2px;
 }
 
-/* ---- Bet slip -------------------------------------------------------------------- */
+/* ---- Bet slip --------------------------------------------------------------- */
 
 .outcome-row.bettable {
   cursor: pointer;
   font: inherit;
   color: inherit;
   text-align: left;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition: border-color 130ms ease, background 130ms ease;
 }
 
 .outcome-row.bettable:hover {
@@ -664,32 +813,38 @@ a {
 }
 
 .outcome-row.selected {
-  border: 1.5px solid var(--color-lime);
-  background: rgba(214, 251, 61, 0.13);
+  border-color: rgba(190, 255, 80, 0.65);
+  background: rgba(190, 255, 80, 0.12);
+  box-shadow: var(--frost-edge), 0 0 0 3px rgba(190, 255, 80, 0.12);
 }
 
+/* Floating slip bar: rides above the bottom nav. */
 .slip-bar {
   position: fixed;
   left: 0;
   right: 0;
   margin: 0 auto;
-  bottom: calc(12px + env(safe-area-inset-bottom));
-  width: min(480px, calc(100vw - 32px));
-  z-index: 40;
+  bottom: calc(var(--bottomnav-h) + 12px + env(safe-area-inset-bottom));
+  width: min(480px, calc(100vw - 28px));
+  z-index: 46;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  border: 1.5px solid transparent;
-  background:
-    linear-gradient(var(--surface-elevated-card), var(--surface-elevated-card)) padding-box,
-    var(--gradient-green) border-box;
+  border: 1px solid rgba(190, 255, 80, 0.45);
+  background: rgba(6, 16, 11, 0.86);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   border-radius: var(--radius-pill);
   padding: 14px 22px;
   font: inherit;
   font-size: 14px;
   color: var(--color-snow);
   cursor: pointer;
+  box-shadow:
+    var(--frost-edge),
+    0 8px 30px rgba(0, 0, 0, 0.5),
+    0 0 24px rgba(190, 255, 80, 0.1);
 }
 
 .slip-sheet {
@@ -699,17 +854,30 @@ a {
   margin: 0 auto;
   bottom: 0;
   width: min(520px, 100vw);
-  z-index: 41;
+  z-index: 48;
   display: grid;
   gap: 14px;
-  background: var(--surface-card);
+  background: rgba(5, 14, 10, 0.92);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
   border: 1px solid var(--color-border);
   border-bottom: none;
-  border-radius: 16px 16px 0 0;
-  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  border-radius: var(--radius-modals) var(--radius-modals) 0 0;
+  padding: 18px 18px calc(20px + env(safe-area-inset-bottom));
+  box-shadow: var(--frost-edge), 0 -18px 60px rgba(0, 0, 0, 0.55);
 }
 
-/* ---- Cash out --------------------------------------------------------------------- */
+/* Grab handle on the sheet, app-style. */
+.slip-sheet::before {
+  content: "";
+  justify-self: center;
+  width: 40px;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(226, 248, 236, 0.18);
+}
+
+/* ---- Cash out ---------------------------------------------------------------- */
 
 .cashout-btn {
   appearance: none;
@@ -717,22 +885,20 @@ a {
   display: grid;
   gap: 0;
   justify-items: center;
-  border: 1.5px solid transparent;
-  background:
-    linear-gradient(var(--surface-card), var(--surface-card)) padding-box,
-    var(--gradient-green) border-box;
+  border: 1px solid rgba(60, 232, 138, 0.4);
+  background: rgba(60, 232, 138, 0.07);
   color: var(--color-snow);
-  border-radius: var(--radius-pill);
-  padding: 6px 14px;
+  border-radius: var(--radius-buttons);
+  padding: 7px 14px;
   min-width: 92px;
   font: inherit;
-  transition: background 120ms ease;
+  box-shadow: var(--frost-edge);
+  transition: background 130ms ease, border-color 130ms ease;
 }
 
 .cashout-btn:hover {
-  background:
-    linear-gradient(#1c2b1a, #1c2b1a) padding-box,
-    var(--gradient-green) border-box;
+  background: rgba(60, 232, 138, 0.13);
+  border-color: rgba(60, 232, 138, 0.6);
 }
 
 .cash-value {
@@ -756,76 +922,13 @@ a {
   color: var(--color-orangey);
 }
 
-/* ---- Private rooms ----------------------------------------------------------------- */
-
-.room-code {
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: 4px;
-  color: var(--color-ember-orange);
-  background: var(--surface-elevated-card);
-  border: 1px dashed var(--color-slate);
-  border-radius: var(--radius-buttons);
-  padding: 8px 12px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* Rank-change flashes on room standings */
-.rank-up {
-  animation: rank-up 900ms ease-out;
-}
-
-.rank-down {
-  animation: rank-down 900ms ease-out;
-}
-
-@keyframes rank-up {
-  0% { background: rgba(10, 228, 72, 0.2); transform: translateY(6px); }
-  100% { background: var(--surface-card); transform: translateY(0); }
-}
-
-@keyframes rank-down {
-  0% { background: rgba(255, 135, 9, 0.18); transform: translateY(-6px); }
-  100% { background: var(--surface-card); transform: translateY(0); }
-}
-
-/* ---- Share-my-streak card ------------------------------------------------------ */
-
-.share-card {
-  border: 1.5px solid transparent;
-  background:
-    linear-gradient(var(--surface-card), var(--surface-card)) padding-box,
-    var(--gradient-green) border-box;
-  border-radius: var(--radius-cards);
-  padding: 28px 24px;
-  display: grid;
-  gap: 6px;
-  justify-items: center;
-  text-align: center;
-}
-
-.share-streak {
-  font-family: var(--font-display), "Archivo", sans-serif;
-  font-size: 84px;
-  font-weight: 400;
-  line-height: 0.9;
-  letter-spacing: 0.01em;
-  background: var(--gradient-green);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  font-variant-numeric: tabular-nums;
-}
-
-/* ---- Replay scrubber --------------------------------------------------------- */
+/* ---- Replay scrubber ---------------------------------------------------------- */
 
 .scrubber {
   appearance: none;
   -webkit-appearance: none;
   width: 100%;
-  height: 24px;
+  height: 28px;
   background: transparent;
   cursor: pointer;
 }
@@ -833,16 +936,17 @@ a {
 .scrubber::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 2px;
-  background: var(--color-border);
+  background: rgba(198, 244, 219, 0.16);
 }
 
 .scrubber::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 99px;
-  background: var(--color-tape-green);
-  margin-top: -5px;
+  background: var(--color-lime);
+  box-shadow: 0 0 12px rgba(190, 255, 80, 0.55);
+  margin-top: -6px;
   transition: transform 120ms ease;
 }
 
@@ -853,18 +957,19 @@ a {
 .scrubber::-moz-range-track {
   height: 4px;
   border-radius: 2px;
-  background: var(--color-border);
+  background: rgba(198, 244, 219, 0.16);
 }
 
 .scrubber::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border: none;
   border-radius: 99px;
-  background: var(--color-tape-green);
+  background: var(--color-lime);
+  box-shadow: 0 0 12px rgba(190, 255, 80, 0.55);
 }
 
-/* ---- Motion -------------------------------------------------------------------- */
+/* ---- Motion --------------------------------------------------------------------- */
 
 .fade-in {
   animation: fade-up 320ms ease both;
@@ -893,14 +998,13 @@ a {
   }
 }
 
-/* ---- Responsive: mobile-first; the match view is ALWAYS one column ------------- */
+/* ---- Responsive: mobile-first ---------------------------------------------------- */
 
 .fixture-grid {
   display: grid;
   gap: 10px;
 }
 
-/* Betting-app layout: stats on top, options directly below, one column */
 .match-grid {
   display: grid;
   gap: var(--element-gap);
@@ -917,20 +1021,70 @@ a {
 @media (min-width: 720px) {
   .shell {
     max-width: 660px;
+    padding-bottom: 28px; /* bottom nav becomes inline on desktop */
   }
 
   .fixture-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  /* Desktop: dock the tab bar inline under the topbar as a glass pill row. */
+  .bottom-nav {
+    position: sticky;
+    top: 58px;
+    bottom: auto;
+    z-index: 29;
+    height: auto;
+    grid-auto-columns: max-content;
+    justify-content: start;
+    gap: 6px;
+    margin: 12px -18px 0;
+    padding: 10px 18px;
+    border-top: none;
+    border-bottom: 1px solid var(--color-border);
+    box-shadow: none;
+  }
+
+  .nav-item {
+    grid-auto-flow: column;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: var(--radius-pill);
+    border: 1px solid transparent;
+    font-size: 11.5px;
+  }
+
+  .nav-item svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .nav-item.active {
+    border-color: rgba(190, 255, 80, 0.4);
+    background: rgba(190, 255, 80, 0.1);
+  }
+
+  .nav-item.active::after {
+    display: none;
+  }
+
+  .nav-badge {
+    position: static;
+    margin-left: 2px;
+  }
+
+  .slip-bar {
+    bottom: calc(16px + env(safe-area-inset-bottom));
   }
 }
 
 @media (min-width: 1040px) {
   .shell {
     max-width: 960px;
-    padding-top: 12px;
   }
 
-  /* Share card left, leaderboard right */
   .leaders-grid {
     grid-template-columns: 360px minmax(0, 1fr);
     gap: 24px;
@@ -943,7 +1097,7 @@ a {
   }
 }
 
-/* ---- Skeleton fixture rows (empty state) -------------------------------- */
+/* ---- Skeletons -------------------------------------------------------------- */
 
 .skeleton {
   border-radius: var(--radius-cards);
@@ -956,7 +1110,7 @@ a {
   50% { opacity: 1; }
 }
 
-/* ---- Pundit ticker (pink category) ---------------------------------------- */
+/* ---- Pundit ticker ------------------------------------------------------------ */
 
 .pundit-feed {
   display: grid;
@@ -978,11 +1132,12 @@ a {
   min-width: 34px;
   text-align: center;
   padding: 2px 6px;
-  border-radius: var(--radius-buttons);
-  background: color-mix(in srgb, var(--color-pink) 14%, transparent);
+  border-radius: var(--radius-pill);
+  background: rgba(248, 184, 242, 0.12);
   color: var(--color-pink);
+  font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.02em;
 }
 
@@ -1003,13 +1158,13 @@ a {
   }
 }
 
-/* ---- Daily quests (lilac category) ----------------------------------------- */
+/* ---- Daily quests ---------------------------------------------------------------- */
 
 .quest-bar {
   display: block;
   height: 6px;
   border-radius: 99px;
-  background: var(--surface-elevated-card);
+  background: rgba(198, 244, 219, 0.1);
   overflow: hidden;
 }
 
@@ -1018,10 +1173,11 @@ a {
   height: 100%;
   border-radius: 99px;
   background: var(--gradient-green);
+  box-shadow: 0 0 10px rgba(190, 255, 80, 0.35);
   transition: width 0.5s ease;
 }
 
-/* ---- Badges ---------------------------------------------------------------- */
+/* ---- Badges ------------------------------------------------------------------------ */
 
 .badge-grid {
   display: grid;
@@ -1036,19 +1192,19 @@ a {
   text-align: center;
   padding: 12px 8px;
   border-radius: var(--radius-buttons);
-  background: var(--surface-elevated-card);
+  background: var(--surface-card);
   border: 1px solid var(--color-border);
+  box-shadow: var(--frost-edge);
 }
 
 .badge.earned {
-  border: 1.5px solid transparent;
-  background:
-    linear-gradient(#1c2b1a, #1c2b1a) padding-box,
-    var(--gradient-green) border-box;
+  border-color: rgba(190, 255, 80, 0.45);
+  background: rgba(190, 255, 80, 0.07);
+  box-shadow: var(--frost-edge), 0 0 18px rgba(190, 255, 80, 0.12);
 }
 
 .badge.locked {
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
 .badge-icon {
@@ -1056,30 +1212,31 @@ a {
   line-height: 1;
 }
 
-/* ---- Devnet banner (sitewide) --------------------------------------------- */
+/* ---- Devnet banner ------------------------------------------------------------------ */
 
 .devnet-banner {
   text-align: center;
   padding: 5px 12px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--color-gold);
-  background: rgba(255, 197, 48, 0.1);
-  border-bottom: 1px solid rgba(255, 197, 48, 0.18);
+  background: rgba(255, 197, 48, 0.08);
+  border-bottom: 1px solid rgba(255, 197, 48, 0.16);
 }
 
-/* ---- Open-bets counter: inline with the My Bets tab label ---------------- */
+/* ---- Open-bets counter (inline text variant, kept for sub-tabs) ------------------- */
 
 .tab-count {
   font-family: var(--font-mono), ui-monospace, monospace;
-  color: var(--color-tape-green);
+  color: var(--color-lime);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- Recent-form pills ---------------------------------------------------- */
+/* ---- Recent-form pills ----------------------------------------------------------- */
 
 .form-pill {
   display: inline-flex;
@@ -1087,13 +1244,13 @@ a {
   justify-content: center;
   width: 20px;
   height: 20px;
-  border-radius: 5px;
+  border-radius: 6px;
   font-size: 11px;
   font-weight: 800;
   flex: none;
 }
 
-/* ---- Modal (economy explainer) ------------------------------------------- */
+/* ---- Modal (economy explainer) ----------------------------------------------------- */
 
 .gi-scroll {
   scrollbar-width: none;
@@ -1112,7 +1269,9 @@ a {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(2, 10, 6, 0.78);
+  background: rgba(1, 6, 4, 0.72);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   animation: fade-plain 0.2s ease;
 }
 
@@ -1129,13 +1288,19 @@ a {
   overflow-y: auto;
   display: grid;
   gap: 12px;
-  background: #0a1610;
-  border: 1.5px solid #2a4a34;
-  border-radius: 20px;
+  background: rgba(6, 16, 11, 0.92);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-modals);
   padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+  box-shadow:
+    var(--frost-edge),
+    inset 0 24px 48px rgba(170, 240, 205, 0.04),
+    0 24px 60px rgba(0, 0, 0, 0.55);
 }
 
-/* Header coin pill: gold-tinted, the economy entry point. */
+/* Header coin pill: gold-tinted glass, the economy entry point. */
 .coin-pill {
   display: inline-flex;
   align-items: center;
@@ -1143,16 +1308,17 @@ a {
   height: 30px;
   padding: 0 11px;
   border-radius: 999px;
-  background: rgba(255, 197, 48, 0.1);
-  border: 1.5px solid rgba(255, 197, 48, 0.35);
+  background: rgba(255, 197, 48, 0.09);
+  border: 1px solid rgba(255, 197, 48, 0.32);
   color: var(--color-ember-orange);
   font-family: var(--font-mono), ui-monospace, monospace;
   font-weight: 700;
   font-size: 13px;
   cursor: pointer;
+  box-shadow: var(--frost-edge);
 }
 
-/* SOL balance pill: same shape as the coin pill, Solana teal/purple tint. */
+/* SOL balance pill: Solana teal/purple glass. */
 .sol-pill {
   display: inline-flex;
   align-items: center;
@@ -1160,21 +1326,22 @@ a {
   height: 30px;
   padding: 0 11px;
   border-radius: 999px;
-  background: rgba(20, 241, 149, 0.09);
-  border: 1.5px solid rgba(153, 69, 255, 0.4);
+  background: rgba(20, 241, 149, 0.07);
+  border: 1px solid rgba(153, 69, 255, 0.38);
   color: var(--color-snow);
   font-family: var(--font-mono), ui-monospace, monospace;
   font-weight: 700;
   font-size: 13px;
+  box-shadow: var(--frost-edge);
 }
 
-/* ---- Toast (settlement / info) ------------------------------------------- */
+/* ---- Toast (settlement / info) ------------------------------------------------ */
 
 .toast {
   position: fixed;
   left: 16px;
   right: 16px;
-  bottom: calc(20px + env(safe-area-inset-bottom));
+  bottom: calc(var(--bottomnav-h) + 14px + env(safe-area-inset-bottom));
   max-width: 460px;
   margin: 0 auto;
   z-index: 55;
@@ -1182,9 +1349,18 @@ a {
   align-items: center;
   gap: 12px;
   padding: 13px 15px;
-  border-radius: 14px;
-  background: #0b1712;
-  border: 1.5px solid var(--color-border);
+  border-radius: 16px;
+  background: rgba(5, 14, 10, 0.9);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--frost-edge), 0 14px 40px rgba(0, 0, 0, 0.5);
+}
+
+@media (min-width: 720px) {
+  .toast {
+    bottom: calc(20px + env(safe-area-inset-bottom));
+  }
 }
 
 .toast-icon {
@@ -1214,11 +1390,12 @@ a {
 }
 
 .toast-won {
-  border-color: var(--color-tape-green);
-  box-shadow: 0 0 0 4px rgba(0, 168, 90, 0.16);
+  border-color: rgba(60, 232, 138, 0.55);
+  box-shadow: var(--frost-edge), 0 0 0 4px rgba(60, 232, 138, 0.12),
+    0 14px 40px rgba(0, 0, 0, 0.5);
 }
 .toast-won .toast-icon {
-  background: rgba(0, 168, 90, 0.16);
+  background: rgba(60, 232, 138, 0.14);
   color: var(--color-tape-green);
 }
 .toast-won .toast-title {
@@ -1226,10 +1403,10 @@ a {
 }
 
 .toast-lost {
-  border-color: rgba(255, 107, 107, 0.5);
+  border-color: rgba(255, 122, 122, 0.5);
 }
 .toast-lost .toast-icon {
-  background: rgba(255, 59, 59, 0.14);
+  background: rgba(255, 90, 90, 0.14);
   color: var(--color-festival-red);
 }
 .toast-lost .toast-title {
