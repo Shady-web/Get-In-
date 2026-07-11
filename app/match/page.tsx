@@ -120,11 +120,13 @@ export default function MatchScreen() {
     toastTimer.current = window.setTimeout(() => setToast(null), 4600);
   }, []);
 
-  // Identity = the Supabase session. No session, no match screen.
+  // The app is public: guests browse matches, odds, replays and the board.
+  // A Supabase session unlocks betting, the wallet, quests and My Bets. No
+  // session just means guest mode - never a redirect to login.
   useEffect(() => {
     const supabase = getSupabaseBrowser();
     if (!supabase) {
-      router.replace("/");
+      setChecked(true); // no auth configured: browse as a guest
       return;
     }
     let cancelled = false;
@@ -132,7 +134,7 @@ export default function MatchScreen() {
       if (cancelled) return;
       const session = data.session;
       if (!session) {
-        router.replace("/");
+        setChecked(true); // guest
         return;
       }
       const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
@@ -164,8 +166,9 @@ export default function MatchScreen() {
   }, []);
 
   // Keep the open-bets counter fresh even when the My Bets tab isn't showing.
+  // Guests have no bets, so only poll once signed in.
   useEffect(() => {
-    if (!checked) return;
+    if (!checked || !player?.identity) return;
     let cancelled = false;
     const tick = async () => {
       if (document.hidden) return;
@@ -219,13 +222,19 @@ export default function MatchScreen() {
 
   function signOut() {
     getSupabaseBrowser()?.auth.signOut().catch(() => {});
-    router.replace("/");
+    setPlayer(null);
+    setEmail(null);
+    setTab("matches");
+    setSelected(null);
   }
+  const goLogin = (signup?: boolean) =>
+    router.push(signup ? "/login?mode=signup" : "/login");
 
-  if (!checked || !player) return null;
-
-  const coins = player.player?.coin_balance;
-  const solLamports = player.player?.sol_balance;
+  // Guests get the full browse experience; betting/wallet/quests need a login.
+  if (!checked) return null;
+  const guest = !player;
+  const coins = player?.player?.coin_balance;
+  const solLamports = player?.player?.sol_balance;
 
   return (
     <BetSlipProvider>
@@ -238,42 +247,63 @@ export default function MatchScreen() {
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-          {coins !== undefined && (
-            <button
-              className="coin-pill"
-              title="How the economy works"
-              onClick={explainer.openExplainer}
-            >
-              <Coin size={15} /> {coins.toLocaleString()}
-            </button>
+          {guest ? (
+            <>
+              <button
+                className="pill tab"
+                style={{ cursor: "pointer" }}
+                onClick={() => goLogin(false)}
+              >
+                Log in
+              </button>
+              <button
+                className="pill join-pill"
+                style={{ cursor: "pointer" }}
+                onClick={() => goLogin(true)}
+              >
+                Join now
+              </button>
+            </>
+          ) : (
+            <>
+              {coins !== undefined && (
+                <button
+                  className="coin-pill"
+                  title="How the economy works"
+                  onClick={explainer.openExplainer}
+                >
+                  <Coin size={15} /> {coins.toLocaleString()}
+                </button>
+              )}
+              {solLamports !== undefined && (
+                <button
+                  className="sol-pill"
+                  title="Playable SOL balance · open Wallet"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => {
+                    setSelected(null);
+                    setTab("wallet");
+                  }}
+                >
+                  <Solana size={15} />{" "}
+                  {(solLamports / 1_000_000_000).toLocaleString(undefined, {
+                    maximumFractionDigits: 3,
+                  })}
+                </button>
+              )}
+              <button
+                className={`avatar-btn ${tab === "account" ? "active" : ""}`}
+                title={`${displayName(player!)} · account`}
+                aria-label="Account"
+                onClick={() => {
+                  setSelected(null);
+                  setTab("account");
+                }}
+              >
+                {displayName(player!).charAt(0).toUpperCase()}
+              </button>
+            </>
           )}
-          {solLamports !== undefined && (
-            <button
-              className="sol-pill"
-              title="Playable SOL balance · open Wallet"
-              style={{ cursor: "pointer" }}
-              onClick={() => {
-                setSelected(null);
-                setTab("wallet");
-              }}
-            >
-              <Solana size={15} />{" "}
-              {(solLamports / 1_000_000_000).toLocaleString(undefined, {
-                maximumFractionDigits: 3,
-              })}
-            </button>
-          )}
-          <button
-            className={`avatar-btn ${tab === "account" ? "active" : ""}`}
-            title={`${displayName(player)} · account`}
-            aria-label="Account"
-            onClick={() => {
-              setSelected(null);
-              setTab("account");
-            }}
-          >
-            {displayName(player).charAt(0).toUpperCase()}
-          </button>
         </div>
       </header>
 
@@ -320,18 +350,34 @@ export default function MatchScreen() {
         )
       ) : tab === "matches" ? (
         <>
-          <QuestsCard player={player} onPlayerUpdate={updatePlayerRecord} />
-          <FixtureList player={player} onPick={setSelected} />
+          {player && <QuestsCard player={player} onPlayerUpdate={updatePlayerRecord} />}
+          <FixtureList onPick={setSelected} />
         </>
       ) : tab === "bets" ? (
-        <MyBets
-          player={player}
-          onPlayerUpdate={updatePlayerRecord}
-          onOpenCount={setOpenBets}
-        />
+        player ? (
+          <MyBets
+            player={player}
+            onPlayerUpdate={updatePlayerRecord}
+            onOpenCount={setOpenBets}
+          />
+        ) : (
+          <AuthGate
+            title="Track your bets"
+            body="Log in or create an account to place bets and watch them settle live."
+            onLogin={goLogin}
+          />
+        )
       ) : tab === "wallet" ? (
-        <WalletPanel />
-      ) : tab === "account" ? (
+        player ? (
+          <WalletPanel />
+        ) : (
+          <AuthGate
+            title="Your wallet"
+            body="Log in to fund a devnet wallet, bet with test SOL, and cash out."
+            onLogin={goLogin}
+          />
+        )
+      ) : tab === "account" && player ? (
         <AccountPanel
           player={player}
           email={email}
@@ -342,7 +388,11 @@ export default function MatchScreen() {
         <Leaders player={player} />
       )}
 
-      <BetSlipTray player={player} onPlayerUpdate={updatePlayerRecord} />
+      <BetSlipTray
+        player={player}
+        onPlayerUpdate={updatePlayerRecord}
+        onRequireLogin={() => goLogin(false)}
+      />
       {explainer.open && <EconomyExplainer onClose={explainer.close} />}
       {toast && (
         <div className={`toast toast-${toast.kind} fade-in`} role="status">
@@ -357,6 +407,44 @@ export default function MatchScreen() {
       )}
     </main>
     </BetSlipProvider>
+  );
+}
+
+// --- Auth gate (guest sees this on bets / wallet) -----------------------------
+
+function AuthGate({
+  title,
+  body,
+  onLogin,
+}: {
+  title: string;
+  body: string;
+  onLogin: (signup?: boolean) => void;
+}) {
+  return (
+    <div style={{ display: "grid", gap: "var(--element-gap)", maxWidth: 440, margin: "0 auto", width: "100%" }}>
+      <div
+        className="card fade-in"
+        style={{ display: "grid", gap: 14, justifyItems: "center", textAlign: "center", padding: "30px 20px" }}
+      >
+        <WcBadge size={54} />
+        <div style={{ display: "grid", gap: 4 }}>
+          <h2 className="heading-sm">{title}</h2>
+          <p className="muted" style={{ fontSize: 14, maxWidth: 320 }}>
+            {body}
+          </p>
+        </div>
+        <div style={{ display: "grid", gap: 8, width: "100%", maxWidth: 280 }}>
+          <button className="btn btn-primary" onClick={() => onLogin(true)}>
+            Join now
+          </button>
+          <button className="btn btn-ghost" onClick={() => onLogin(false)}>
+            Log in
+          </button>
+        </div>
+        <p className="caption muted">Free · devnet test tokens · no real value</p>
+      </div>
+    </div>
   );
 }
 
@@ -521,13 +609,7 @@ function FixtureRow({
   );
 }
 
-function FixtureList({
-  player,
-  onPick,
-}: {
-  player: StoredPlayer;
-  onPick: (s: Selection) => void;
-}) {
+function FixtureList({ onPick }: { onPick: (s: Selection) => void }) {
   const [fixtures, setFixtures] = useState<Fixture[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -1023,7 +1105,8 @@ function ReplayMatch({
 }: {
   fixture: Fixture;
   onBack: () => void;
-  onPlayerUpdate: (p: PlayerRecord) => void;
+  // Absent for guests: their replay bets aren't settled (they can't place any).
+  onPlayerUpdate?: (p: PlayerRecord) => void;
 }) {
   const [timeline, setTimeline] = useState<ReplayTimeline | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1252,12 +1335,14 @@ function ReplayMatch({
             </div>
           </div>
 
-          <ReplaySettler
-            fixtureId={fixture.FixtureId}
-            session={session}
-            getVt={getVt}
-            onPlayerUpdate={onPlayerUpdate}
-          />
+          {onPlayerUpdate && (
+            <ReplaySettler
+              fixtureId={fixture.FixtureId}
+              session={session}
+              getVt={getVt}
+              onPlayerUpdate={onPlayerUpdate}
+            />
+          )}
 
           <PunditTicker
             fixtureId={fixture.FixtureId}
@@ -1297,7 +1382,7 @@ interface SlipView {
   }[];
 }
 
-function Leaders({ player }: { player: StoredPlayer }) {
+function Leaders({ player }: { player: StoredPlayer | null }) {
   const [boards, setBoards] = useState<{ byCoins: LeaderRow[]; bySol: LeaderRow[] } | null>(null);
   const [mode, setMode] = useState<"coins" | "sol">("coins");
   const [error, setError] = useState<string | null>(null);
@@ -1380,7 +1465,8 @@ function Leaders({ player }: { player: StoredPlayer }) {
         )}
 
         {rows?.map((r, i) => {
-          const mine = r.wallet_or_nickname === (player.player?.wallet_or_nickname ?? player.label);
+          const mine =
+            !!player && r.wallet_or_nickname === (player.player?.wallet_or_nickname ?? player.label);
           return (
             <div
               key={r.wallet_or_nickname}

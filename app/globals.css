@@ -431,6 +431,19 @@ a {
   background: rgba(190, 255, 80, 0.1);
 }
 
+/* "Join now" chip in the guest header: the lime accent, pill-sized. */
+.join-pill {
+  border: none;
+  background: var(--color-lime);
+  color: var(--color-void);
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 6px 18px rgba(190, 255, 80, 0.2);
+}
+
+.join-pill:hover {
+  filter: brightness(1.06);
+}
+
 /* ---- App navigation: glass bottom tab bar (mobile), inline pills (desktop) -- */
 
 .bottom-nav {

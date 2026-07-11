@@ -108,9 +108,11 @@ export function BetSlipProvider({ children }: { children: ReactNode }) {
 export function BetSlipTray({
   player,
   onPlayerUpdate,
+  onRequireLogin,
 }: {
-  player: StoredPlayer;
+  player: StoredPlayer | null;
   onPlayerUpdate: (p: PlayerRecord) => void;
+  onRequireLogin?: () => void;
 }) {
   const { selections, remove, clear, open, setOpen } = useBetSlip();
   const [currency, setCurrency] = useState<Currency>("COIN");
@@ -119,13 +121,14 @@ export function BetSlipTray({
   const [error, setError] = useState<string | null>(null);
   const [placed, setPlaced] = useState<string | null>(null);
 
+  const guest = !player;
   const combined = selections.reduce((acc, s) => acc * s.odds, 1);
   const stakeBase = parseStake(stake, currency); // coins or lamports
   const potential = Math.floor(stakeBase * combined);
   const balance =
     currency === "SOL"
-      ? (player.player?.sol_balance ?? 0)
-      : (player.player?.coin_balance ?? 0);
+      ? (player?.player?.sol_balance ?? 0)
+      : (player?.player?.coin_balance ?? 0);
   const enough = stakeBase >= MIN_STAKE[currency] && stakeBase <= balance;
 
   // Reset the stake field to a sensible default when switching currency.
@@ -324,25 +327,33 @@ export function BetSlipTray({
             </span>
           </div>
 
-          <button
-            className="btn btn-primary"
-            disabled={placing || !enough}
-            onClick={place}
-          >
-            {placing
-              ? "Placing..."
-              : stakeBase > balance
-                ? currency === "SOL"
-                  ? "Not enough SOL"
-                  : "Not enough coins"
-                : `Place call · ${formatAmount(stakeBase, currency)}`}
-          </button>
+          {guest ? (
+            <button className="btn btn-primary" onClick={() => onRequireLogin?.()}>
+              Log in to place this call
+            </button>
+          ) : (
+            <button
+              className="btn btn-primary"
+              disabled={placing || !enough}
+              onClick={place}
+            >
+              {placing
+                ? "Placing..."
+                : stakeBase > balance
+                  ? currency === "SOL"
+                    ? "Not enough SOL"
+                    : "Not enough coins"
+                  : `Place call · ${formatAmount(stakeBase, currency)}`}
+            </button>
+          )}
           <p className="caption muted" style={{ textAlign: "center" }}>
-            {currency === "SOL"
-              ? "SOL calls pay withdrawable SOL and can be cashed out early."
-              : "Coin calls ride to full time and pay out in SOL when they win (no cash out)."}
+            {guest
+              ? "Your picks are saved — sign in to place them."
+              : currency === "SOL"
+                ? "SOL calls pay withdrawable SOL and can be cashed out early."
+                : "Coin calls ride to full time and pay out in SOL when they win (no cash out)."}
           </p>
-          {currency === "SOL" && balance < MIN_STAKE.SOL && (
+          {!guest && currency === "SOL" && balance < MIN_STAKE.SOL && (
             <p className="caption muted" style={{ textAlign: "center" }}>
               Deposit test SOL in the Wallet tab to bet with SOL.
             </p>
