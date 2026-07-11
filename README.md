@@ -12,9 +12,20 @@ on-chain World Cup tier, Solana).
 
 ## How it works
 
+- **Public first, log in to play**: the app itself is the landing page (`/`
+  forwards to `/match`) and anyone can browse it signed out - live scores,
+  odds, recent form, replays and the leaderboard - with **Log in / Join now**
+  in the header. Betting, the wallet, quests and My Bets are gated: a guest
+  who taps a price still builds a slip, but the button reads "Log in to place
+  this call" and the bets/wallet tabs show a join prompt. The login screen
+  lives at `/login` (with a "browse without signing in" link back).
 - **Accounts**: Supabase Auth with email/password or Google sign-in. The
   login form takes an email OR a username (usernames map to their email
-  server-side). A player is keyed to their Supabase auth user id.
+  server-side). A player is keyed to their Supabase auth user id. Once signed
+  in, the header avatar opens an account screen with Sign out and a Delete
+  account action (confirmed first) that wipes the player row - cascading to
+  wallet, ledger, bets, badges and quests - and the auth user. The back
+  button never signs you out; signing out is only ever explicit.
 - **Custodial devnet wallet**: on first login the backend generates a
   Solana devnet keypair for the user, stored server-side only. We never
   fund it: new wallets start at 0 and players deposit free test SOL from

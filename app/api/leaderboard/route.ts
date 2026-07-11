@@ -13,6 +13,12 @@ interface LeaderRow {
  * GET /api/leaderboard: two boards, top 20 each — highest GI-coin bankroll
  * and highest SOL balance (spendable custodial SOL, lamports). The client
  * toggles between them.
+ *
+ * Only REAL accounts appear: rows must have an auth_user_id (a Supabase
+ * email/Google sign-up), which excludes the legacy players created before
+ * email login was added. And a player only shows once they have standing on
+ * that board - coins earned from quests/wins for the coin board, SOL for the
+ * SOL board - so empty brand-new accounts don't clutter it.
  */
 export async function GET() {
   const supabase = getSupabaseAdmin();
@@ -27,11 +33,15 @@ export async function GET() {
     supabase
       .from("players")
       .select("wallet_or_nickname, coin_balance, sol_balance")
+      .not("auth_user_id", "is", null)
+      .gt("coin_balance", 0)
       .order("coin_balance", { ascending: false })
       .limit(20),
     supabase
       .from("players")
       .select("wallet_or_nickname, coin_balance, sol_balance")
+      .not("auth_user_id", "is", null)
+      .gt("sol_balance", 0)
       .order("sol_balance", { ascending: false })
       .limit(20),
   ]);

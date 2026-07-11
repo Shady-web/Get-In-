@@ -22,8 +22,8 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata = {
-  title: "GetIN!!!",
-  description: "World Cup live predictions - call it before the whistle.",
+  title: "GetIN!!! · FIFA World Cup 26",
+  description: "FIFA World Cup 26 live betting - call it before the whistle.",
 };
 
 export const viewport = {

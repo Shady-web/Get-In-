@@ -8,6 +8,7 @@ import { authFetch } from "@/lib/api-client";
 import { WalletPanel } from "@/components/wallet-panel";
 import { Coin } from "@/components/coin";
 import { Solana } from "@/components/solana";
+import { WcBadge } from "@/components/wc-badge";
 import { MatchStats } from "@/components/match-stats";
 import { EconomyExplainer, useEconomyExplainer } from "@/components/economy-explainer";
 import { coinsToLamports, formatAmount, type Currency } from "@/lib/money";
@@ -105,7 +106,8 @@ export default function MatchScreen() {
   const [player, setPlayer] = useState<StoredPlayer | null>(null);
   const [checked, setChecked] = useState(false);
   const [selected, setSelected] = useState<Selection | null>(null);
-  const [tab, setTab] = useState<"matches" | "bets" | "leaders" | "wallet">("matches");
+  const [tab, setTab] = useState<"matches" | "bets" | "leaders" | "wallet" | "account">("matches");
+  const [email, setEmail] = useState<string | null>(null);
   const [openBets, setOpenBets] = useState(0);
   const [toast, setToast] = useState<{ kind: "won" | "lost" | "info"; title: string; text: string } | null>(null);
   const slipStatusRef = useRef<Map<string, string>>(new Map());
@@ -118,11 +120,13 @@ export default function MatchScreen() {
     toastTimer.current = window.setTimeout(() => setToast(null), 4600);
   }, []);
 
-  // Identity = the Supabase session. No session, no match screen.
+  // The app is public: guests browse matches, odds, replays and the board.
+  // A Supabase session unlocks betting, the wallet, quests and My Bets. No
+  // session just means guest mode - never a redirect to login.
   useEffect(() => {
     const supabase = getSupabaseBrowser();
     if (!supabase) {
-      router.replace("/");
+      setChecked(true); // no auth configured: browse as a guest
       return;
     }
     let cancelled = false;
@@ -130,7 +134,7 @@ export default function MatchScreen() {
       if (cancelled) return;
       const session = data.session;
       if (!session) {
-        router.replace("/");
+        setChecked(true); // guest
         return;
       }
       const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
@@ -139,6 +143,7 @@ export default function MatchScreen() {
         session.user.email?.split("@")[0] ||
         "player";
       setPlayer({ identity: session.user.id, label, player: null });
+      setEmail(session.user.email ?? null);
       setChecked(true);
       // Bootstrap the players row + custodial devnet wallet (first login).
       try {
@@ -160,9 +165,16 @@ export default function MatchScreen() {
     setPlayer((prev) => (prev ? { ...prev, player: record } : prev));
   }, []);
 
-  // Keep the open-bets counter fresh even when the My Bets tab isn't showing.
+  // Guests show no account data. If there's no player (fresh guest, sign out,
+  // or a session that silently expired), keep the open-bets badge cleared.
   useEffect(() => {
-    if (!checked) return;
+    if (!player) setOpenBets(0);
+  }, [player]);
+
+  // Keep the open-bets counter fresh even when the My Bets tab isn't showing.
+  // Guests have no bets, so only poll once signed in.
+  useEffect(() => {
+    if (!checked || !player?.identity) return;
     let cancelled = false;
     const tick = async () => {
       if (document.hidden) return;
@@ -216,58 +228,90 @@ export default function MatchScreen() {
 
   function signOut() {
     getSupabaseBrowser()?.auth.signOut().catch(() => {});
-    router.replace("/");
+    setPlayer(null);
+    setEmail(null);
+    setOpenBets(0);
+    slipStatusRef.current = new Map();
+    setTab("matches");
+    setSelected(null);
   }
+  const goLogin = (signup?: boolean) =>
+    router.push(signup ? "/login?mode=signup" : "/login");
 
-  if (!checked || !player) return null;
-
-  const coins = player.player?.coin_balance;
-  const solLamports = player.player?.sol_balance;
+  // Guests get the full browse experience; betting/wallet/quests need a login.
+  if (!checked) return null;
+  const guest = !player;
+  const coins = player?.player?.coin_balance;
+  const solLamports = player?.player?.sol_balance;
 
   return (
     <BetSlipProvider>
     <main className="shell" style={{ gap: 24 }}>
       <header className="topbar">
-        <div className="brand">
-          GetIN<span className="bang">!!!</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {coins !== undefined && (
-            <button
-              className="coin-pill"
-              title="How the economy works"
-              onClick={explainer.openExplainer}
-            >
-              <Coin size={16} /> {coins.toLocaleString()}
-              <span style={{ opacity: 0.6, fontSize: 11 }}>ⓘ</span>
-            </button>
-          )}
-          {solLamports !== undefined && (
-            <button
-              className="sol-pill"
-              title="Playable SOL balance · open Wallet"
-              style={{ cursor: "pointer" }}
-              onClick={() => {
-                setSelected(null);
-                setTab("wallet");
-              }}
-            >
-              <Solana size={15} />{" "}
-              {(solLamports / 1_000_000_000).toLocaleString(undefined, {
-                maximumFractionDigits: 3,
-              })}
-            </button>
-          )}
-          <span className="pill" title={displayName(player)}>
-            {displayName(player)}
+        <div className="brand" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <WcBadge size={26} />
+          <span style={{ display: "flex", alignItems: "baseline", gap: 1 }}>
+            GetIN<span className="bang">!!!</span>
           </span>
-          <button
-            className="pill"
-            onClick={signOut}
-            style={{ cursor: "pointer", color: "var(--color-fog)" }}
-          >
-            Out
-          </button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+          {guest ? (
+            <>
+              <button
+                className="pill tab"
+                style={{ cursor: "pointer" }}
+                onClick={() => goLogin(false)}
+              >
+                Log in
+              </button>
+              <button
+                className="pill join-pill"
+                style={{ cursor: "pointer" }}
+                onClick={() => goLogin(true)}
+              >
+                Join now
+              </button>
+            </>
+          ) : (
+            <>
+              {coins !== undefined && (
+                <button
+                  className="coin-pill"
+                  title="How the economy works"
+                  onClick={explainer.openExplainer}
+                >
+                  <Coin size={15} /> {coins.toLocaleString()}
+                </button>
+              )}
+              {solLamports !== undefined && (
+                <button
+                  className="sol-pill"
+                  title="Playable SOL balance · open Wallet"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => {
+                    setSelected(null);
+                    setTab("wallet");
+                  }}
+                >
+                  <Solana size={15} />{" "}
+                  {(solLamports / 1_000_000_000).toLocaleString(undefined, {
+                    maximumFractionDigits: 3,
+                  })}
+                </button>
+              )}
+              <button
+                className={`avatar-btn ${tab === "account" ? "active" : ""}`}
+                title={`${displayName(player!)} · account`}
+                aria-label="Account"
+                onClick={() => {
+                  setSelected(null);
+                  setTab("account");
+                }}
+              >
+                {displayName(player!).charAt(0).toUpperCase()}
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -294,7 +338,7 @@ export default function MatchScreen() {
             >
               {NAV_ICONS[key]}
               <span>{label}</span>
-              {key === "bets" && openBets > 0 && (
+              {key === "bets" && !guest && openBets > 0 && (
                 <span className="nav-badge">{openBets}</span>
               )}
             </button>
@@ -314,22 +358,46 @@ export default function MatchScreen() {
         )
       ) : tab === "matches" ? (
         <>
-          <QuestsCard player={player} onPlayerUpdate={updatePlayerRecord} />
-          <FixtureList player={player} onPick={setSelected} />
+          {player && <QuestsCard player={player} onPlayerUpdate={updatePlayerRecord} />}
+          <FixtureList onPick={setSelected} />
         </>
       ) : tab === "bets" ? (
-        <MyBets
-          player={player}
-          onPlayerUpdate={updatePlayerRecord}
-          onOpenCount={setOpenBets}
-        />
+        player ? (
+          <MyBets
+            player={player}
+            onPlayerUpdate={updatePlayerRecord}
+            onOpenCount={setOpenBets}
+          />
+        ) : (
+          <AuthGate title="Log in to place a bet" onLogin={goLogin} />
+        )
       ) : tab === "wallet" ? (
-        <WalletPanel />
-      ) : (
+        player ? (
+          <WalletPanel />
+        ) : (
+          <AuthGate title="Log in to open your wallet" onLogin={goLogin} />
+        )
+      ) : tab === "account" && player ? (
+        <AccountPanel
+          player={player}
+          email={email}
+          onSignOut={signOut}
+          onBack={() => setTab("matches")}
+        />
+      ) : player ? (
         <Leaders player={player} />
+      ) : (
+        <AuthGate
+          title="Log in or join now to view the leaderboard"
+          onLogin={goLogin}
+        />
       )}
 
-      <BetSlipTray player={player} onPlayerUpdate={updatePlayerRecord} />
+      <BetSlipTray
+        player={player}
+        onPlayerUpdate={updatePlayerRecord}
+        onRequireLogin={() => goLogin(false)}
+      />
       {explainer.open && <EconomyExplainer onClose={explainer.close} />}
       {toast && (
         <div className={`toast toast-${toast.kind} fade-in`} role="status">
@@ -344,6 +412,156 @@ export default function MatchScreen() {
       )}
     </main>
     </BetSlipProvider>
+  );
+}
+
+// --- Auth gate (guest sees this on bets / wallet) -----------------------------
+
+function AuthGate({
+  title,
+  body,
+  onLogin,
+}: {
+  title: string;
+  body?: string;
+  onLogin: (signup?: boolean) => void;
+}) {
+  return (
+    <div style={{ display: "grid", gap: "var(--element-gap)", maxWidth: 440, margin: "0 auto", width: "100%" }}>
+      <div
+        className="card fade-in"
+        style={{ display: "grid", gap: 16, justifyItems: "center", textAlign: "center", padding: "34px 20px" }}
+      >
+        <WcBadge size={56} />
+        <div style={{ display: "grid", gap: 5 }}>
+          <h2 className="heading-sm">{title}</h2>
+          {body && (
+            <p className="muted" style={{ fontSize: 14, maxWidth: 320 }}>
+              {body}
+            </p>
+          )}
+        </div>
+        <div style={{ display: "grid", gap: 8, width: "100%", maxWidth: 280 }}>
+          <button className="btn btn-primary" onClick={() => onLogin(true)}>
+            Join now
+          </button>
+          <button className="btn btn-ghost" onClick={() => onLogin(false)}>
+            Log in
+          </button>
+        </div>
+        <p className="caption muted">Free · devnet test tokens · no real value</p>
+      </div>
+    </div>
+  );
+}
+
+// --- Account (sign out + delete) ----------------------------------------------
+
+function AccountPanel({
+  player,
+  email,
+  onSignOut,
+  onBack,
+}: {
+  player: StoredPlayer;
+  email: string | null;
+  onSignOut: () => void;
+  onBack: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const name = displayName(player);
+
+  async function deleteAccount() {
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await authFetch("/api/account/delete", { method: "POST" });
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Could not delete the account.");
+      // Account is gone: clear the session and drop back to the login screen.
+      onSignOut();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete the account.");
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "grid", gap: "var(--element-gap)", maxWidth: 480, margin: "0 auto", width: "100%" }}>
+      <button
+        className="pill"
+        onClick={onBack}
+        style={{ cursor: "pointer", justifySelf: "start", color: "var(--color-fog)" }}
+      >
+        ← Back
+      </button>
+
+      {/* Identity card */}
+      <div className="card fade-in" style={{ display: "grid", gap: 12, justifyItems: "center", textAlign: "center", padding: "26px 18px" }}>
+        <span className="avatar-lg" aria-hidden>
+          {name.charAt(0).toUpperCase()}
+        </span>
+        <div style={{ display: "grid", gap: 2 }}>
+          <p className="heading-sm">{name}</p>
+          {email && (
+            <p className="muted" style={{ fontSize: 13 }}>
+              {email}
+            </p>
+          )}
+        </div>
+        <button className="btn btn-ghost" onClick={onSignOut} style={{ maxWidth: 260 }}>
+          Sign out
+        </button>
+      </div>
+
+      {/* Danger zone */}
+      <div
+        className="card fade-in"
+        style={{ display: "grid", gap: 12, borderColor: "rgba(255, 122, 122, 0.32)" }}
+      >
+        <p className="caption" style={{ color: "var(--color-festival-red)", letterSpacing: "0.12em" }}>
+          Danger zone
+        </p>
+        {!confirming ? (
+          <>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Permanently delete your account, balance and every bet you have
+              placed. This can&apos;t be undone.
+            </p>
+            <button className="btn btn-danger" onClick={() => setConfirming(true)}>
+              Delete account
+            </button>
+          </>
+        ) : (
+          <>
+            <p style={{ fontSize: 14, fontWeight: 700 }}>
+              Delete your account?
+            </p>
+            <p className="muted" style={{ fontSize: 13 }}>
+              This removes your account and all your data for good. There is no
+              way to get it back.
+            </p>
+            <button
+              className="btn btn-danger"
+              disabled={deleting}
+              onClick={() => void deleteAccount()}
+            >
+              {deleting ? "Deleting…" : "Yes, delete my account"}
+            </button>
+            <button
+              className="btn btn-ghost"
+              disabled={deleting}
+              onClick={() => setConfirming(false)}
+            >
+              Cancel
+            </button>
+          </>
+        )}
+        {error && <p className="error-text">{error}</p>}
+      </div>
+    </div>
   );
 }
 
@@ -398,13 +616,7 @@ function FixtureRow({
   );
 }
 
-function FixtureList({
-  player,
-  onPick,
-}: {
-  player: StoredPlayer;
-  onPick: (s: Selection) => void;
-}) {
+function FixtureList({ onPick }: { onPick: (s: Selection) => void }) {
   const [fixtures, setFixtures] = useState<Fixture[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -900,7 +1112,8 @@ function ReplayMatch({
 }: {
   fixture: Fixture;
   onBack: () => void;
-  onPlayerUpdate: (p: PlayerRecord) => void;
+  // Absent for guests: their replay bets aren't settled (they can't place any).
+  onPlayerUpdate?: (p: PlayerRecord) => void;
 }) {
   const [timeline, setTimeline] = useState<ReplayTimeline | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1129,12 +1342,14 @@ function ReplayMatch({
             </div>
           </div>
 
-          <ReplaySettler
-            fixtureId={fixture.FixtureId}
-            session={session}
-            getVt={getVt}
-            onPlayerUpdate={onPlayerUpdate}
-          />
+          {onPlayerUpdate && (
+            <ReplaySettler
+              fixtureId={fixture.FixtureId}
+              session={session}
+              getVt={getVt}
+              onPlayerUpdate={onPlayerUpdate}
+            />
+          )}
 
           <PunditTicker
             fixtureId={fixture.FixtureId}
@@ -1174,7 +1389,7 @@ interface SlipView {
   }[];
 }
 
-function Leaders({ player }: { player: StoredPlayer }) {
+function Leaders({ player }: { player: StoredPlayer | null }) {
   const [boards, setBoards] = useState<{ byCoins: LeaderRow[]; bySol: LeaderRow[] } | null>(null);
   const [mode, setMode] = useState<"coins" | "sol">("coins");
   const [error, setError] = useState<string | null>(null);
@@ -1257,7 +1472,8 @@ function Leaders({ player }: { player: StoredPlayer }) {
         )}
 
         {rows?.map((r, i) => {
-          const mine = r.wallet_or_nickname === (player.player?.wallet_or_nickname ?? player.label);
+          const mine =
+            !!player && r.wallet_or_nickname === (player.player?.wallet_or_nickname ?? player.label);
           return (
             <div
               key={r.wallet_or_nickname}
