@@ -327,6 +327,18 @@ a {
   background: rgba(198, 244, 219, 0.04);
 }
 
+/* Destructive action: red-tinted glass, used in the account danger zone. */
+.btn-danger {
+  border-color: rgba(255, 122, 122, 0.5);
+  background: rgba(255, 122, 122, 0.08);
+  color: var(--color-festival-red);
+}
+
+.btn-danger:not(:disabled):hover {
+  background: rgba(255, 122, 122, 0.15);
+  border-color: rgba(255, 122, 122, 0.7);
+}
+
 .btn-ghost:not(:disabled):hover,
 .btn-ghost:not(:disabled):active {
   border-color: var(--color-slate);
@@ -1304,35 +1316,85 @@ a {
 .coin-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   height: 30px;
-  padding: 0 11px;
+  padding: 0 9px;
   border-radius: 999px;
   background: rgba(255, 197, 48, 0.09);
   border: 1px solid rgba(255, 197, 48, 0.32);
   color: var(--color-ember-orange);
   font-family: var(--font-mono), ui-monospace, monospace;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12.5px;
   cursor: pointer;
   box-shadow: var(--frost-edge);
+  flex: none;
+}
+
+/* Account avatar button in the topbar: compact initial disc, opens the
+   account screen. Replaces the old username pill + "Out" button so the
+   header cluster fits within its bounds on phones. */
+.avatar-btn {
+  appearance: none;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: rgba(198, 244, 219, 0.06);
+  color: var(--color-snow);
+  font-family: var(--font-app), sans-serif;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--frost-edge);
+  transition: border-color 130ms ease, background 130ms ease;
+}
+
+.avatar-btn:hover {
+  border-color: var(--color-slate);
+}
+
+.avatar-btn.active {
+  border-color: rgba(190, 255, 80, 0.5);
+  background: rgba(190, 255, 80, 0.12);
+  color: var(--color-lime);
+}
+
+/* Large avatar disc on the account screen. */
+.avatar-lg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 999px;
+  border: 1px solid rgba(190, 255, 80, 0.4);
+  background: rgba(190, 255, 80, 0.1);
+  color: var(--color-lime);
+  font-family: var(--font-display), sans-serif;
+  font-size: 30px;
+  line-height: 1;
+  box-shadow: var(--frost-edge), 0 0 22px rgba(190, 255, 80, 0.14);
 }
 
 /* SOL balance pill: Solana teal/purple glass. */
 .sol-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   height: 30px;
-  padding: 0 11px;
+  padding: 0 9px;
   border-radius: 999px;
   background: rgba(20, 241, 149, 0.07);
   border: 1px solid rgba(153, 69, 255, 0.38);
   color: var(--color-snow);
   font-family: var(--font-mono), ui-monospace, monospace;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12.5px;
   box-shadow: var(--frost-edge);
+  flex: none;
 }
 
 /* ---- Toast (settlement / info) ------------------------------------------------ */

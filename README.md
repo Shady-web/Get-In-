@@ -14,7 +14,12 @@ on-chain World Cup tier, Solana).
 
 - **Accounts**: Supabase Auth with email/password or Google sign-in. The
   login form takes an email OR a username (usernames map to their email
-  server-side). A player is keyed to their Supabase auth user id.
+  server-side). A player is keyed to their Supabase auth user id. The header
+  avatar opens an account screen with Sign out and a Delete account action
+  (confirmed first) that wipes the player row - cascading to wallet, ledger,
+  bets, badges and quests - and the auth user. Landing on `/` while signed
+  in bounces straight to the app, so the back button never signs you out;
+  signing out is only ever explicit.
 - **Custodial devnet wallet**: on first login the backend generates a
   Solana devnet keypair for the user, stored server-side only. We never
   fund it: new wallets start at 0 and players deposit free test SOL from

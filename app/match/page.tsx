@@ -8,6 +8,7 @@ import { authFetch } from "@/lib/api-client";
 import { WalletPanel } from "@/components/wallet-panel";
 import { Coin } from "@/components/coin";
 import { Solana } from "@/components/solana";
+import { WcBadge } from "@/components/wc-badge";
 import { MatchStats } from "@/components/match-stats";
 import { EconomyExplainer, useEconomyExplainer } from "@/components/economy-explainer";
 import { coinsToLamports, formatAmount, type Currency } from "@/lib/money";
@@ -105,7 +106,8 @@ export default function MatchScreen() {
   const [player, setPlayer] = useState<StoredPlayer | null>(null);
   const [checked, setChecked] = useState(false);
   const [selected, setSelected] = useState<Selection | null>(null);
-  const [tab, setTab] = useState<"matches" | "bets" | "leaders" | "wallet">("matches");
+  const [tab, setTab] = useState<"matches" | "bets" | "leaders" | "wallet" | "account">("matches");
+  const [email, setEmail] = useState<string | null>(null);
   const [openBets, setOpenBets] = useState(0);
   const [toast, setToast] = useState<{ kind: "won" | "lost" | "info"; title: string; text: string } | null>(null);
   const slipStatusRef = useRef<Map<string, string>>(new Map());
@@ -139,6 +141,7 @@ export default function MatchScreen() {
         session.user.email?.split("@")[0] ||
         "player";
       setPlayer({ identity: session.user.id, label, player: null });
+      setEmail(session.user.email ?? null);
       setChecked(true);
       // Bootstrap the players row + custodial devnet wallet (first login).
       try {
@@ -228,18 +231,20 @@ export default function MatchScreen() {
     <BetSlipProvider>
     <main className="shell" style={{ gap: 24 }}>
       <header className="topbar">
-        <div className="brand">
-          GetIN<span className="bang">!!!</span>
+        <div className="brand" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <WcBadge size={26} />
+          <span style={{ display: "flex", alignItems: "baseline", gap: 1 }}>
+            GetIN<span className="bang">!!!</span>
+          </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
           {coins !== undefined && (
             <button
               className="coin-pill"
               title="How the economy works"
               onClick={explainer.openExplainer}
             >
-              <Coin size={16} /> {coins.toLocaleString()}
-              <span style={{ opacity: 0.6, fontSize: 11 }}>ⓘ</span>
+              <Coin size={15} /> {coins.toLocaleString()}
             </button>
           )}
           {solLamports !== undefined && (
@@ -258,15 +263,16 @@ export default function MatchScreen() {
               })}
             </button>
           )}
-          <span className="pill" title={displayName(player)}>
-            {displayName(player)}
-          </span>
           <button
-            className="pill"
-            onClick={signOut}
-            style={{ cursor: "pointer", color: "var(--color-fog)" }}
+            className={`avatar-btn ${tab === "account" ? "active" : ""}`}
+            title={`${displayName(player)} · account`}
+            aria-label="Account"
+            onClick={() => {
+              setSelected(null);
+              setTab("account");
+            }}
           >
-            Out
+            {displayName(player).charAt(0).toUpperCase()}
           </button>
         </div>
       </header>
@@ -325,6 +331,13 @@ export default function MatchScreen() {
         />
       ) : tab === "wallet" ? (
         <WalletPanel />
+      ) : tab === "account" ? (
+        <AccountPanel
+          player={player}
+          email={email}
+          onSignOut={signOut}
+          onBack={() => setTab("matches")}
+        />
       ) : (
         <Leaders player={player} />
       )}
@@ -344,6 +357,116 @@ export default function MatchScreen() {
       )}
     </main>
     </BetSlipProvider>
+  );
+}
+
+// --- Account (sign out + delete) ----------------------------------------------
+
+function AccountPanel({
+  player,
+  email,
+  onSignOut,
+  onBack,
+}: {
+  player: StoredPlayer;
+  email: string | null;
+  onSignOut: () => void;
+  onBack: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const name = displayName(player);
+
+  async function deleteAccount() {
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await authFetch("/api/account/delete", { method: "POST" });
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Could not delete the account.");
+      // Account is gone: clear the session and drop back to the login screen.
+      onSignOut();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete the account.");
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "grid", gap: "var(--element-gap)", maxWidth: 480, margin: "0 auto", width: "100%" }}>
+      <button
+        className="pill"
+        onClick={onBack}
+        style={{ cursor: "pointer", justifySelf: "start", color: "var(--color-fog)" }}
+      >
+        ← Back
+      </button>
+
+      {/* Identity card */}
+      <div className="card fade-in" style={{ display: "grid", gap: 12, justifyItems: "center", textAlign: "center", padding: "26px 18px" }}>
+        <span className="avatar-lg" aria-hidden>
+          {name.charAt(0).toUpperCase()}
+        </span>
+        <div style={{ display: "grid", gap: 2 }}>
+          <p className="heading-sm">{name}</p>
+          {email && (
+            <p className="muted" style={{ fontSize: 13 }}>
+              {email}
+            </p>
+          )}
+        </div>
+        <button className="btn btn-ghost" onClick={onSignOut} style={{ maxWidth: 260 }}>
+          Sign out
+        </button>
+      </div>
+
+      {/* Danger zone */}
+      <div
+        className="card fade-in"
+        style={{ display: "grid", gap: 12, borderColor: "rgba(255, 122, 122, 0.32)" }}
+      >
+        <p className="caption" style={{ color: "var(--color-festival-red)", letterSpacing: "0.12em" }}>
+          Danger zone
+        </p>
+        {!confirming ? (
+          <>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Permanently delete your account, balance and every bet you have
+              placed. This can&apos;t be undone.
+            </p>
+            <button className="btn btn-danger" onClick={() => setConfirming(true)}>
+              Delete account
+            </button>
+          </>
+        ) : (
+          <>
+            <p style={{ fontSize: 14, fontWeight: 700 }}>
+              Delete your account?
+            </p>
+            <p className="muted" style={{ fontSize: 13 }}>
+              This removes your account and all your data for good. There is no
+              way to get it back.
+            </p>
+            <button
+              className="btn btn-danger"
+              disabled={deleting}
+              onClick={() => void deleteAccount()}
+            >
+              {deleting ? "Deleting…" : "Yes, delete my account"}
+            </button>
+            <button
+              className="btn btn-ghost"
+              disabled={deleting}
+              onClick={() => setConfirming(false)}
+            >
+              Cancel
+            </button>
+          </>
+        )}
+        {error && <p className="error-text">{error}</p>}
+      </div>
+    </div>
   );
 }
 

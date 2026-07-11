@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { WcBadge } from "@/components/wc-badge";
 
 export default function Landing() {
   const router = useRouter();
@@ -13,12 +14,28 @@ export default function Landing() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(true);
 
-  // A stale session must never auto-sign-you-in or block a fresh login, so
-  // clear any existing session when the login screen mounts.
+  // Landing on "/" while already signed in (e.g. the back button) must NOT
+  // sign you out - it just means you left the app screen. Bounce a live
+  // session straight back to /match; only show the login form when there's
+  // genuinely no session. Signing out is explicit, from the account screen.
   useEffect(() => {
-    getSupabaseBrowser()?.auth.signOut().catch(() => {});
-  }, []);
+    const supabase = getSupabaseBrowser();
+    if (!supabase) {
+      setChecking(false);
+      return;
+    }
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
+      if (data.session) router.replace("/match");
+      else setChecking(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   function requireSupabase() {
     const supabase = getSupabaseBrowser();
@@ -106,6 +123,9 @@ export default function Landing() {
     }
   }
 
+  // Don't flash the login form while we're resolving an existing session.
+  if (checking) return null;
+
   const submit = mode === "signin" ? onSignIn : onSignUp;
   const canSubmit =
     mode === "signin"
@@ -114,11 +134,12 @@ export default function Landing() {
 
   return (
     <main className="shell confetti" style={{ justifyContent: "center", gap: 32 }}>
-      <header style={{ textAlign: "center", display: "grid", gap: 10 }}>
-        <p className="caption" style={{ color: "var(--color-snow)" }}>
-          ⚽ World Cup 2026 · Live Predictions
+      <header style={{ textAlign: "center", display: "grid", gap: 12, justifyItems: "center" }}>
+        <WcBadge size={72} />
+        <p className="caption" style={{ color: "var(--color-ash)" }}>
+          FIFA World Cup 26 · Live Betting
         </p>
-        <h1 className="display">
+        <h1 className="display" style={{ marginTop: -2 }}>
           <span className="brand-gradient">GetIN</span>
           <span style={{ color: "var(--color-lime)", textShadow: "0 0 24px rgba(190,255,80,0.4)" }}>
             !!!
