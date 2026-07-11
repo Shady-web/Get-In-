@@ -360,29 +360,36 @@ function FixtureRow({
   left?: React.ReactNode;
   onClick: () => void;
 }) {
+  // Teams stack one per line (never wrap mid-name), so every card in the
+  // list renders the same shape no matter how long the country names are.
+  const teamLine: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    fontWeight: 600,
+    fontSize: 14.5,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    minWidth: 0,
+  };
   return (
     <button className="row fixture-row fade-in" onClick={onClick}>
       {left}
-      <span style={{ flex: 1, display: "grid", gap: 2, minWidth: 0 }}>
-        <span
-          style={{
-            fontWeight: 600,
-            fontSize: 15,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            flexWrap: "wrap",
-          }}
-        >
+      <span style={{ flex: 1, display: "grid", gap: 4, minWidth: 0 }}>
+        <span style={teamLine}>
           <Flag country={fixture.Participant1} />
-          {fixture.Participant1}
-          <span className="muted" style={{ fontWeight: 400 }}>
-            vs
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+            {fixture.Participant1}
           </span>
-          <Flag country={fixture.Participant2} />
-          {fixture.Participant2}
         </span>
-        <span className="muted" style={{ fontSize: 12 }}>
+        <span style={teamLine}>
+          <Flag country={fixture.Participant2} />
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+            {fixture.Participant2}
+          </span>
+        </span>
+        <span className="muted" style={{ fontSize: 11 }}>
           {fixture.Competition}
         </span>
       </span>
