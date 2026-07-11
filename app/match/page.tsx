@@ -165,6 +165,12 @@ export default function MatchScreen() {
     setPlayer((prev) => (prev ? { ...prev, player: record } : prev));
   }, []);
 
+  // Guests show no account data. If there's no player (fresh guest, sign out,
+  // or a session that silently expired), keep the open-bets badge cleared.
+  useEffect(() => {
+    if (!player) setOpenBets(0);
+  }, [player]);
+
   // Keep the open-bets counter fresh even when the My Bets tab isn't showing.
   // Guests have no bets, so only poll once signed in.
   useEffect(() => {
@@ -224,6 +230,8 @@ export default function MatchScreen() {
     getSupabaseBrowser()?.auth.signOut().catch(() => {});
     setPlayer(null);
     setEmail(null);
+    setOpenBets(0);
+    slipStatusRef.current = new Map();
     setTab("matches");
     setSelected(null);
   }
@@ -330,7 +338,7 @@ export default function MatchScreen() {
             >
               {NAV_ICONS[key]}
               <span>{label}</span>
-              {key === "bets" && openBets > 0 && (
+              {key === "bets" && !guest && openBets > 0 && (
                 <span className="nav-badge">{openBets}</span>
               )}
             </button>
@@ -361,21 +369,13 @@ export default function MatchScreen() {
             onOpenCount={setOpenBets}
           />
         ) : (
-          <AuthGate
-            title="Track your bets"
-            body="Log in or create an account to place bets and watch them settle live."
-            onLogin={goLogin}
-          />
+          <AuthGate title="Log in to place a bet" onLogin={goLogin} />
         )
       ) : tab === "wallet" ? (
         player ? (
           <WalletPanel />
         ) : (
-          <AuthGate
-            title="Your wallet"
-            body="Log in to fund a devnet wallet, bet with test SOL, and cash out."
-            onLogin={goLogin}
-          />
+          <AuthGate title="Log in to open your wallet" onLogin={goLogin} />
         )
       ) : tab === "account" && player ? (
         <AccountPanel
@@ -384,8 +384,13 @@ export default function MatchScreen() {
           onSignOut={signOut}
           onBack={() => setTab("matches")}
         />
-      ) : (
+      ) : player ? (
         <Leaders player={player} />
+      ) : (
+        <AuthGate
+          title="Log in or join now to view the leaderboard"
+          onLogin={goLogin}
+        />
       )}
 
       <BetSlipTray
@@ -418,21 +423,23 @@ function AuthGate({
   onLogin,
 }: {
   title: string;
-  body: string;
+  body?: string;
   onLogin: (signup?: boolean) => void;
 }) {
   return (
     <div style={{ display: "grid", gap: "var(--element-gap)", maxWidth: 440, margin: "0 auto", width: "100%" }}>
       <div
         className="card fade-in"
-        style={{ display: "grid", gap: 14, justifyItems: "center", textAlign: "center", padding: "30px 20px" }}
+        style={{ display: "grid", gap: 16, justifyItems: "center", textAlign: "center", padding: "34px 20px" }}
       >
-        <WcBadge size={54} />
-        <div style={{ display: "grid", gap: 4 }}>
+        <WcBadge size={56} />
+        <div style={{ display: "grid", gap: 5 }}>
           <h2 className="heading-sm">{title}</h2>
-          <p className="muted" style={{ fontSize: 14, maxWidth: 320 }}>
-            {body}
-          </p>
+          {body && (
+            <p className="muted" style={{ fontSize: 14, maxWidth: 320 }}>
+              {body}
+            </p>
+          )}
         </div>
         <div style={{ display: "grid", gap: 8, width: "100%", maxWidth: 280 }}>
           <button className="btn btn-primary" onClick={() => onLogin(true)}>
