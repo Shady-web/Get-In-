@@ -8,7 +8,7 @@ import { getLiveState } from "@/lib/live";
 import { getMarkets } from "@/lib/markets";
 import { getReplayTimeline, stateAt } from "@/lib/replay";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { logLedger } from "@/lib/wallet";
+import { adjustHousePool, logLedger } from "@/lib/wallet";
 import { coinsToLamports } from "@/lib/money";
 import { getOrCreatePlayer, isFinal, type PlayerRow } from "@/lib/game";
 import { winnerOdds } from "@/lib/odds";
@@ -271,6 +271,8 @@ export async function placeSlip(args: {
   }
 
   await logLedger(player.id, "bet_stake", -stake, currency, slip.id);
+  // A SOL stake goes into the house pool; if the slip loses the house keeps it.
+  if (currency === "SOL") await adjustHousePool(stake);
 
   const { data: full } = await supabase
     .from("bet_slips")
@@ -366,14 +368,18 @@ export async function settleSlipsForMatch(
       results.push({ slipId, status: allVoid ? "void" : "won", payout });
       if (ccy === "COIN" && !allVoid) {
         // Winning GI-coin calls pay out in SOL at the fixed peg; the coin
-        // stake was already spent at placement.
+        // stake was already spent at placement. The house pool funds it.
         const lamports = coinsToLamports(payout);
         deltas.SOL += lamports;
         await logLedger(player.id, "bet_payout_sol", lamports, "SOL", slipId);
+        await adjustHousePool(-lamports);
       } else {
         // SOL wins credit SOL; voids refund the stake in its own currency.
         deltas[ccy] += payout;
         await logLedger(player.id, allVoid ? "bet_void_refund" : "bet_payout", payout, ccy, slipId);
+        // Draw the SOL payout / void refund back out of the house pool (the
+        // stake went in at placement; a loss keeps it, a win/void pays out).
+        if (ccy === "SOL") await adjustHousePool(-payout);
       }
     }
   }
@@ -529,6 +535,8 @@ export async function cashOutSlip(
     .select("*")
     .single();
   await logLedger(player.id, "cashout", amount, ccy, slipId);
+  // Only SOL slips can be cashed out; the house pool funds the cash-out.
+  if (ccy === "SOL") await adjustHousePool(-amount);
   return { amount, player: (paid as PlayerRow) ?? player };
 }
 
@@ -593,6 +601,7 @@ export async function voidStaleReplayLegs(identity: string): Promise<void> {
           .update({ sol_balance: readBalance(p, "sol_balance") + lamports })
           .eq("id", p.id);
         await logLedger(p.id, "bet_payout_sol", lamports, "SOL", slipId);
+        await adjustHousePool(-lamports);
       } else {
         const col = balanceCol(ccy);
         await supabase
@@ -600,6 +609,7 @@ export async function voidStaleReplayLegs(identity: string): Promise<void> {
           .update({ [col]: readBalance(p, col) + payout })
           .eq("id", p.id);
         await logLedger(p.id, allVoid ? "bet_void_refund" : "bet_payout", payout, ccy, slipId);
+        if (ccy === "SOL") await adjustHousePool(-payout);
       }
     }
   }

@@ -17,10 +17,12 @@ import { Flag } from "@/components/flag";
 import { BetSlipProvider, BetSlipTray, useBetSlip } from "@/components/bet-slip";
 import { PunditTicker } from "@/components/pundit-ticker";
 import { QuestsCard } from "@/components/quests-card";
+import { DailyBonus } from "@/components/daily-bonus";
 import { BadgeWall } from "@/components/badge-wall";
 import type { LiveState } from "@/lib/live";
 import { isFinal } from "@/lib/game-core";
 import { winnerOdds, isIndicativeOdds } from "@/lib/odds";
+import { useAutoClear } from "@/lib/use-auto-clear";
 import { stateAt, type ReplayTimeline } from "@/lib/replay-core";
 
 interface Fixture {
@@ -358,6 +360,7 @@ export default function MatchScreen() {
         )
       ) : tab === "matches" ? (
         <>
+          {player && <DailyBonus player={player} onPlayerUpdate={updatePlayerRecord} />}
           {player && <QuestsCard player={player} onPlayerUpdate={updatePlayerRecord} />}
           <FixtureList onPick={setSelected} />
         </>
@@ -373,7 +376,7 @@ export default function MatchScreen() {
         )
       ) : tab === "wallet" ? (
         player ? (
-          <WalletPanel />
+          <WalletPanel onPlayerUpdate={updatePlayerRecord} />
         ) : (
           <AuthGate title="Log in to open your wallet" onLogin={goLogin} />
         )
@@ -1530,6 +1533,7 @@ function MyBets({
   const [confirmCash, setConfirmCash] = useState<SlipView | null>(null);
   const [cashing, setCashing] = useState(false);
   const [cashMsg, setCashMsg] = useState<string | null>(null);
+  useAutoClear(cashMsg, setCashMsg, 5000);
   const prevCashRef = useRef<Map<string, number>>(new Map());
   const cashDirRef = useRef<Map<string, "up" | "down">>(new Map());
 

@@ -1,12 +1,15 @@
 "use client";
 
-// Deposit screen: the player's custodial GetIN devnet address, a copy
-// button, and a faucet link. We never fund wallets - players grab test SOL
-// themselves. Balances show in SOL and USD at a hard-coded 1 SOL = $150.
+// Wallet: playable balance on top, then a Deposit / Withdraw toggle.
+// Deposit is an in-app claim of free devnet SOL straight from the GetIN house
+// pool (up to 0.5 SOL, once a day) - no external faucet. The custodial address
+// is still shown so real deposits sent there are auto-credited.
 
 import { useCallback, useEffect, useState } from "react";
 import { authFetch } from "@/lib/api-client";
 import { Solana } from "@/components/solana";
+import { useAutoClear } from "@/lib/use-auto-clear";
+import type { PlayerRecord } from "@/lib/player";
 
 interface WalletInfo {
   address: string;
@@ -19,17 +22,38 @@ interface WalletInfo {
 }
 
 const MIN_WITHDRAW_SOL = 0.0067;
+const MAX_AIRDROP_SOL = 0.5;
+const AIRDROP_CHIPS = [0.1, 0.25, 0.5] as const;
 
-export function WalletPanel() {
+export function WalletPanel({
+  onPlayerUpdate,
+}: {
+  onPlayerUpdate?: (p: PlayerRecord) => void;
+}) {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [mode, setMode] = useState<"deposit" | "withdraw">("deposit");
+
+  // Claim (deposit from house)
+  const [solClaimed, setSolClaimed] = useState<boolean | null>(null);
+  const [claimAmount, setClaimAmount] = useState("0.1");
+  const [claiming, setClaiming] = useState(false);
+  const [claimMsg, setClaimMsg] = useState<string | null>(null);
+  const [claimErr, setClaimErr] = useState<string | null>(null);
+
+  // Withdraw
   const [toAddress, setToAddress] = useState("");
   const [amount, setAmount] = useState("");
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawMsg, setWithdrawMsg] = useState<string | null>(null);
   const [withdrawErr, setWithdrawErr] = useState<string | null>(null);
+
+  // Transient notifications clear themselves after a few seconds.
+  useAutoClear(claimMsg, setClaimMsg, 5000);
+  useAutoClear(claimErr, setClaimErr, 5000);
+  useAutoClear(withdrawMsg, setWithdrawMsg, 6000);
+  useAutoClear(withdrawErr, setWithdrawErr, 6000);
 
   const load = useCallback(async () => {
     try {
@@ -42,6 +66,47 @@ export function WalletPanel() {
       setError(err instanceof Error ? err.message : "Wallet unavailable.");
     }
   }, []);
+
+  const loadClaimStatus = useCallback(async () => {
+    try {
+      const res = await authFetch("/api/claim/daily");
+      const body = await res.json();
+      setSolClaimed(body?.ok ? Boolean(body.sol) : false);
+    } catch {
+      setSolClaimed(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    void loadClaimStatus();
+    const id = window.setInterval(() => void load(), 30_000);
+    return () => window.clearInterval(id);
+  }, [load, loadClaimStatus]);
+
+  async function claimSol() {
+    const sol = Number(claimAmount);
+    setClaiming(true);
+    setClaimMsg(null);
+    setClaimErr(null);
+    try {
+      const res = await authFetch("/api/wallet/airdrop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sol }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Claim failed.");
+      if (body.player) onPlayerUpdate?.(body.player as PlayerRecord);
+      setSolClaimed(true);
+      setClaimMsg(`${(body.lamports / 1e9).toFixed(3)} SOL credited from the house pool.`);
+      void load();
+    } catch (err) {
+      setClaimErr(err instanceof Error ? err.message : "Claim failed.");
+    } finally {
+      setClaiming(false);
+    }
+  }
 
   async function withdraw() {
     setWithdrawing(true);
@@ -68,12 +133,6 @@ export function WalletPanel() {
     }
   }
 
-  useEffect(() => {
-    void load();
-    const id = window.setInterval(() => void load(), 30_000);
-    return () => window.clearInterval(id);
-  }, [load]);
-
   async function copy() {
     if (!wallet) return;
     try {
@@ -84,6 +143,9 @@ export function WalletPanel() {
       /* clipboard blocked: the address is selectable */
     }
   }
+
+  const claimNum = Number(claimAmount);
+  const claimValid = Number.isFinite(claimNum) && claimNum >= 0.01 && claimNum <= MAX_AIRDROP_SOL;
 
   return (
     <section style={{ display: "grid", gap: "var(--element-gap)", maxWidth: 640, margin: "0 auto", width: "100%" }}>
@@ -112,7 +174,7 @@ export function WalletPanel() {
               {wallet.stale ? " · last known (RPC offline)" : ""}
             </p>
             <p className="caption muted">
-              Bet with this SOL from any market. Deposits are credited here.
+              Bet with this SOL from any market. Withdraw it any time.
             </p>
           </>
         ) : error ? (
@@ -142,41 +204,104 @@ export function WalletPanel() {
 
       {mode === "deposit" ? (
       <div className="card fade-in" style={{ display: "grid", gap: 12 }}>
-        <p className="caption section-label">Deposit test SOL</p>
+        <p className="caption section-label">Claim test SOL</p>
         <p className="muted" style={{ fontSize: 13 }}>
-          This is your GetIN devnet address. Fund it with free test SOL to
-          start playing - new wallets start at 0 and we never top them up.
+          Claim free devnet SOL straight from the GetIN house pool - no faucet.
+          Pick any amount up to {MAX_AIRDROP_SOL} SOL, once a day.
         </p>
-        {wallet && (
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <code
-              style={{
-                flex: 1,
-                minWidth: 0,
-                overflowWrap: "anywhere",
-                fontSize: 12.5,
-                background: "var(--surface-elevated-card)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-buttons)",
-                padding: "10px 12px",
-              }}
-            >
-              {wallet.address}
-            </code>
-            <button className="pill tab" onClick={() => void copy()} aria-label="Copy address">
-              {copied ? "Copied ✓" : "Copy"}
-            </button>
+
+        {solClaimed ? (
+          <div
+            style={{
+              display: "grid",
+              gap: 4,
+              padding: "14px 16px",
+              borderRadius: "var(--radius-buttons)",
+              background: "rgba(60, 232, 138, 0.07)",
+              border: "1px solid rgba(60, 232, 138, 0.3)",
+              textAlign: "center",
+            }}
+          >
+            <p style={{ fontSize: 14, fontWeight: 700, color: "var(--color-tape-green)" }}>
+              Claimed for today
+            </p>
+            <p className="muted" style={{ fontSize: 12.5 }}>
+              Come back tomorrow for more test SOL.
+            </p>
           </div>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+              {AIRDROP_CHIPS.map((c) => (
+                <button
+                  key={c}
+                  className={`pill tab ${Number(claimAmount) === c ? "active" : ""}`}
+                  style={{ justifyContent: "center", height: 42 }}
+                  onClick={() => setClaimAmount(String(c))}
+                >
+                  {c} SOL
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                className="input"
+                style={{ maxWidth: 150 }}
+                inputMode="decimal"
+                placeholder="Amount"
+                value={claimAmount}
+                onChange={(e) => setClaimAmount(e.target.value.replace(/[^\d.]/g, ""))}
+                disabled={claiming}
+                aria-label="Amount to claim in SOL"
+              />
+              <span className="muted" style={{ fontSize: 12, flex: 1 }}>
+                0.01 – {MAX_AIRDROP_SOL} SOL
+              </span>
+            </div>
+            <button
+              className="btn btn-primary"
+              disabled={claiming || !claimValid}
+              onClick={() => void claimSol()}
+            >
+              {claiming
+                ? "Claiming…"
+                : claimValid
+                  ? `Claim ${claimNum} SOL from the house`
+                  : `Enter up to ${MAX_AIRDROP_SOL} SOL`}
+            </button>
+          </>
         )}
-        <a
-          className="btn btn-primary"
-          href="https://faucet.solana.com"
-          target="_blank"
-          rel="noreferrer"
-          style={{ textDecoration: "none" }}
-        >
-          Get test SOL from the faucet ↗
-        </a>
+        {claimMsg && (
+          <p style={{ fontSize: 13, color: "var(--color-tape-green)", textAlign: "center" }}>
+            {claimMsg}
+          </p>
+        )}
+        {claimErr && <p className="error-text" style={{ textAlign: "center" }}>{claimErr}</p>}
+
+        {wallet && (
+          <>
+            <div className="divider">or receive to your address</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <code
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  overflowWrap: "anywhere",
+                  fontSize: 12,
+                  background: "var(--surface-elevated-card)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: "var(--radius-buttons)",
+                  padding: "10px 12px",
+                }}
+              >
+                {wallet.address}
+              </code>
+              <button className="pill tab" onClick={() => void copy()} aria-label="Copy address">
+                {copied ? "Copied ✓" : "Copy"}
+              </button>
+            </div>
+          </>
+        )}
         <p className="caption muted" style={{ textAlign: "center" }}>
           Devnet only · test tokens · no real value
         </p>

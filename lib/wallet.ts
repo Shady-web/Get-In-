@@ -335,3 +335,47 @@ export async function logCoinLedger(
 ): Promise<void> {
   return logLedger(playerId, type, amount, "COIN", ref);
 }
+
+// --- House pool (best effort) --------------------------------------------------
+//
+// A single-row accounting of the house's net SOL position (lamports). Losing
+// SOL stakes feed it (staked at placement, kept on a loss); winning payouts,
+// void refunds, cash-outs and airdrops draw it down - so losers fund winners.
+// All updates are best-effort: if the house_pool table isn't migrated yet (or
+// Supabase is down), pool tracking is skipped and the rest of the app is
+// unaffected.
+
+/** Shift the house pool by delta lamports (positive = house gains). */
+export async function adjustHousePool(deltaLamports: number): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase || !Number.isFinite(deltaLamports) || deltaLamports === 0) return;
+  try {
+    const { data } = await supabase
+      .from("house_pool")
+      .select("lamports")
+      .eq("id", 1)
+      .maybeSingle();
+    const next = Number(data?.lamports ?? 0) + Math.round(deltaLamports);
+    await supabase
+      .from("house_pool")
+      .upsert({ id: 1, lamports: next, updated_at: new Date().toISOString() });
+  } catch {
+    /* table not migrated yet: skip pool tracking */
+  }
+}
+
+/** The accumulated house pool in lamports (0 if the table is absent). */
+export async function getHousePool(): Promise<number> {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return 0;
+  try {
+    const { data } = await supabase
+      .from("house_pool")
+      .select("lamports")
+      .eq("id", 1)
+      .maybeSingle();
+    return Number(data?.lamports ?? 0);
+  } catch {
+    return 0;
+  }
+}

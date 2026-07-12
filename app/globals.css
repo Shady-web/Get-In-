@@ -1392,6 +1392,25 @@ a {
   box-shadow: var(--frost-edge), 0 0 22px rgba(190, 255, 80, 0.14);
 }
 
+/* Daily-bonus coin disc. */
+.daily-coin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: 14px;
+  background: rgba(255, 197, 48, 0.1);
+  border: 1px solid rgba(255, 197, 48, 0.32);
+  box-shadow: var(--frost-edge), 0 0 16px rgba(255, 197, 48, 0.16);
+}
+
+.daily-coin.done {
+  opacity: 0.5;
+  box-shadow: var(--frost-edge);
+}
+
 /* SOL balance pill: Solana teal/purple glass. */
 .sol-pill {
   display: inline-flex;

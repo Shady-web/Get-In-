@@ -27,17 +27,28 @@ on-chain World Cup tier, Solana).
   wallet, ledger, bets, badges and quests - and the auth user. The back
   button never signs you out; signing out is only ever explicit.
 - **Custodial devnet wallet**: on first login the backend generates a
-  Solana devnet keypair for the user, stored server-side only. We never
-  fund it: new wallets start at 0 and players deposit free test SOL from
-  the public faucet via the Wallet tab. Balances show in SOL and USD at a
+  Solana devnet keypair for the user, stored server-side only. New wallets
+  start at 0; the Deposit tab claims free test SOL straight from the house
+  pool (see below) - no external faucet. Balances show in SOL and USD at a
   hard-coded 1 SOL = $150, and every money movement lands in a ledger
   table. A sitewide banner marks everything as devnet test tokens.
+- **Daily rewards**: a free **100 GI coins** every UTC day (a card at the top
+  of the Matches tab), and an in-app **SOL claim from the house pool** on the
+  Deposit tab - pick any amount up to **0.5 SOL**, once a day, credited to
+  your spendable balance from the house reserve. Both use the existing
+  `quest_claims` per-day unique guard, so no new schema is needed.
 - **House float**: a single server-side house wallet (created once with
   `npm run setup:house`, funded from the faucet) pays every withdrawal.
   Users still gate + debit their own internal `sol_balance`, but the coins
   land from the house, so SOL winnings converted from coins are withdrawable
   even though a user only deposited a little real SOL. The house key is
   server-side only; a health check logs the float and warns when it's low.
+- **House pool**: a single-row accounting of the house's net SOL position
+  (`house_pool`, schema-v11). A SOL stake feeds the pool at placement; a
+  losing SOL bet keeps it there, while wins, void refunds, cash-outs and
+  airdrops draw it down. So the book has an edge - losers fund winners -
+  instead of the house covering every payout alone. Best-effort: the app
+  runs fine without the table (pool tracking is simply skipped).
 - **Live matches**: score, match clock, and a win-probability bar derived
   from the TxLINE 1X2 market (margin normalized away), updating every ~7s.
 - **Replay Mode**: just-finished matches replay on a timeline (scrubber,
@@ -53,14 +64,15 @@ on-chain World Cup tier, Solana).
   winner odds in a replay) to build a
   Bet Slip: one selection = single, several (across matches) = accumulator
   at the product of leg odds. Stake in **coins or devnet SOL** (toggle on
-  the slip); SOL stakes and payouts move the custodial balance you funded
-  from the faucet, tracked in lamports. Slips settle automatically from the
+  the slip); SOL stakes and payouts move the custodial balance you claimed
+  from the house pool, tracked in lamports. Slips settle automatically from the
   scores data - in live matches and in Replay Mode. Open slips show a live
   Cash Out value (potential return x current implied probability of the
   pending legs x 0.95) that animates as odds move.
 - **Wallet (Deposit + Withdraw)**: one Wallet tab with the balance pinned
   on top and a Deposit / Withdraw toggle so the two flows never crowd each
-  other. Fund the custodial devnet wallet from the public faucet, and
+  other. Deposit claims test SOL from the house pool (up to 0.5 SOL/day; the
+  custodial address is still shown so SOL sent there is auto-credited), and
   withdraw devnet SOL to any external address (min 0.0067 SOL). The signing
   key stays server-side.
 - **Recent form**: open any match to see each team's last 3 results
@@ -146,6 +158,8 @@ Create a project at supabase.com, then run in the SQL editor:
 8. `supabase/schema-v8.sql`
 9. `supabase/schema-v9.sql`
 10. `supabase/schema-v10.sql`
+11. `supabase/schema-v11.sql` (optional: the house pool - the app runs
+    without it, pool tracking is just skipped)
 
 Then enable the auth providers: Dashboard -> Authentication -> Providers ->
 turn on **Email** (password sign-in) and **Google** (paste a Google OAuth
@@ -236,6 +250,8 @@ ways around that:
 | `GET /api/quests` / `POST /api/quests` | Today's quest board / claim a reward |
 | `GET /api/badges` | Badge wall (awards new milestones on read) |
 | `GET /api/wallet` / `POST /api/wallet/withdraw` | Balance + address / withdraw SOL |
+| `POST /api/wallet/airdrop` | Claim test SOL from the house pool (≤0.5/day) |
+| `GET /api/claim/daily` / `POST /api/claim/daily` | Daily-claim status / claim 100 coins |
 | `POST /api/slips` / `GET /api/slips` | Place bet slips / list + settle them |
 | `POST /api/slips/cashout` | Cash an open SOL slip out at current value |
 | `POST /api/auth/register` | Sign-up (email + username + password) |
