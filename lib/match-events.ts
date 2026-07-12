@@ -80,34 +80,39 @@ export function parseIncidents(
 }
 
 /**
- * Derive events from score/card totals in the frames (no player names). A
- * total that increments between frames is one incident at that frame's clock.
+ * Derive events from score/card totals in the frames (no player names). Totals
+ * are treated as monotonic high-water marks: an event is emitted only when a
+ * team's running maximum for that kind increases. This is deliberate — the
+ * real feed can momentarily drop or omit a total (amendments, missing fields),
+ * and without the high-water mark a dip-then-recover would re-emit the same
+ * goal or card.
  */
 export function deriveEventsFromFrames(frames: ScoreFrame[]): MatchEvent[] {
   const events: MatchEvent[] = [];
-  let goals = { home: 0, away: 0 };
-  let yellow = { home: 0, away: 0 };
-  let red = { home: 0, away: 0 };
+  const hi = {
+    goal: { home: 0, away: 0 },
+    yellow: { home: 0, away: 0 },
+    red: { home: 0, away: 0 },
+  };
 
-  const bump = (
-    prev: { home: number; away: number },
-    next: { home: number; away: number } | undefined,
+  const emit = (
     kind: MatchEvent["kind"],
+    cur: { home: number; away: number } | undefined,
     t: number,
   ) => {
-    if (!next) return prev;
+    if (!cur) return;
     for (const team of ["home", "away"] as const) {
-      for (let n = prev[team]; n < next[team]; n++) {
+      while (hi[kind][team] < cur[team]) {
+        hi[kind][team] += 1;
         events.push({ t, minute: minuteOf(t), team, kind, player: null });
       }
     }
-    return next;
   };
 
   for (const f of frames) {
-    goals = bump(goals, f.score, "goal", f.t);
-    yellow = bump(yellow, f.yellow, "yellow", f.t);
-    red = bump(red, f.red, "red", f.t);
+    emit("goal", f.score, f.t);
+    emit("yellow", f.yellow, f.t);
+    emit("red", f.red, f.t);
   }
   events.sort((a, b) => a.t - b.t);
   return events;
