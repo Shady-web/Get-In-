@@ -6,6 +6,7 @@
 // settlement; SOL calls can be cashed out).
 
 import { useEffect, useState, type ReactNode } from "react";
+import { Target, Coins, Zap, Trophy, Star, Lock, X, ChevronRight } from "lucide-react";
 import { Solana } from "@/components/solana";
 
 const SEEN_KEY = "getin.economySeen";
@@ -35,12 +36,12 @@ export function useEconomyExplainer() {
 }
 
 const STEPS: [ReactNode, string][] = [
-  ["🎯", "Quests + wins"],
-  ["🪙", "Earn GI coins"],
-  ["⚡", "Stake a market"],
-  ["🏆", "Win"],
+  [<Target key="quests" size={19} aria-hidden />, "Quests + wins"],
+  [<Coins key="coins" size={19} aria-hidden />, "Earn GI coins"],
+  [<Zap key="stake" size={19} aria-hidden />, "Stake a market"],
+  [<Trophy key="win" size={19} aria-hidden />, "Win"],
   [<Solana key="sol" size={18} />, "SOL payout"],
-  ["⭐", "Climb leaders"],
+  [<Star key="leaders" size={19} aria-hidden />, "Climb leaders"],
 ];
 
 function Bullet({
@@ -100,7 +101,7 @@ export function EconomyExplainer({ onClose }: { onClose: () => void }) {
             </h2>
           </div>
           <button className="pill tab" onClick={onClose} aria-label="Close">
-            ✕
+            <X size={15} aria-hidden />
           </button>
         </div>
 
@@ -153,7 +154,11 @@ export function EconomyExplainer({ onClose }: { onClose: () => void }) {
                 </span>
               </div>
               {i < STEPS.length - 1 && (
-                <span style={{ color: "var(--color-fog)", marginTop: 12 }}>›</span>
+                <ChevronRight
+                  size={14}
+                  aria-hidden
+                  style={{ color: "var(--color-fog)", marginTop: 26, flex: "none" }}
+                />
               )}
             </div>
           ))}
@@ -161,7 +166,7 @@ export function EconomyExplainer({ onClose }: { onClose: () => void }) {
 
         <div style={{ display: "grid", gap: 14, marginTop: 4 }}>
           <Bullet
-            icon="🪙"
+            icon={<Coins size={17} aria-hidden />}
             color="#FFC530"
             title="GI Coins"
             body="Your free play-money balance, earned from daily quests, winning calls and correct picks. Stake them on any market - a winning coin call pays out in SOL (at 15,000 coins = 1 SOL) and rides to full time (settles automatically, no early cash out)."
@@ -173,7 +178,7 @@ export function EconomyExplainer({ onClose }: { onClose: () => void }) {
             body="Real devnet tokens you deposit from the faucet (no real value). Stake SOL too - SOL calls pay out withdrawable SOL, and you can cash a SOL call out early before it settles."
           />
           <Bullet
-            icon="🔒"
+            icon={<Lock size={16} aria-hidden />}
             color="#FFC530"
             title="Cash out"
             body="Only SOL calls can be cashed out early. Coin calls always run to the final whistle."

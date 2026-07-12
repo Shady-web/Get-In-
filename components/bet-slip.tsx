@@ -12,6 +12,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { ChevronUp, ChevronDown, X } from "lucide-react";
 import type { PlayerRecord, StoredPlayer } from "@/lib/player";
 import { Coin } from "@/components/coin";
 import { Solana } from "@/components/solana";
@@ -195,8 +196,8 @@ export function BetSlipTray({
             <strong>{selections.length}</strong>{" "}
             {selections.length === 1 ? "selection · single" : "selections · accumulator"}
           </span>
-          <span style={{ color: "var(--color-ember-orange)", fontWeight: 600 }}>
-            odds {combined.toFixed(2)} ▴
+          <span style={{ color: "var(--color-ember-orange)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 3 }}>
+            odds {combined.toFixed(2)} <ChevronUp size={14} aria-hidden />
           </span>
         </button>
       )}
@@ -205,8 +206,12 @@ export function BetSlipTray({
         <div className="slip-sheet fade-in" role="dialog" aria-label="Bet slip">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <p className="caption section-label">Bet slip</p>
-            <button className="pill tab" onClick={() => setOpen(false)}>
-              Close ▾
+            <button
+              className="pill tab"
+              onClick={() => setOpen(false)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 3 }}
+            >
+              Close <ChevronDown size={14} aria-hidden />
             </button>
           </div>
 
@@ -228,7 +233,7 @@ export function BetSlipTray({
                   aria-label={`Remove ${s.outcomeLabel}`}
                   onClick={() => remove(s.id)}
                 >
-                  ✕
+                  <X size={14} aria-hidden />
                 </button>
               </div>
             ))}

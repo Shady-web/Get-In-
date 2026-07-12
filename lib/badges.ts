@@ -9,16 +9,16 @@ import { getOrCreatePlayer } from "@/lib/game";
 
 export interface BadgeDef {
   id: string;
-  icon: string;
+  icon: string; // semantic key resolved to a Lucide icon by <BadgeIcon>
   name: string;
   hint: string; // how to earn it (shown on locked badges)
 }
 
 export const BADGE_DEFS: BadgeDef[] = [
-  { id: "first_win", icon: "🏅", name: "First Win", hint: "Win any bet slip" },
-  { id: "first_cashout", icon: "💸", name: "Cool Head", hint: "Cash out a SOL bet early" },
-  { id: "parlay_5", icon: "🎰", name: "Parlay Pro", hint: "Win an accumulator with 5+ legs" },
-  { id: "bankroll_5k", icon: "👑", name: "High Roller", hint: "Grow your bankroll to 5,000 coins" },
+  { id: "first_win", icon: "medal", name: "First Win", hint: "Win any bet slip" },
+  { id: "first_cashout", icon: "banknote", name: "Cool Head", hint: "Cash out a SOL bet early" },
+  { id: "parlay_5", icon: "dices", name: "Parlay Pro", hint: "Win an accumulator with 5+ legs" },
+  { id: "bankroll_5k", icon: "crown", name: "High Roller", hint: "Grow your bankroll to 5,000 coins" },
 ];
 
 export interface BadgeStatus extends BadgeDef {

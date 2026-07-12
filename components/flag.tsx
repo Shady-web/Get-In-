@@ -2,10 +2,11 @@
 
 // Country flag chip next to team names. Images come from flagcdn.com
 // (free public flag CDN, every FIFA nation incl. gb-eng style codes).
-// Unknown teams or failed loads fall back to a ball glyph so fixtures
+// Unknown teams or failed loads fall back to a shield crest so fixtures
 // never look broken offline or in mock mode.
 
 import { useState } from "react";
+import { Shield } from "lucide-react";
 import { flagCode, flagUrl } from "@/lib/flags";
 
 export function Flag({ country, size = 18 }: { country: string; size?: number }) {
@@ -15,12 +16,8 @@ export function Flag({ country, size = 18 }: { country: string; size?: number })
 
   if (!code || failed) {
     return (
-      <span
-        className="flag-fallback"
-        style={{ width: size, height: h, fontSize: h - 2 }}
-        aria-hidden
-      >
-        ⚽
+      <span className="flag-fallback" style={{ width: size, height: h }} aria-hidden>
+        <Shield size={h - 2} strokeWidth={2} />
       </span>
     );
   }

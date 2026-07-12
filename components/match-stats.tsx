@@ -4,6 +4,7 @@
 // before you predict. Collapsible; hides itself if the feed has no history.
 
 import { useEffect, useState } from "react";
+import { BarChart3, ChevronDown, ChevronRight } from "lucide-react";
 import { Flag } from "@/components/flag";
 
 interface FormResult {
@@ -111,9 +112,12 @@ export function MatchStats({ fixtureId }: { fixtureId: number }) {
           padding: 0,
         }}
       >
-        <span className="caption section-label">📊 Recent form · last 3</span>
-        <span className="muted" style={{ fontSize: 12 }}>
-          {open ? "Hide ▾" : "Show ▸"}
+        <span className="caption section-label">
+          <BarChart3 size={13} aria-hidden style={{ verticalAlign: -2, marginRight: 5 }} /> Recent form · last 3
+        </span>
+        <span className="muted" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 3 }}>
+          {open ? "Hide" : "Show"}
+          {open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
         </span>
       </button>
 
