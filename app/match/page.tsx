@@ -19,6 +19,7 @@ import { PunditTicker } from "@/components/pundit-ticker";
 import { QuestsCard } from "@/components/quests-card";
 import { DailyBonus } from "@/components/daily-bonus";
 import { BadgeWall } from "@/components/badge-wall";
+import { BetSlipDetail } from "@/components/bet-detail";
 import type { LiveState } from "@/lib/live";
 import { isFinal } from "@/lib/game-core";
 import { winnerOdds, isIndicativeOdds } from "@/lib/odds";
@@ -1531,6 +1532,7 @@ function MyBets({
   const [slips, setSlips] = useState<SlipView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmCash, setConfirmCash] = useState<SlipView | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [cashing, setCashing] = useState(false);
   const [cashMsg, setCashMsg] = useState<string | null>(null);
   useAutoClear(cashMsg, setCashMsg, 5000);
@@ -1609,7 +1611,20 @@ function MyBets({
     const ccy: Currency = s.currency === "SOL" ? "SOL" : "COIN";
     const settledLegs = s.bet_legs.filter((l) => l.result !== "pending").length;
     return (
-      <div key={s.id} className="row fade-in" style={{ alignItems: "flex-start" }}>
+      <div
+        key={s.id}
+        className="row fade-in"
+        style={{ alignItems: "flex-start", cursor: "pointer" }}
+        role="button"
+        tabIndex={0}
+        onClick={() => setDetailId(s.id)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setDetailId(s.id);
+          }
+        }}
+      >
         <span style={{ flex: 1, minWidth: 0, display: "grid", gap: 2 }}>
           {s.bet_legs.map((l) => (
             <span
@@ -1632,7 +1647,10 @@ function MyBets({
         {s.status === "pending" && ccy === "SOL" && typeof s.cashValue === "number" ? (
           <button
             className="cashout-btn"
-            onClick={() => setConfirmCash(s)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmCash(s);
+            }}
             aria-label={`Cash out for ${formatAmount(s.cashValue, ccy)}`}
           >
             <span className="caption" style={{ color: "var(--color-fog)" }}>
@@ -1734,6 +1752,10 @@ function MyBets({
           <p className="caption muted">Settled</p>
           {settled.slice(0, 12).map(slipRow)}
         </section>
+      )}
+
+      {detailId && (
+        <BetSlipDetail slipId={detailId} onClose={() => setDetailId(null)} />
       )}
 
       {confirmCash && (
