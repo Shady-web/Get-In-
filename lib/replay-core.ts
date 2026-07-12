@@ -11,6 +11,7 @@ export interface ScoreFrame {
   score: { home: number; away: number };
   corners: number;
   red?: { home: number; away: number }; // red cards so far (missing = 0-0)
+  yellow?: { home: number; away: number }; // yellow cards so far (missing = 0-0)
   statusId: string | null;
 }
 
@@ -21,11 +22,26 @@ export interface OddsFrame {
   bookmaker: string | null;
 }
 
+/** A discrete match incident: a goal or a booking, keyed to the match clock. */
+export interface MatchEvent {
+  t: number; // match clock seconds
+  minute: number; // match minute (1-based; 0 = pre-match)
+  team: "home" | "away";
+  kind: "goal" | "yellow" | "red";
+  player: string | null; // scorer / booked player, when the feed provides it
+}
+
 export interface ReplayTimeline {
   fixtureId: number;
   duration: number; // last known clock second
   scoreFrames: ScoreFrame[]; // sorted by t
   oddsFrames: OddsFrame[]; // sorted by t
+  events: MatchEvent[]; // goals + cards, sorted by t
+}
+
+/** Events that have happened by virtual clock second vt (for progressive reveal). */
+export function eventsUpTo(timeline: ReplayTimeline, vt: number): MatchEvent[] {
+  return timeline.events.filter((e) => e.t <= vt);
 }
 
 export const REPLAY_PHASE_LABELS: Record<string, string> = {

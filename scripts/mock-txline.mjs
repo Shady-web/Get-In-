@@ -67,12 +67,20 @@ for (const [id, daysAgo, p1, p1Id, p2, p2Id] of PAST) {
 }
 const pastById = new Map(PAST.map((r) => [r[0], r]));
 
-// A match that finished ~30 minutes ago, inside the 2h replay window.
+// A match that finished ~30 minutes ago, inside the old 2h replay window.
 const kickoffRecent = started - 2.5 * 3600_000;
 fixtures.push({
   Ts: started, StartTime: kickoffRecent, Competition: "World Cup", CompetitionId: 72,
   Participant1: "Rivertown", Participant2: "Hillside", FixtureId: 90004,
   Participant1IsHome: true, Participant1Id: 21, Participant2Id: 22, FixtureGroupId: 9,
+});
+
+// A match that finished ~18 days ago: replayable only under the 3-week window.
+const kickoff3wk = started - 18 * 24 * 3600_000;
+fixtures.push({
+  Ts: started, StartTime: kickoff3wk, Competition: "World Cup", CompetitionId: 72,
+  Participant1: "Brazil", Participant2: "Serbia", FixtureId: 90005,
+  Participant1IsHome: true, Participant1Id: 31, Participant2Id: 32, FixtureGroupId: 9,
 });
 
 const RED_CARD_AT = 60 * 60; // Mockovia see red at 60'
@@ -214,6 +222,39 @@ const recentScores = replayScript.map(([t, st, h, a, ch, ca, ra], i) => ({
   clock: { running: st !== "HT" && st !== "F", seconds: t },
   scoreSoccer: sc(h, a, ch, ca, 0, ra),
 }));
+
+// 3-week-old match 90005: same script, timestamps ~18 days ago.
+const oldScores = replayScript.map(([t, st, h, a, ch, ca, ra], i) => ({
+  fixtureId: 90005, ts: kickoff3wk + t * 1000, seq: i + 1, statusSoccerId: st,
+  clock: { running: st !== "HT" && st !== "F", seconds: t },
+  scoreSoccer: sc(h, a, ch, ca, 0, ra),
+}));
+
+// Named incidents (goalscorers + bookings) for the replayable fixtures. The
+// real feed may omit these; when it does, events fall back to team + minute
+// derived from the score/card totals. Shape: { Minute, Type, IsHome, PlayerName }.
+const incidents = {
+  90003: [
+    { Minute: 12, Type: "Goal", IsHome: true, PlayerName: "K. Asante" },
+    { Minute: 43, Type: "Goal", IsHome: false, PlayerName: "T. Sato" },
+    { Minute: 55, Type: "YellowCard", IsHome: true, PlayerName: "D. Mensah" },
+    { Minute: 60, Type: "RedCard", IsHome: false, PlayerName: "H. Tanaka" },
+    { Minute: 78, Type: "Goal", IsHome: true, PlayerName: "K. Asante" },
+  ],
+  90004: [
+    { Minute: 12, Type: "Goal", IsHome: true, PlayerName: "L. Rivers" },
+    { Minute: 43, Type: "Goal", IsHome: false, PlayerName: "M. Hill" },
+    { Minute: 60, Type: "RedCard", IsHome: false, PlayerName: "O. Vale" },
+    { Minute: 78, Type: "Goal", IsHome: true, PlayerName: "L. Rivers" },
+  ],
+  90005: [
+    { Minute: 12, Type: "Goal", IsHome: true, PlayerName: "Rodrigo" },
+    { Minute: 43, Type: "Goal", IsHome: false, PlayerName: "N. Milic" },
+    { Minute: 55, Type: "YellowCard", IsHome: true, PlayerName: "Bruno" },
+    { Minute: 60, Type: "RedCard", IsHome: false, PlayerName: "S. Jovic" },
+    { Minute: 78, Type: "Goal", IsHome: true, PlayerName: "Rodrigo" },
+  ],
+};
 const recentOdds = [
   [0, "40.000", "30.000", "30.000"],
   [720, "58.000", "26.000", "16.000"],
@@ -270,11 +311,13 @@ const server = http.createServer((req, res) => {
     req.on("end", () => {
       let prompt = "";
       try { prompt = JSON.stringify(JSON.parse(buf).contents ?? ""); } catch { /* canned */ }
-      const take = prompt.includes("RED CARD")
-        ? "Ten men changes everything: the market is piling onto the other side and the draw price is collapsing fast."
-        : prompt.includes("GOAL")
-          ? "That goal flips the script: the bookmakers now make the scorers firm favourites and momentum money is flooding in."
-          : "Sharp money on the move: a swing that size with no goal means the traders have seen something the crowd has not.";
+      const take = prompt.includes("asks for your read")
+        ? "Right now the market likes the side in front, but one moment could swing this either way; live prices are pricing in the tension."
+        : prompt.includes("RED CARD")
+          ? "Ten men changes everything: the market is piling onto the other side and the draw price is collapsing fast."
+          : prompt.includes("GOAL")
+            ? "That goal flips the script: the bookmakers now make the scorers firm favourites and momentum money is flooding in."
+            : "Sharp money on the move: a swing that size with no goal means the traders have seen something the crowd has not.";
       json({ candidates: [{ content: { parts: [{ text: take }] } }] });
     });
     return;
@@ -299,6 +342,12 @@ const server = http.createServer((req, res) => {
     }
   }
 
+  // Named incidents (goalscorers / bookings) per fixture; empty for the rest.
+  {
+    const m = /^\/api\/scores\/incidents\/(\d+)/.exec(req.url);
+    if (m) return json(incidents[Number(m[1])] ?? []);
+  }
+
   if (req.url.startsWith("/api/scores/historical/90003")) return json(replayScores);
   if (req.url.startsWith("/api/odds/updates/90003")) return json(replayOdds);
 
@@ -307,6 +356,12 @@ const server = http.createServer((req, res) => {
   if (req.url.startsWith("/api/scores/snapshot/90004")) return json(recentScores);
   if (req.url.startsWith("/api/odds/updates/90004")) return json(recentOdds);
   if (req.url.startsWith("/api/odds/snapshot/90004")) return json([]);
+
+  // 3-week-old replayable match (proves the extended window).
+  if (req.url.startsWith("/api/scores/historical/90005")) return json(oldScores);
+  if (req.url.startsWith("/api/scores/snapshot/90005")) return json(oldScores);
+  if (req.url.startsWith("/api/odds/updates/90005")) return json([]);
+  if (req.url.startsWith("/api/odds/snapshot/90005")) return json([]);
 
   if (req.url.startsWith("/api/scores/snapshot/90001")) {
     const t = Math.min((Date.now() - kickoffLive) / 1000, FT_SECONDS);
