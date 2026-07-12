@@ -20,6 +20,7 @@ import { QuestsCard } from "@/components/quests-card";
 import { DailyBonus } from "@/components/daily-bonus";
 import { BadgeWall } from "@/components/badge-wall";
 import { BetSlipDetail } from "@/components/bet-detail";
+import { MatchEventsCard } from "@/components/match-events-card";
 import type { LiveState } from "@/lib/live";
 import { isFinal } from "@/lib/game-core";
 import { winnerOdds, isIndicativeOdds } from "@/lib/odds";
@@ -50,10 +51,10 @@ interface Fixture {
   LiveScore?: { home: number; away: number } | null;
 }
 
-// Replay shows recently finished matches: available from full time until
-// roughly 2 hours after it. A typical match runs ~2h from kickoff, so a 4h
-// cap on the kickoff age keeps it for ~2h past the final whistle.
-const REPLAY_MAX_AGE_MS = 4 * 60 * 60 * 1000;
+// Replay shows finished matches for up to 3 weeks after kickoff, so you can
+// re-watch any game from the tournament so far (subject to the feed still
+// carrying its history).
+const REPLAY_MAX_AGE_MS = 21 * 24 * 60 * 60 * 1000; // 3 weeks
 const POLL_MS = 7_000;
 
 type Selection = { fixture: Fixture; mode: "live" | "replay" };
@@ -743,13 +744,13 @@ function FixtureList({ onPick }: { onPick: (s: Selection) => void }) {
         <p className="caption section-label">Replay mode</p>
         {fixtures && replayable.length === 0 && (
           <p className="muted fade-in" style={{ fontSize: 14 }}>
-            Just-finished matches show up here to replay from full time until
-            about 2 hours after. Nothing has wrapped up in that window right
-            now, so check back after the next match ends.
+            Finished matches stay here to replay for up to 3 weeks after
+            kickoff. Nothing has wrapped up in that window yet, so check back
+            after the next match ends.
           </p>
         )}
         <div className="fixture-grid">
-          {replayable.slice(0, 8).map((f) => (
+          {replayable.slice(0, 40).map((f) => (
             <FixtureRow
               key={f.FixtureId}
               fixture={f}
@@ -763,6 +764,9 @@ function FixtureList({ onPick }: { onPick: (s: Selection) => void }) {
                     style={{ color: "var(--color-orangey)", fontSize: 11, fontWeight: 600 }}
                   >
                     REPLAY
+                  </span>
+                  <span className="muted" style={{ fontSize: 10.5 }}>
+                    {kickoffLabel(f.StartTime)}
                   </span>
                 </span>
               }
@@ -1375,11 +1379,19 @@ function ReplayMatch({
             />
           )}
 
+          <MatchEventsCard
+            events={timeline.events}
+            vt={vt}
+            home={fixture.Participant1}
+            away={fixture.Participant2}
+          />
+
           <PunditTicker
             fixtureId={fixture.FixtureId}
             home={fixture.Participant1}
             away={fixture.Participant2}
             getVt={getVt}
+            askable
           />
         </div>
       )}

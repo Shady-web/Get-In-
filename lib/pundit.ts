@@ -25,7 +25,7 @@ const ODDS_UPDATES_TTL_MS = 25_000; // swings don't need 7s granularity
 
 export interface PunditEvent {
   key: string; // deterministic dedupe key within a fixture
-  kind: "goal" | "red" | "swing";
+  kind: "goal" | "red" | "swing" | "ask";
   minute: number; // match minute, 0 = pre-match
   order: number; // clock seconds, for stable ordering
   headline: string; // what happened (prompt input)
@@ -382,4 +382,44 @@ export async function getPunditFeed(opts: {
   }
   takes.sort((a, b) => a.minute - b.minute || a.createdAt.localeCompare(b.createdAt));
   return { enabled, takes };
+}
+
+/**
+ * On-demand take: the viewer asks the pundit for its read of the CURRENT
+ * moment (live now, or the replay's scrub position). Cached per (fixture,
+ * minute) so tapping again at the same point is free, and persisted so it
+ * also shows up in the ticker at that minute. Disabled (take: null) when no
+ * Gemini key is configured.
+ */
+export async function askPunditNow(opts: {
+  fixtureId: number;
+  teams: Teams;
+  minute: number;
+  score: { home: number; away: number };
+  prob?: { home: number; draw: number; away: number } | null;
+}): Promise<{ enabled: boolean; take: PunditTake | null }> {
+  const { fixtureId, teams, minute, score } = opts;
+  const enabled = Boolean(geminiKey());
+  if (!enabled) return { enabled: false, take: null };
+
+  const takesMap = await loadTakes(fixtureId);
+  const key = `ask:${minute}`;
+  const cached = takesMap.get(key);
+  if (cached) return { enabled, take: cached };
+
+  const probText = opts.prob
+    ? ` Market: ${teams.home} ${Math.round(opts.prob.home)}%, draw ${Math.round(opts.prob.draw)}%, ${teams.away} ${Math.round(opts.prob.away)}%.`
+    : "";
+  const ev: PunditEvent = {
+    key,
+    kind: "ask",
+    minute,
+    order: minute * 60,
+    headline: "A viewer asks for your read on the game right now.",
+    context: `Score is ${teams.home} ${score.home}-${score.away} ${teams.away}.${probText}`,
+  };
+  const take = await generateTake(ev, `${teams.home} vs ${teams.away}`);
+  if (!take) return { enabled, take: null };
+  await saveTake(fixtureId, ev, take, takesMap);
+  return { enabled, take: takesMap.get(key) ?? null };
 }

@@ -6,6 +6,7 @@
 
 import { txlineGet } from "@/lib/txline";
 import { scoreEntryFrames, all1X2, parseMatchOddsPayload } from "@/lib/txline-parse";
+import { buildMatchEvents } from "@/lib/match-events";
 import type { ReplayTimeline, ScoreFrame, OddsFrame } from "@/lib/replay-core";
 
 export { stateAt } from "@/lib/replay-core";
@@ -52,12 +53,16 @@ export async function getReplayTimeline(fixtureId: number): Promise<ReplayTimeli
   // Historical is the richest source but only covers matches started 6h+ ago.
   // For a just-finished match, fall back to the live updates/snapshot feed,
   // which still holds the match's event history for a while after full time.
-  const [historicalRaw, updatesRaw, snapshotRaw, oddsRaw] = await Promise.allSettled([
-    txlineGet(`/scores/historical/${fixtureId}`),
-    txlineGet(`/scores/updates/${fixtureId}`),
-    txlineGet(`/scores/snapshot/${fixtureId}`),
-    txlineGet(`/odds/updates/${fixtureId}`),
-  ]);
+  // Incidents (goalscorers / bookings by player) are best-effort: many feeds
+  // omit them, in which case events are derived from the score/card totals.
+  const [historicalRaw, updatesRaw, snapshotRaw, oddsRaw, incidentsRaw] =
+    await Promise.allSettled([
+      txlineGet(`/scores/historical/${fixtureId}`),
+      txlineGet(`/scores/updates/${fixtureId}`),
+      txlineGet(`/scores/snapshot/${fixtureId}`),
+      txlineGet(`/odds/updates/${fixtureId}`),
+      txlineGet(`/scores/incidents/${fixtureId}`),
+    ]);
 
   // Use the first source that yields real per-frame history.
   let scoreFrames: ScoreFrame[] = [];
@@ -75,12 +80,17 @@ export async function getReplayTimeline(fixtureId: number): Promise<ReplayTimeli
     oddsRaw.status === "fulfilled" ? oddsRaw.value : null,
     scoreFrames,
   );
+  const events = buildMatchEvents(
+    scoreFrames,
+    incidentsRaw.status === "fulfilled" ? incidentsRaw.value : null,
+  );
 
   const timeline: ReplayTimeline = {
     fixtureId,
     duration: scoreFrames[scoreFrames.length - 1].t,
     scoreFrames,
     oddsFrames,
+    events,
   };
   cache.set(fixtureId, timeline);
   return timeline;

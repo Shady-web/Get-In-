@@ -81,6 +81,7 @@ interface NormalizedScoreEntry {
   score: { home: number; away: number } | null;
   corners: number | null;
   red: { home: number; away: number } | null;
+  yellow: { home: number; away: number } | null;
 }
 
 function normalizeScoreEntry(entry: unknown): NormalizedScoreEntry | null {
@@ -101,6 +102,7 @@ function normalizeScoreEntry(entry: unknown): NormalizedScoreEntry | null {
   let score: { home: number; away: number } | null = null;
   let corners: number | null = null;
   let red: { home: number; away: number } | null = null;
+  let yellow: { home: number; away: number } | null = null;
   if (scoreObj && typeof scoreObj === "object") {
     const p1 = pick(scoreObj, "Participant1") ?? {};
     const p2 = pick(scoreObj, "Participant2") ?? {};
@@ -110,6 +112,7 @@ function normalizeScoreEntry(entry: unknown): NormalizedScoreEntry | null {
     score = { home: Number(t1.Goals ?? 0), away: Number(t2.Goals ?? 0) };
     corners = Number(t1.Corners ?? 0) + Number(t2.Corners ?? 0);
     red = { home: Number(t1.RedCards ?? 0), away: Number(t2.RedCards ?? 0) };
+    yellow = { home: Number(t1.YellowCards ?? 0), away: Number(t2.YellowCards ?? 0) };
   }
 
   return {
@@ -121,6 +124,7 @@ function normalizeScoreEntry(entry: unknown): NormalizedScoreEntry | null {
     score,
     corners,
     red,
+    yellow,
   };
 }
 
@@ -179,6 +183,7 @@ export interface RawScoreFrame {
   score: { home: number; away: number };
   corners: number;
   red: { home: number; away: number };
+  yellow: { home: number; away: number };
   statusId: string | null;
 }
 
@@ -194,6 +199,7 @@ export function scoreEntryFrames(raw: unknown): RawScoreFrame[] {
       score: e.score ?? last?.score ?? { home: 0, away: 0 },
       corners: e.corners ?? last?.corners ?? 0,
       red: e.red ?? last?.red ?? { home: 0, away: 0 },
+      yellow: e.yellow ?? last?.yellow ?? { home: 0, away: 0 },
       statusId: e.status ?? last?.statusId ?? null,
     };
     frames.push(frame);
