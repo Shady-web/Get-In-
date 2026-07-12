@@ -5,6 +5,7 @@
 // bars and a Claim button when a quest is finished.
 
 import { useCallback, useEffect, useState } from "react";
+import { Target, Check } from "lucide-react";
 import type { PlayerRecord, StoredPlayer } from "@/lib/player";
 import { authFetch } from "@/lib/api-client";
 import { Coin } from "@/components/coin";
@@ -72,7 +73,9 @@ export function QuestsCard({
   return (
     <section className="card fade-in" style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-        <p className="caption section-label">🎯 Daily quests</p>
+        <p className="caption section-label">
+          <Target size={13} aria-hidden style={{ verticalAlign: -2, marginRight: 5 }} /> Daily quests
+        </p>
         <span className="muted" style={{ fontSize: 11 }}>
           new set at midnight UTC
         </span>
@@ -106,8 +109,8 @@ export function QuestsCard({
               {q.progress}/{q.target}
             </span>
             {q.claimed ? (
-              <span style={{ color: "var(--color-tape-green)", fontSize: 12, fontWeight: 600 }}>
-                Claimed ✓
+              <span style={{ color: "var(--color-tape-green)", fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                Claimed <Check size={13} aria-hidden />
               </span>
             ) : q.done ? (
               <button

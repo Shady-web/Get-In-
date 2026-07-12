@@ -5,8 +5,10 @@
 // whether it won/lost, plus ticket-level stake, odds and return.
 
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 import { coinsToLamports, formatAmount, type Currency } from "@/lib/money";
+import { ResultIcon } from "@/components/icons";
 
 interface DetailLeg {
   id: string;
@@ -42,9 +44,6 @@ const statusColor = (s: string) =>
         : s === "void"
           ? "var(--color-fog)"
           : "var(--color-snow)";
-
-const legIcon = (r: string) =>
-  r === "won" ? "✓" : r === "lost" ? "✗" : r === "void" ? "∅" : "○";
 
 function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
   return (
@@ -122,7 +121,7 @@ export function BetSlipDetail({ slipId, onClose }: { slipId: string; onClose: ()
             </p>
           </div>
           <button className="pill tab" onClick={onClose} aria-label="Close">
-            ✕
+            <X size={15} aria-hidden />
           </button>
         </div>
 
@@ -183,7 +182,7 @@ export function BetSlipDetail({ slipId, onClose }: { slipId: string; onClose: ()
                       background: statusColor(l.result),
                     }}
                   >
-                    {legIcon(l.result)}
+                    <ResultIcon result={l.result} size={13} />
                   </span>
                   <div style={{ flex: 1, minWidth: 0, display: "grid", gap: 5 }}>
                     <p style={{ fontSize: 14, fontWeight: 700 }} className="team">

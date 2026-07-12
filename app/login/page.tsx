@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { WcBadge } from "@/components/wc-badge";
 
@@ -237,9 +238,9 @@ export default function LoginPage() {
         <button
           className="pill"
           onClick={() => router.push("/match")}
-          style={{ cursor: "pointer", color: "var(--color-fog)" }}
+          style={{ cursor: "pointer", color: "var(--color-fog)", display: "inline-flex", alignItems: "center", gap: 5 }}
         >
-          ← Browse matches without signing in
+          <ArrowLeft size={14} aria-hidden /> Browse matches without signing in
         </button>
       </footer>
     </main>

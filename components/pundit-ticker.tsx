@@ -6,6 +6,7 @@
 // leaves the server. Hidden entirely while there is nothing to say.
 
 import { useCallback, useEffect, useState } from "react";
+import { Mic, Goal, Square, TrendingUp } from "lucide-react";
 
 interface Take {
   eventKey: string;
@@ -15,7 +16,13 @@ interface Take {
   createdAt: string;
 }
 
-const KIND_ICON: Record<string, string> = { goal: "⚽", red: "🟥", swing: "📈" };
+function KindIcon({ kind }: { kind: string }) {
+  const props = { size: 13, "aria-hidden": true, style: { verticalAlign: -2, marginRight: 4 } } as const;
+  if (kind === "goal") return <Goal {...props} />;
+  if (kind === "red") return <Square {...props} fill="var(--color-festival-red)" color="var(--color-festival-red)" />;
+  if (kind === "swing") return <TrendingUp {...props} />;
+  return <Mic {...props} />;
+}
 
 function timeLabel(iso: string): string {
   try {
@@ -69,7 +76,9 @@ export function PunditTicker({
   return (
     <div className="card fade-in" style={{ display: "grid", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-        <p className="caption section-label">🎙 Pundit</p>
+        <p className="caption section-label">
+          <Mic size={13} aria-hidden style={{ verticalAlign: -2, marginRight: 5 }} /> Pundit
+        </p>
         <span className="muted" style={{ fontSize: 11 }}>
           AI takes on what the market thinks
         </span>
@@ -82,7 +91,7 @@ export function PunditTicker({
             </span>
             <span style={{ flex: 1, minWidth: 0, display: "grid", gap: 2 }}>
               <span style={{ fontSize: 13, lineHeight: 1.45 }}>
-                {KIND_ICON[t.kind] ?? "🎙"} {t.take}
+                <KindIcon kind={t.kind} /> {t.take}
               </span>
               <span className="muted" style={{ fontSize: 10.5 }}>
                 {timeLabel(t.createdAt)}

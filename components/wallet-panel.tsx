@@ -6,6 +6,7 @@
 // is still shown so real deposits sent there are auto-credited.
 
 import { useCallback, useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 import { Solana } from "@/components/solana";
 import { useAutoClear } from "@/lib/use-auto-clear";
@@ -296,8 +297,19 @@ export function WalletPanel({
               >
                 {wallet.address}
               </code>
-              <button className="pill tab" onClick={() => void copy()} aria-label="Copy address">
-                {copied ? "Copied ✓" : "Copy"}
+              <button
+                className="pill tab"
+                onClick={() => void copy()}
+                aria-label="Copy address"
+                style={{ display: "inline-flex", alignItems: "center", gap: 3 }}
+              >
+                {copied ? (
+                  <>
+                    Copied <Check size={13} aria-hidden />
+                  </>
+                ) : (
+                  "Copy"
+                )}
               </button>
             </div>
           </>

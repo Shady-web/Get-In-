@@ -1235,6 +1235,12 @@ a {
 .badge-icon {
   font-size: 24px;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.badge.locked .badge-icon {
+  color: var(--color-fog);
 }
 
 /* ---- Devnet banner ------------------------------------------------------------------ */

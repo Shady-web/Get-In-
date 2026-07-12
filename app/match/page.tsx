@@ -25,6 +25,16 @@ import { isFinal } from "@/lib/game-core";
 import { winnerOdds, isIndicativeOdds } from "@/lib/odds";
 import { useAutoClear } from "@/lib/use-auto-clear";
 import { stateAt, type ReplayTimeline } from "@/lib/replay-core";
+import {
+  ArrowLeft,
+  Check,
+  ChevronUp,
+  ChevronDown,
+  CircleCheck,
+  CircleX,
+  Info,
+} from "lucide-react";
+import { ResultIcon } from "@/components/icons";
 
 interface Fixture {
   StartTime: number;
@@ -406,7 +416,13 @@ export default function MatchScreen() {
       {toast && (
         <div className={`toast toast-${toast.kind} fade-in`} role="status">
           <span className="toast-icon" aria-hidden>
-            {toast.kind === "won" ? "✓" : toast.kind === "lost" ? "✕" : "ℹ"}
+            {toast.kind === "won" ? (
+              <CircleCheck size={18} />
+            ) : toast.kind === "lost" ? (
+              <CircleX size={18} />
+            ) : (
+              <Info size={18} />
+            )}
           </span>
           <span style={{ flex: 1, minWidth: 0 }}>
             <span className="toast-title">{toast.title}</span>
@@ -497,9 +513,9 @@ function AccountPanel({
       <button
         className="pill"
         onClick={onBack}
-        style={{ cursor: "pointer", justifySelf: "start", color: "var(--color-fog)" }}
+        style={{ cursor: "pointer", justifySelf: "start", color: "var(--color-fog)", display: "inline-flex", alignItems: "center", gap: 4 }}
       >
-        ← Back
+        <ArrowLeft size={14} aria-hidden /> Back
       </button>
 
       {/* Identity card */}
@@ -1003,9 +1019,9 @@ function LiveMatch({
         <button
           className="pill"
           onClick={onBack}
-          style={{ cursor: "pointer", color: "var(--color-fog)" }}
+          style={{ cursor: "pointer", color: "var(--color-fog)", display: "inline-flex", alignItems: "center", gap: 4 }}
         >
-          ← Matches
+          <ArrowLeft size={14} aria-hidden /> Matches
         </button>
       </div>
 
@@ -1078,8 +1094,10 @@ function LiveMatch({
                       })
                     }
                   >
-                    <span className="name">
-                      {isSelected(selId) ? "✓ " : ""}
+                    <span className="name" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      {isSelected(selId) && (
+                        <Check size={13} aria-hidden style={{ color: "var(--color-lime)", flex: "none" }} />
+                      )}
                       {label}
                     </span>
                     <span className="price">{odds.toFixed(2)}</span>
@@ -1205,9 +1223,9 @@ function ReplayMatch({
       <button
         className="pill"
         onClick={onBack}
-        style={{ cursor: "pointer", justifySelf: "start", color: "var(--color-fog)" }}
+        style={{ cursor: "pointer", justifySelf: "start", color: "var(--color-fog)", display: "inline-flex", alignItems: "center", gap: 4 }}
       >
-        ← Matches
+        <ArrowLeft size={14} aria-hidden /> Matches
       </button>
 
       {!timeline && !error && (
@@ -1284,8 +1302,10 @@ function ReplayMatch({
                       })
                     }
                   >
-                    <span className="name">
-                      {isSelected(c.selId) ? "✓ " : ""}
+                    <span className="name" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      {isSelected(c.selId) && (
+                        <Check size={13} aria-hidden style={{ color: "var(--color-lime)", flex: "none" }} />
+                      )}
                       {c.label}
                     </span>
                     <span className="price">{c.odds.toFixed(2)}</span>
@@ -1630,10 +1650,12 @@ function MyBets({
             <span
               key={l.id}
               className="team"
-              style={{ fontSize: 12, color: legColor(l.result) }}
+              style={{ fontSize: 12, color: legColor(l.result), display: "inline-flex", alignItems: "center", gap: 4 }}
             >
-              {l.result === "won" ? "✓" : l.result === "lost" ? "✗" : l.result === "void" ? "∅" : "○"}{" "}
-              {l.outcome_label} @ {Number(l.odds).toFixed(2)}
+              <ResultIcon result={l.result} size={12} />
+              <span style={{ minWidth: 0 }}>
+                {l.outcome_label} @ {Number(l.odds).toFixed(2)}
+              </span>
             </span>
           ))}
           <span className="muted" style={{ fontSize: 11 }}>
@@ -1659,8 +1681,13 @@ function MyBets({
             <span
               key={`${s.id}:${s.cashValue}`}
               className={`cash-value ${dir ? `flash-${dir}` : ""}`}
+              style={{ display: "inline-flex", alignItems: "center", gap: 2 }}
             >
-              {dir === "up" ? "▲" : dir === "down" ? "▼" : ""}{" "}
+              {dir === "up" ? (
+                <ChevronUp size={12} aria-hidden />
+              ) : dir === "down" ? (
+                <ChevronDown size={12} aria-hidden />
+              ) : null}
               {(s.cashValue / 1e9).toFixed(3)} <Solana size={12} />
             </span>
           </button>

@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LineChart, Line, YAxis } from "recharts";
+import { Check, ChevronUp, ChevronDown } from "lucide-react";
 import { useBetSlip } from "@/components/bet-slip";
 import type { Market } from "@/lib/markets";
 
@@ -177,8 +178,8 @@ export function MarketsPanel({ fixture }: { fixture: FixtureNames }) {
                       : undefined
                   }
                 >
-                  <span className="team" style={{ flex: 1, minWidth: 0, fontSize: 14 }}>
-                    {selected ? "✓ " : ""}
+                  <span className="team" style={{ flex: 1, minWidth: 0, fontSize: 14, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    {selected && <Check size={13} aria-hidden style={{ color: "var(--color-lime)", flex: "none" }} />}
                     {outcomeLabel(o.name, fixture)}
                   </span>
                   {o.pct !== null && (
@@ -191,7 +192,11 @@ export function MarketsPanel({ fixture }: { fixture: FixtureNames }) {
                     key={`${id}:${o.price}`}
                     className={`price-num ${dir ? `flash-${dir}` : ""}`}
                   >
-                    {dir === "up" ? "▲ " : dir === "down" ? "▼ " : ""}
+                    {dir === "up" ? (
+                      <ChevronUp size={12} aria-hidden style={{ verticalAlign: -1 }} />
+                    ) : dir === "down" ? (
+                      <ChevronDown size={12} aria-hidden style={{ verticalAlign: -1 }} />
+                    ) : null}
                     {o.price.toFixed(o.price >= 100 ? 0 : 2)}
                   </span>
                 </Row>
