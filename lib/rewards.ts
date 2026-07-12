@@ -11,7 +11,13 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOrCreatePlayer, type PlayerRow } from "@/lib/game";
 import { dayKey } from "@/lib/quests";
-import { getHouseBalance, logLedger, logCoinLedger, LAMPORTS_PER_SOL } from "@/lib/wallet";
+import {
+  adjustHousePool,
+  getHouseBalance,
+  logLedger,
+  logCoinLedger,
+  LAMPORTS_PER_SOL,
+} from "@/lib/wallet";
 
 export const DAILY_COINS = 100;
 export const AIRDROP_MIN_LAMPORTS = 10_000_000; // 0.01 SOL
@@ -137,5 +143,7 @@ export async function airdropSol(
     throw new Error(`Claim recorded but credit failed: ${upErr?.message ?? "unknown"}.`);
   }
   await logLedger(player.id, "house_airdrop", amount, "SOL", "house");
+  // The airdrop is drawn from the house pool (which losing SOL stakes feed).
+  await adjustHousePool(-amount);
   return { lamports: amount, player: updated as PlayerRow };
 }

@@ -15,6 +15,7 @@ import {
 import type { PlayerRecord, StoredPlayer } from "@/lib/player";
 import { Coin } from "@/components/coin";
 import { Solana } from "@/components/solana";
+import { useAutoClear } from "@/lib/use-auto-clear";
 import {
   coinsToLamports,
   formatAmount,
@@ -120,6 +121,7 @@ export function BetSlipTray({
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placed, setPlaced] = useState<string | null>(null);
+  useAutoClear(error, setError, 5000);
 
   const guest = !player;
   const combined = selections.reduce((acc, s) => acc * s.odds, 1);

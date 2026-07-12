@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { authFetch } from "@/lib/api-client";
 import { Coin } from "@/components/coin";
+import { useAutoClear } from "@/lib/use-auto-clear";
 import type { PlayerRecord, StoredPlayer } from "@/lib/player";
 
 export function DailyBonus({
@@ -20,6 +21,8 @@ export function DailyBonus({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  useAutoClear(msg, setMsg);
+  useAutoClear(error, setError);
 
   const load = useCallback(async () => {
     try {

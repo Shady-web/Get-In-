@@ -43,6 +43,12 @@ on-chain World Cup tier, Solana).
   land from the house, so SOL winnings converted from coins are withdrawable
   even though a user only deposited a little real SOL. The house key is
   server-side only; a health check logs the float and warns when it's low.
+- **House pool**: a single-row accounting of the house's net SOL position
+  (`house_pool`, schema-v11). A SOL stake feeds the pool at placement; a
+  losing SOL bet keeps it there, while wins, void refunds, cash-outs and
+  airdrops draw it down. So the book has an edge - losers fund winners -
+  instead of the house covering every payout alone. Best-effort: the app
+  runs fine without the table (pool tracking is simply skipped).
 - **Live matches**: score, match clock, and a win-probability bar derived
   from the TxLINE 1X2 market (margin normalized away), updating every ~7s.
 - **Replay Mode**: just-finished matches replay on a timeline (scrubber,
@@ -152,6 +158,8 @@ Create a project at supabase.com, then run in the SQL editor:
 8. `supabase/schema-v8.sql`
 9. `supabase/schema-v9.sql`
 10. `supabase/schema-v10.sql`
+11. `supabase/schema-v11.sql` (optional: the house pool - the app runs
+    without it, pool tracking is just skipped)
 
 Then enable the auth providers: Dashboard -> Authentication -> Providers ->
 turn on **Email** (password sign-in) and **Google** (paste a Google OAuth

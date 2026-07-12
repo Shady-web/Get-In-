@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { authFetch } from "@/lib/api-client";
 import { Solana } from "@/components/solana";
+import { useAutoClear } from "@/lib/use-auto-clear";
 import type { PlayerRecord } from "@/lib/player";
 
 interface WalletInfo {
@@ -47,6 +48,12 @@ export function WalletPanel({
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawMsg, setWithdrawMsg] = useState<string | null>(null);
   const [withdrawErr, setWithdrawErr] = useState<string | null>(null);
+
+  // Transient notifications clear themselves after a few seconds.
+  useAutoClear(claimMsg, setClaimMsg, 5000);
+  useAutoClear(claimErr, setClaimErr, 5000);
+  useAutoClear(withdrawMsg, setWithdrawMsg, 6000);
+  useAutoClear(withdrawErr, setWithdrawErr, 6000);
 
   const load = useCallback(async () => {
     try {

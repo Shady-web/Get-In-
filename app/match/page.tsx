@@ -22,6 +22,7 @@ import { BadgeWall } from "@/components/badge-wall";
 import type { LiveState } from "@/lib/live";
 import { isFinal } from "@/lib/game-core";
 import { winnerOdds, isIndicativeOdds } from "@/lib/odds";
+import { useAutoClear } from "@/lib/use-auto-clear";
 import { stateAt, type ReplayTimeline } from "@/lib/replay-core";
 
 interface Fixture {
@@ -1532,6 +1533,7 @@ function MyBets({
   const [confirmCash, setConfirmCash] = useState<SlipView | null>(null);
   const [cashing, setCashing] = useState(false);
   const [cashMsg, setCashMsg] = useState<string | null>(null);
+  useAutoClear(cashMsg, setCashMsg, 5000);
   const prevCashRef = useRef<Map<string, number>>(new Map());
   const cashDirRef = useRef<Map<string, "up" | "down">>(new Map());
 
