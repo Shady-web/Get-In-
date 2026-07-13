@@ -37,7 +37,7 @@ import {
   Info,
 } from "lucide-react";
 import { ResultIcon } from "@/components/icons";
-import { SEED_REPLAY_FIXTURES } from "@/lib/seed-replay";
+import { SEED_REPLAY_FIXTURES, PINNED_REPLAY_IDS } from "@/lib/seed-replay";
 
 interface Fixture {
   StartTime: number;
@@ -708,12 +708,20 @@ function FixtureList({ onPick }: { onPick: (s: Selection) => void }) {
   const upcoming = (fixtures ?? [])
     .filter((f) => (f.LiveStatus ? f.LiveStatus === "upcoming" : f.StartTime > now))
     .sort((a, b) => a.StartTime - b.StartTime);
-  // Finished matches you can replay, newest first, with the always-available
-  // seeded replay(s) pinned on top so Replay Mode is never empty.
+  // Finished matches you can replay, newest first. Real fixtures named in
+  // NEXT_PUBLIC_PINNED_REPLAY_IDS are pinned on top once they've finished (e.g.
+  // the real France–Spain after it's played); until then the always-available
+  // seeded demo is pinned so Replay Mode is never empty. When a pinned real
+  // match is available, the demo steps aside so the real replay takes over.
+  const pinnedReal = PINNED_REPLAY_IDS
+    .map((id) => (fixtures ?? []).find((f) => f.FixtureId === id && f.LiveStatus === "finished"))
+    .filter((f): f is Fixture => Boolean(f));
+  const seedFixtures = pinnedReal.length === 0 ? (SEED_REPLAY_FIXTURES as Fixture[]) : [];
+  const pinnedIds = new Set<number>([...PINNED_REPLAY_IDS, ...SEED_REPLAY_IDS]);
   const feedReplays = (fixtures ?? [])
-    .filter((f) => isReplayable(f, now) && !SEED_REPLAY_IDS.has(f.FixtureId))
+    .filter((f) => isReplayable(f, now) && !pinnedIds.has(f.FixtureId))
     .sort((a, b) => b.StartTime - a.StartTime);
-  const replayable = [...(SEED_REPLAY_FIXTURES as Fixture[]), ...feedReplays];
+  const replayable = [...pinnedReal, ...seedFixtures, ...feedReplays];
 
   return (
     <>

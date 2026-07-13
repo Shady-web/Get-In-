@@ -12,6 +12,20 @@ import type { MatchEvent, OddsFrame, ReplayTimeline, ScoreFrame } from "@/lib/re
 /** Pinned fixture id for the seeded France v Spain final. */
 export const SEED_FIXTURE_ID = 900719;
 
+/**
+ * Real fixture ids to pin on top of Replay Mode, set via the env var
+ * NEXT_PUBLIC_PINNED_REPLAY_IDS (comma-separated). Once the real France–Spain
+ * has finished, put its fixture id here (env change + redeploy, no code
+ * change): the real replay then takes over and the demo seed is hidden. Until
+ * a pinned real match is actually finished, the demo stays so Replay Mode is
+ * never empty. NEXT_PUBLIC_ so both the server and the browser read the same
+ * value.
+ */
+export const PINNED_REPLAY_IDS: number[] = (process.env.NEXT_PUBLIC_PINNED_REPLAY_IDS ?? "")
+  .split(",")
+  .map((s) => Number(s.trim()))
+  .filter((n) => Number.isFinite(n) && n > 0);
+
 // Fixed kickoff (2026-07-19, the final) so it always reads as a past match.
 const SEED_START = Date.UTC(2026, 6, 19, 19, 0, 0);
 
