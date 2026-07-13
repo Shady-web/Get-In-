@@ -22,8 +22,10 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata = {
-  title: "GetIN!!! · FIFA World Cup 26",
-  description: "FIFA World Cup 26 live betting - call it before the whistle.",
+  title: "GetIN!!! — Zero to staked in seconds · FIFA World Cup 26",
+  description:
+    "Play the FIFA World Cup 26 on Solana devnet — free, no risk. Log in, get an auto wallet, claim test SOL, stake live odds, then cash out or convert to SOL. Call it before the whistle.",
+  icons: { icon: "/wc26.jpg" },
 };
 
 export const viewport = {
