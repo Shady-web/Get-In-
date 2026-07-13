@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { ResultIcon } from "@/components/icons";
 import { SEED_REPLAY_FIXTURES, PINNED_REPLAY_IDS } from "@/lib/seed-replay";
+import { Landing } from "@/components/landing";
 
 interface Fixture {
   StartTime: number;
@@ -417,9 +418,19 @@ export default function MatchScreen() {
         )
       ) : tab === "matches" ? (
         <>
+          {guest && (
+            <Landing
+              onJoin={() => goLogin(true)}
+              onBrowse={() =>
+                document.getElementById("gi-matches")?.scrollIntoView({ behavior: "smooth" })
+              }
+            />
+          )}
           {player && <DailyBonus player={player} onPlayerUpdate={updatePlayerRecord} />}
           {player && <QuestsCard player={player} onPlayerUpdate={updatePlayerRecord} />}
-          <FixtureList onPick={setSelected} />
+          <div id="gi-matches" style={{ scrollMarginTop: 72 }}>
+            <FixtureList onPick={setSelected} />
+          </div>
         </>
       ) : tab === "bets" ? (
         player ? (
