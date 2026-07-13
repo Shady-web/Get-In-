@@ -240,6 +240,35 @@ export default function MatchScreen() {
     };
   }, [checked]);
 
+  // Browser Back / edge-swipe should step back THROUGH the app (a match view
+  // returns to the match list, an inner tab returns to Matches) instead of
+  // leaving straight to /login. We keep exactly one history "trap" entry while
+  // the user is in any non-root view; a back gesture pops it and we restore the
+  // root view instead of navigating away. Only a back from the root itself
+  // leaves the app.
+  const atRoot = !selected && tab === "matches";
+  const trapRef = useRef(false);
+  useEffect(() => {
+    if (!atRoot && !trapRef.current) {
+      trapRef.current = true;
+      window.history.pushState({ giTrap: true }, "");
+    } else if (atRoot && trapRef.current) {
+      // Returned to root via in-app controls: drop the now-unneeded trap entry.
+      trapRef.current = false;
+      window.history.back();
+    }
+  }, [atRoot]);
+  useEffect(() => {
+    const onPop = () => {
+      if (!trapRef.current) return; // at root: let the browser navigate normally
+      trapRef.current = false;
+      setSelected(null);
+      setTab("matches");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   function signOut() {
     getSupabaseBrowser()?.auth.signOut().catch(() => {});
     setPlayer(null);
