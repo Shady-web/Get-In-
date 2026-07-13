@@ -19,6 +19,21 @@ interface DetailLeg {
   result: string;
   session: boolean;
   score: { home: number; away: number; final: boolean } | null;
+  kickoff: number | null; // scheduled StartTime ms
+}
+
+/** Before a match kicks off there's no score and the bet isn't "in play". */
+function isPreMatch(l: DetailLeg): boolean {
+  return !l.session && !l.score && l.kickoff != null && l.kickoff > Date.now();
+}
+
+function kickoffLabel(ms: number): string {
+  const d = new Date(ms);
+  const sameDay = d.toDateString() === new Date().toDateString();
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return sameDay
+    ? time
+    : `${d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" })} ${time}`;
 }
 
 interface DetailSlip {
@@ -189,11 +204,15 @@ export function BetSlipDetail({ slipId, onClose }: { slipId: string; onClose: ()
                       {l.matchLabel || l.pick}
                       {l.session ? "  · replay" : ""}
                     </p>
-                    <p className="caption muted" style={{ letterSpacing: 0 }}>
-                      {l.score
-                        ? `${l.score.final ? "FT" : "LIVE"} ${l.score.home}:${l.score.away}`
-                        : "Score unavailable"}
-                    </p>
+                    {isPreMatch(l) ? (
+                      <p className="caption muted" style={{ letterSpacing: 0 }}>
+                        Pre-match · kicks off {kickoffLabel(l.kickoff as number)}
+                      </p>
+                    ) : l.score ? (
+                      <p className="caption muted" style={{ letterSpacing: 0 }}>
+                        {l.score.final ? "FT" : "LIVE"} {l.score.home}:{l.score.away}
+                      </p>
+                    ) : null}
                     <div
                       style={{
                         display: "grid",
@@ -227,7 +246,11 @@ export function BetSlipDetail({ slipId, onClose }: { slipId: string; onClose: ()
                         <span
                           style={{ fontSize: 12.5, fontWeight: 700, textAlign: "right", color: statusColor(l.result) }}
                         >
-                          {l.result === "pending" ? "In play" : l.result.toUpperCase()}
+                          {isPreMatch(l)
+                            ? "Pre-match"
+                            : l.result === "pending"
+                              ? "In play"
+                              : l.result.toUpperCase()}
                         </span>
                       </div>
                     </div>

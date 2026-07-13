@@ -44,7 +44,10 @@ export async function POST(request: Request) {
   try {
     const player = await getOrCreatePlayer(identity);
     const result = await withdrawSol(player.id, address, lamports);
-    return NextResponse.json({ ok: true, ...result });
+    // Return the refreshed player so the header pill + wallet card update in
+    // lockstep from the one source of truth (the player's spendable balance).
+    const updated = await getOrCreatePlayer(identity);
+    return NextResponse.json({ ok: true, ...result, player: updated });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Withdrawal failed.";
     return NextResponse.json({ ok: false, error: message }, { status: 400 });
