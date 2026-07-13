@@ -7,6 +7,7 @@
 import { txlineGet } from "@/lib/txline";
 import { scoreEntryFrames, all1X2, parseMatchOddsPayload } from "@/lib/txline-parse";
 import { buildMatchEvents } from "@/lib/match-events";
+import { getSeedReplay } from "@/lib/seed-replay";
 import type { ReplayTimeline, ScoreFrame, OddsFrame } from "@/lib/replay-core";
 
 export { stateAt } from "@/lib/replay-core";
@@ -47,6 +48,11 @@ export function parseOddsFrames(raw: unknown, scoreFrames: ScoreFrame[]): OddsFr
 }
 
 export async function getReplayTimeline(fixtureId: number): Promise<ReplayTimeline> {
+  // Pinned seed replays are self-contained and always available (they back the
+  // "Replay Mode is never empty" guarantee), so serve them without any feed.
+  const seed = getSeedReplay(fixtureId);
+  if (seed) return seed;
+
   const hit = cache.get(fixtureId);
   if (hit) return hit;
 
