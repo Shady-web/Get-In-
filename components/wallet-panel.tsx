@@ -137,6 +137,7 @@ export function WalletPanel({
       });
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body?.error ?? "Withdrawal failed.");
+      if (body.player) onPlayerUpdate?.(body.player as PlayerRecord);
       setWithdrawMsg(
         `Sent ${(body.lamports / 1e9).toFixed(4)} SOL. Tx ${String(body.signature).slice(0, 8)}…`,
       );

@@ -130,9 +130,6 @@ export default function LoginPage() {
     }
   }
 
-  // Don't flash the login form while we're resolving an existing session.
-  if (checking) return null;
-
   const submit = mode === "signin" ? onSignIn : onSignUp;
   const canSubmit =
     mode === "signin"
@@ -157,6 +154,14 @@ export default function LoginPage() {
         </p>
       </header>
 
+      {checking ? (
+        <section className="card" style={{ display: "grid", gap: 12 }}>
+          <div className="skeleton" style={{ height: 40 }} />
+          <div className="skeleton" style={{ height: 44 }} />
+          <div className="skeleton" style={{ height: 44 }} />
+          <div className="skeleton" style={{ height: 44, opacity: 0.7 }} />
+        </section>
+      ) : (
       <section className="card" style={{ display: "grid", gap: 12 }}>
         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
           <button
@@ -233,6 +238,7 @@ export default function LoginPage() {
 
         {error && <p className="error-text">{error}</p>}
       </section>
+      )}
 
       <footer style={{ textAlign: "center" }}>
         <button

@@ -147,10 +147,25 @@ export function MarketsPanel({ fixture }: { fixture: FixtureNames }) {
       {error && <p className="error-text">{error}</p>}
 
       {markets && markets.length === 0 && (
-        <p className="muted" style={{ fontSize: 13 }}>
-          No markets priced yet. Books usually open closer to kickoff, so
-          check back nearer the match.
-        </p>
+        <div style={{ display: "grid", gap: 8 }}>
+          {["Match winner", "Over / Under goals", "Both teams to score"].map((label) => (
+            <div
+              key={label}
+              className="outcome-row"
+              style={{ opacity: 0.55, cursor: "default" }}
+            >
+              <span className="team" style={{ flex: 1, minWidth: 0, fontSize: 14 }}>
+                {label}
+              </span>
+              <span className="muted" style={{ fontSize: 11.5 }}>
+                opens closer to kickoff
+              </span>
+            </div>
+          ))}
+          <p className="muted" style={{ fontSize: 12.5, textAlign: "center" }}>
+            Live prices open nearer kickoff — check back soon.
+          </p>
+        </div>
       )}
 
       {markets?.map((m) => (

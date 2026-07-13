@@ -281,8 +281,11 @@ export default function MatchScreen() {
   const goLogin = (signup?: boolean) =>
     router.push(signup ? "/login?mode=signup" : "/login");
 
-  // Guests get the full browse experience; betting/wallet/quests need a login.
-  if (!checked) return null;
+  // While the session check resolves, keep the app shell (header + nav +
+  // devnet banner) on screen with a skeleton body instead of a blank page, so
+  // navigation never disappears. Guests then get the full browse experience;
+  // betting/wallet/quests need a login.
+  const loading = !checked;
   const guest = !player;
   const coins = player?.player?.coin_balance;
   const solLamports = player?.player?.sol_balance;
@@ -298,7 +301,9 @@ export default function MatchScreen() {
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-          {guest ? (
+          {loading ? (
+            <span className="skeleton" style={{ width: 120, height: 30, borderRadius: 999 }} />
+          ) : guest ? (
             <>
               <button
                 className="pill tab"
@@ -389,7 +394,13 @@ export default function MatchScreen() {
         })}
       </nav>
 
-      {selected ? (
+      {loading ? (
+        <div style={{ display: "grid", gap: "var(--element-gap)" }}>
+          <div className="skeleton" style={{ height: 96 }} />
+          <div className="skeleton" style={{ height: 72, opacity: 0.7 }} />
+          <div className="skeleton" style={{ height: 72, opacity: 0.5 }} />
+        </div>
+      ) : selected ? (
         selected.mode === "live" ? (
           <LiveMatch fixture={selected.fixture} onBack={() => setSelected(null)} />
         ) : (
@@ -411,6 +422,7 @@ export default function MatchScreen() {
             player={player}
             onPlayerUpdate={updatePlayerRecord}
             onOpenCount={setOpenBets}
+            onBrowse={() => setTab("matches")}
           />
         ) : (
           <AuthGate title="Log in to place a bet" onLogin={goLogin} />
@@ -1585,10 +1597,12 @@ function MyBets({
   player,
   onPlayerUpdate,
   onOpenCount,
+  onBrowse,
 }: {
   player: StoredPlayer;
   onPlayerUpdate: (p: PlayerRecord) => void;
   onOpenCount?: (n: number) => void;
+  onBrowse?: () => void;
 }) {
   const [slips, setSlips] = useState<SlipView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1798,13 +1812,18 @@ function MyBets({
       )}
 
       {slips && slips.length === 0 && (
-        <div className="card fade-in" style={{ textAlign: "center", display: "grid", gap: 6 }}>
+        <div className="card fade-in" style={{ textAlign: "center", display: "grid", gap: 10, justifyItems: "center" }}>
           <h2 className="heading-sm">No bets yet</h2>
           <p className="muted" style={{ fontSize: 14 }}>
             Open any match, tap a price in Markets (or the winner odds in a
             replay) and place your first slip. It shows up here with a live
             cash-out value.
           </p>
+          {onBrowse && (
+            <button className="btn btn-primary" style={{ maxWidth: 220 }} onClick={onBrowse}>
+              Browse matches
+            </button>
+          )}
         </div>
       )}
 

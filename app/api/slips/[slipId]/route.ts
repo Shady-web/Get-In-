@@ -3,6 +3,7 @@ import { errorStatus, requireUser } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOrCreatePlayer } from "@/lib/game";
 import { getFixtureScore, type FixtureScore } from "@/lib/final-score";
+import { txlineGet } from "@/lib/txline";
 
 export const dynamic = "force-dynamic";
 
@@ -54,10 +55,22 @@ export async function GET(
         legs.filter((l) => !l.session && l.fixture_id).map((l) => l.fixture_id as number),
       ),
     ];
-    const scoreEntries = await Promise.all(
-      fixtureIds.map(async (id) => [id, await getFixtureScore(id).catch(() => null)] as const),
-    );
+    // Scores per fixture, plus each fixture's scheduled kickoff (so the ticket
+    // can show "Pre-match · kicks off ..." and hide the score before a match
+    // starts). The fixtures snapshot is best-effort; a miss just omits kickoff.
+    const [scoreEntries, kickoffs] = await Promise.all([
+      Promise.all(
+        fixtureIds.map(async (id) => [id, await getFixtureScore(id).catch(() => null)] as const),
+      ),
+      txlineGet<any[]>("/fixtures/snapshot").catch(() => [] as any[]),
+    ]);
     const scores = new Map<number, FixtureScore | null>(scoreEntries);
+    const startById = new Map<number, number>();
+    for (const f of Array.isArray(kickoffs) ? kickoffs : []) {
+      if (f?.FixtureId != null && f?.StartTime != null) {
+        startById.set(Number(f.FixtureId), Number(f.StartTime));
+      }
+    }
 
     const detailLegs = legs.map((l) => {
       const label = String(l.outcome_label ?? "");
@@ -65,6 +78,7 @@ export async function GET(
       const matchLabel = sep > 0 ? label.slice(0, sep) : "";
       const pick = sep > 0 ? label.slice(sep + 2) : label;
       const score = l.session ? null : scores.get(l.fixture_id as number) ?? null;
+      const kickoff = l.session ? null : startById.get(l.fixture_id as number) ?? null;
       return {
         id: l.id as string,
         matchLabel,
@@ -74,6 +88,7 @@ export async function GET(
         result: String(l.result ?? "pending"),
         session: Boolean(l.session),
         score, // { home, away, final } | null
+        kickoff, // scheduled StartTime ms | null
       };
     });
 
