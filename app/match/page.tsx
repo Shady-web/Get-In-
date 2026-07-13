@@ -21,6 +21,7 @@ import { DailyBonus } from "@/components/daily-bonus";
 import { BadgeWall } from "@/components/badge-wall";
 import { BetSlipDetail } from "@/components/bet-detail";
 import { MatchEventsCard } from "@/components/match-events-card";
+import { ReplayMarkets } from "@/components/replay-markets";
 import type { LiveState } from "@/lib/live";
 import { isFinal } from "@/lib/game-core";
 import { winnerOdds, isIndicativeOdds } from "@/lib/odds";
@@ -36,6 +37,7 @@ import {
   Info,
 } from "lucide-react";
 import { ResultIcon } from "@/components/icons";
+import { SEED_REPLAY_FIXTURES } from "@/lib/seed-replay";
 
 interface Fixture {
   StartTime: number;
@@ -54,7 +56,10 @@ interface Fixture {
 // Replay shows finished matches for up to 3 weeks after kickoff, so you can
 // re-watch any game from the tournament so far (subject to the feed still
 // carrying its history).
-const REPLAY_MAX_AGE_MS = 21 * 24 * 60 * 60 * 1000; // 3 weeks
+// Generous window so finished matches stay replayable across the whole
+// tournament + judging period; the seeded replay is always there regardless.
+const REPLAY_MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000; // 60 days
+const SEED_REPLAY_IDS = new Set(SEED_REPLAY_FIXTURES.map((f) => f.FixtureId));
 const POLL_MS = 7_000;
 
 type Selection = { fixture: Fixture; mode: "live" | "replay" };
@@ -440,19 +445,16 @@ export default function MatchScreen() {
           onSignOut={signOut}
           onBack={() => setTab("matches")}
         />
-      ) : player ? (
-        <Leaders player={player} />
       ) : (
-        <AuthGate
-          title="Log in or join now to view the leaderboard"
-          onLogin={goLogin}
-        />
+        // The leaderboard is public (read-only for guests); betting/wallet
+        // still need a login, but the board is part of "selling the product".
+        <Leaders player={player} />
       )}
 
       <BetSlipTray
         player={player}
         onPlayerUpdate={updatePlayerRecord}
-        onRequireLogin={() => goLogin(false)}
+        onRequireLogin={() => goLogin(true)}
       />
       {explainer.open && <EconomyExplainer onClose={explainer.close} />}
       {toast && (
@@ -706,10 +708,12 @@ function FixtureList({ onPick }: { onPick: (s: Selection) => void }) {
   const upcoming = (fixtures ?? [])
     .filter((f) => (f.LiveStatus ? f.LiveStatus === "upcoming" : f.StartTime > now))
     .sort((a, b) => a.StartTime - b.StartTime);
-  // Recently finished matches you can replay (until ~2h after full time).
-  const replayable = (fixtures ?? [])
-    .filter((f) => isReplayable(f, now))
+  // Finished matches you can replay, newest first, with the always-available
+  // seeded replay(s) pinned on top so Replay Mode is never empty.
+  const feedReplays = (fixtures ?? [])
+    .filter((f) => isReplayable(f, now) && !SEED_REPLAY_IDS.has(f.FixtureId))
     .sort((a, b) => b.StartTime - a.StartTime);
+  const replayable = [...(SEED_REPLAY_FIXTURES as Fixture[]), ...feedReplays];
 
   return (
     <>
@@ -1417,6 +1421,15 @@ function ReplayMatch({
               session={session}
               getVt={getVt}
               onPlayerUpdate={onPlayerUpdate}
+            />
+          )}
+
+          {state && !ended && (
+            <ReplayMarkets
+              fixture={fixture}
+              state={state}
+              session={session}
+              vt={vt}
             />
           )}
 

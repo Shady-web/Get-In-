@@ -336,7 +336,7 @@ export function BetSlipTray({
 
           {guest ? (
             <button className="btn btn-primary" onClick={() => onRequireLogin?.()}>
-              Log in to place this call
+              Join to place this bet
             </button>
           ) : (
             <button
@@ -355,7 +355,7 @@ export function BetSlipTray({
           )}
           <p className="caption muted" style={{ textAlign: "center" }}>
             {guest
-              ? "Your picks are saved — sign in to place them."
+              ? "Your picks are saved — join free to place them."
               : currency === "SOL"
                 ? "SOL calls pay withdrawable SOL and can be cashed out early."
                 : "Coin calls ride to full time and pay out in SOL when they win (no cash out)."}

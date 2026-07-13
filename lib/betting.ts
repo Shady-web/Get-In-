@@ -12,6 +12,7 @@ import { adjustHousePool, logLedger } from "@/lib/wallet";
 import { coinsToLamports } from "@/lib/money";
 import { getOrCreatePlayer, isFinal, type PlayerRow } from "@/lib/game";
 import { winnerOdds } from "@/lib/odds";
+import { synthesizeMarkets, type Prob3 } from "@/lib/market-model";
 
 export interface LegInput {
   fixtureId: number;
@@ -138,6 +139,14 @@ function isFullTimePeriod(period: string | undefined | null): boolean {
   return p === "" || p === "null" || p === "ft" || p.includes("full");
 }
 
+/** Win-probability triple for a replay moment: the live prob if the timeline
+ *  carries it, else implied from the winner odds. Synthesized markets use it. */
+function replayProb(state: { prob?: Prob3 | null; odds?: any }): Prob3 {
+  if (state.prob) return state.prob;
+  const o = winnerOdds(state);
+  return { home: 1 / o.home, draw: 1 / o.draw, away: 1 / o.away };
+}
+
 function pick1X2Odds(
   odds: { home: number; draw: number; away: number },
   outcomeName: string,
@@ -162,20 +171,28 @@ async function resolveLeg(input: LegInput): Promise<{
 
   if (input.session) {
     if (!SESSION_RE.test(input.session)) throw new Error("Invalid replay session.");
-    if (superType !== "1X2_PARTICIPANT_RESULT") {
-      throw new Error("Replay betting covers the match-winner market.");
-    }
     const timeline = await getReplayTimeline(input.fixtureId);
     const state = stateAt(timeline, Math.max(0, input.vt ?? 0));
     if (isFinal(state.statusId)) {
       throw new Error("That replay already reached full time. Restart it to bet.");
     }
-    if (!state.odds) throw new Error("No odds at this point of the replay yet.");
-    return {
-      matchId: input.session,
-      odds: pick1X2Odds(state.odds, input.outcomeName),
-      marketLabel: "Match winner",
-    };
+    // Match winner is always priceable from the winner odds/prob at this point.
+    if (superType.includes("1X2")) {
+      return {
+        matchId: input.session,
+        odds: pick1X2Odds(winnerOdds(state), input.outcomeName),
+        marketLabel: "Match winner",
+      };
+    }
+    // Every other market is synthesized from the win probabilities at this vt -
+    // the SAME model the replay view shows - so the tapped price matches, and
+    // settlement (legOutcome) grades it from the final score like any market.
+    const market = synthesizeMarkets(replayProb(state)).find((m) => m.key === input.marketKey);
+    const outcome = market?.outcomes.find((o) => o.name === input.outcomeName);
+    if (!market || !outcome) {
+      throw new Error("That line moved. Refresh the replay markets and re-add the pick.");
+    }
+    return { matchId: input.session, odds: outcome.price, marketLabel: market.label };
   }
 
   const [live, markets] = await Promise.all([
