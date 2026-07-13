@@ -74,9 +74,34 @@ export function legOutcome(
   const line = Number.parseFloat(/line=([-\d.]+)/.exec(params ?? "")?.[1] ?? "NaN");
   const name = leg.outcome_name.toLowerCase();
 
+  const winner = home > away ? "part1" : away > home ? "part2" : "draw";
+
   if (superType === "1X2_PARTICIPANT_RESULT") {
-    const winner = home > away ? "part1" : away > home ? "part2" : "draw";
     return name === winner ? "won" : "lost";
+  }
+
+  if (superType === "DOUBLE_CHANCE_PARTICIPANT_RESULT") {
+    // 1x = home or draw, 12 = home or away, x2 = draw or away.
+    const covers: Record<string, string[]> = {
+      "1x": ["part1", "draw"],
+      "12": ["part1", "part2"],
+      "x2": ["draw", "part2"],
+    };
+    const set = covers[name];
+    if (!set) return "void";
+    return set.includes(winner) ? "won" : "lost";
+  }
+
+  if (superType === "DRAW_NO_BET_PARTICIPANT_RESULT") {
+    if (winner === "draw") return "void"; // stake refunded on a draw
+    return name === winner ? "won" : "lost";
+  }
+
+  if (superType === "BTTS_PARTICIPANT_GOALS") {
+    const bttsYes = home >= 1 && away >= 1;
+    if (name === "yes") return bttsYes ? "won" : "lost";
+    if (name === "no") return bttsYes ? "lost" : "won";
+    return "void";
   }
 
   if (superType === "OVERUNDER_PARTICIPANT_GOALS") {

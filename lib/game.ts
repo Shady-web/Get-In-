@@ -74,6 +74,10 @@ export async function ensurePlayer(user: {
         auth_user_id: user.userId,
         username,
         wallet_or_nickname: username,
+        // Everyone starts at 0 coins (earned via the daily claim, quests and
+        // winning bets). Set explicitly so a stale DB column default can't
+        // hand out a free welcome bankroll.
+        coin_balance: 0,
       })
       .select("*")
       .single();

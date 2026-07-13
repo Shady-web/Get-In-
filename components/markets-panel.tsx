@@ -36,6 +36,16 @@ function outcomeLabel(name: string, fixture: FixtureNames): string {
       return "Over";
     case "under":
       return "Under";
+    case "yes":
+      return "Yes";
+    case "no":
+      return "No";
+    case "1x":
+      return `${fixture.Participant1} or Draw`;
+    case "12":
+      return `${fixture.Participant1} or ${fixture.Participant2}`;
+    case "x2":
+      return `Draw or ${fixture.Participant2}`;
     default:
       return name;
   }
@@ -81,7 +91,11 @@ export function MarketsPanel({ fixture }: { fixture: FixtureNames }) {
       const res = await fetch(`/api/markets/${fixture.FixtureId}`);
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body?.error ?? "Markets unavailable.");
-      const next = (body.markets ?? []) as Market[];
+      // The Match Winner market has its own quick card above the panel, so
+      // drop it here to avoid showing the same market twice.
+      const next = ((body.markets ?? []) as Market[]).filter(
+        (m) => !m.superType.toUpperCase().includes("1X2"),
+      );
 
       for (const m of next) {
         for (const o of m.outcomes) {
