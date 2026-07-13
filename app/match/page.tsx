@@ -388,7 +388,7 @@ export default function MatchScreen() {
         )
       ) : tab === "wallet" ? (
         player ? (
-          <WalletPanel onPlayerUpdate={updatePlayerRecord} />
+          <WalletPanel onPlayerUpdate={updatePlayerRecord} solLamports={solLamports} />
         ) : (
           <AuthGate title="Log in to open your wallet" onLogin={goLogin} />
         )

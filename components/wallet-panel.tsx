@@ -28,8 +28,12 @@ const AIRDROP_CHIPS = [0.1, 0.25, 0.5] as const;
 
 export function WalletPanel({
   onPlayerUpdate,
+  solLamports,
 }: {
   onPlayerUpdate?: (p: PlayerRecord) => void;
+  /** The player's spendable lamports, so this card tracks the header pill in
+   *  lockstep (both update together after any claim / withdraw / bet). */
+  solLamports?: number | null;
 }) {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +88,18 @@ export function WalletPanel({
     const id = window.setInterval(() => void load(), 30_000);
     return () => window.clearInterval(id);
   }, [load, loadClaimStatus]);
+
+  // Whenever the player's spendable balance changes elsewhere (a claim, a
+  // withdrawal, a settled bet), re-pull the wallet so its USD/on-chain fields
+  // stay consistent with the headline number.
+  useEffect(() => {
+    if (solLamports != null) void load();
+  }, [solLamports, load]);
+
+  // Headline balance tracks the player's spendable lamports (same source as
+  // the header pill), falling back to the wallet fetch before the player loads.
+  const liveLamports = solLamports ?? wallet?.lamports ?? 0;
+  const liveSol = liveLamports / 1e9;
 
   async function claimSol() {
     const sol = Number(claimAmount);
@@ -165,13 +181,13 @@ export function WalletPanel({
               }}
             >
               <Solana size={34} />
-              {wallet.sol.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+              {liveSol.toLocaleString(undefined, { maximumFractionDigits: 4 })}
               <span className="muted" style={{ fontSize: 22 }}>
                 SOL
               </span>
             </p>
             <p className="muted" style={{ fontSize: 14 }}>
-              ≈ ${wallet.usd.toLocaleString()} at ${wallet.rate}/SOL
+              ≈ ${Math.round(liveSol * wallet.rate).toLocaleString()} at ${wallet.rate}/SOL
               {wallet.stale ? " · last known (RPC offline)" : ""}
             </p>
             <p className="caption muted">
@@ -346,7 +362,7 @@ export function WalletPanel({
             aria-label="Amount in SOL"
           />
           <span className="muted" style={{ fontSize: 12, flex: 1 }}>
-            {wallet ? `${wallet.sol.toLocaleString(undefined, { maximumFractionDigits: 4 })} SOL spendable` : ""}
+            {wallet ? `${liveSol.toLocaleString(undefined, { maximumFractionDigits: 4 })} SOL spendable` : ""}
           </span>
         </div>
         <button
