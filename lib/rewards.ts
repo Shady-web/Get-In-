@@ -11,7 +11,8 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOrCreatePlayer, type PlayerRow } from "@/lib/game";
 import { dayKey } from "@/lib/quests";
-import { coinsToLamports, COINS_PER_SOL } from "@/lib/money";
+import { coinsToLamports } from "@/lib/money";
+import { getSolPriceUsd } from "@/lib/sol-price";
 import {
   adjustHousePool,
   getHouseBalance,
@@ -151,11 +152,12 @@ export async function airdropSol(
 }
 
 /**
- * Convert leftover GI coins into spendable (and withdrawable) SOL at the fixed
- * peg (COINS_PER_SOL). The coins are burned and the equivalent SOL is credited
- * from the house reserve — the same reserve that pays withdrawals — so a player
- * can sweep coins into SOL before withdrawing. Guards the house float and
- * refunds the coins if the SOL credit fails.
+ * Convert leftover GI coins into spendable (and withdrawable) SOL. Coins have a
+ * fixed USD value (COIN_USD) that is priced into SOL at the live market rate.
+ * The coins are burned and the equivalent SOL is credited from the house
+ * reserve — the same reserve that pays withdrawals — so a player can sweep
+ * coins into SOL before withdrawing. Guards the house float and refunds the
+ * coins if the SOL credit fails.
  */
 export async function convertCoinsToSol(
   identity: string,
@@ -166,8 +168,9 @@ export async function convertCoinsToSol(
   if (!Number.isFinite(amount) || amount < MIN_CONVERT_COINS) {
     throw new Error(`Convert at least ${MIN_CONVERT_COINS.toLocaleString()} coins.`);
   }
-  const lamports = coinsToLamports(amount);
-  if (lamports <= 0) throw new Error(`Convert at least ${COINS_PER_SOL / 1000}k coins for any SOL.`);
+  const solPriceUsd = await getSolPriceUsd();
+  const lamports = coinsToLamports(amount, solPriceUsd);
+  if (lamports <= 0) throw new Error("That's too few coins to convert to any SOL.");
 
   const player = await getOrCreatePlayer(identity);
   if ((player.coin_balance ?? 0) < amount) throw new Error("You don't have that many coins.");

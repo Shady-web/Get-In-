@@ -11,7 +11,8 @@ import { authFetch } from "@/lib/api-client";
 import { Solana } from "@/components/solana";
 import { Coin } from "@/components/coin";
 import { useAutoClear } from "@/lib/use-auto-clear";
-import { coinsToLamports, COINS_PER_SOL, LAMPORTS_PER_SOL } from "@/lib/money";
+import { coinsToLamports, COIN_USD, LAMPORTS_PER_SOL } from "@/lib/money";
+import { useSolPrice } from "@/lib/use-sol-price";
 import type { PlayerRecord } from "@/lib/player";
 
 interface WalletInfo {
@@ -41,6 +42,7 @@ export function WalletPanel({
   /** The player's coin balance, for the coin→SOL conversion card. */
   coinBalance?: number | null;
 }) {
+  const solPriceUsd = useSolPrice();
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -380,7 +382,7 @@ export function WalletPanel({
       {(() => {
         const coins = Math.max(0, Math.floor(coinBalance ?? 0));
         const typed = Math.max(0, Math.floor(Number(convertCoins) || 0));
-        const previewLamports = coinsToLamports(typed);
+        const previewLamports = coinsToLamports(typed, solPriceUsd);
         const canConvert =
           !converting && typed >= MIN_CONVERT_COINS && typed <= coins;
         return (
@@ -395,8 +397,10 @@ export function WalletPanel({
               </span>
             </div>
             <p className="muted" style={{ fontSize: 13 }}>
-              Turn leftover GI coins into withdrawable SOL at {COINS_PER_SOL.toLocaleString()} coins
-              = 1 SOL, straight from the house pool.
+              Turn leftover GI coins into withdrawable SOL at 100 coins = $
+              {(COIN_USD * 100).toFixed(5)}, paid in SOL at the live market rate
+              (1 SOL ≈ ${solPriceUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}),
+              straight from the house pool.
             </p>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input

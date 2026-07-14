@@ -12,6 +12,7 @@ import { WcBadge } from "@/components/wc-badge";
 import { MatchStats } from "@/components/match-stats";
 import { EconomyExplainer, useEconomyExplainer } from "@/components/economy-explainer";
 import { coinsToLamports, formatAmount, type Currency } from "@/lib/money";
+import { solPriceNow } from "@/lib/use-sol-price";
 import { MarketsPanel } from "@/components/markets-panel";
 import { Flag } from "@/components/flag";
 import { BetSlipProvider, BetSlipTray, useBetSlip } from "@/components/bet-slip";
@@ -217,7 +218,7 @@ export default function MatchScreen() {
                     title: "YOU CALLED IT!",
                     text: `+${formatAmount(
                       ccy === "COIN"
-                        ? coinsToLamports(Number(s.potential_return))
+                        ? coinsToLamports(Number(s.potential_return), solPriceNow())
                         : Number(s.potential_return),
                       "SOL",
                     )}`,
@@ -1820,7 +1821,7 @@ function MyBets({
                 : s.status === "won"
                   ? `WON +${formatAmount(
                       ccy === "COIN"
-                        ? coinsToLamports(Number(s.potential_return))
+                        ? coinsToLamports(Number(s.potential_return), solPriceNow())
                         : Number(s.potential_return),
                       "SOL",
                     )}`
