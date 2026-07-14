@@ -221,7 +221,9 @@ async function saveTake(
 
 // --- Gemini -------------------------------------------------------------------------
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+// Overridable so a deployment can point at whatever model its key supports
+// (e.g. gemini-2.0-flash-001, gemini-1.5-flash) without a code change.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 const SYSTEM_PROMPT =
   "You are a sharp TV football pundit on a live betting show. Given a match event, " +
   "react in exactly one sentence of at most 25 words that tells viewers what the " +

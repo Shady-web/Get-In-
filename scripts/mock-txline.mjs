@@ -16,7 +16,7 @@ import http from "node:http";
 
 const PORT = 3998;
 const started = Date.now();
-const kickoffLive = started - 15 * 60_000; // 15 minutes into the match
+const kickoffLive = started - 55 * 60_000; // 55 minutes into the match (2nd half)
 const kickoffReplay = started - 8 * 3600_000;
 
 // [clockSeconds, homeGoals, awayGoals] - cumulative

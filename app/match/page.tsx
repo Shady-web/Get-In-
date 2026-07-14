@@ -23,6 +23,7 @@ import { DailyBonus } from "@/components/daily-bonus";
 import { BadgeWall } from "@/components/badge-wall";
 import { BetSlipDetail } from "@/components/bet-detail";
 import { MatchEventsCard } from "@/components/match-events-card";
+import { LiveFeed } from "@/components/live-feed";
 import { ReplayMarkets } from "@/components/replay-markets";
 import type { LiveState } from "@/lib/live";
 import { isFinal } from "@/lib/game-core";
@@ -1191,6 +1192,14 @@ function LiveMatch({
         })()}
 
         <MarketsPanel fixture={fixture} />
+
+        {matchStarted && (
+          <LiveFeed
+            fixtureId={fixture.FixtureId}
+            home={fixture.Participant1}
+            away={fixture.Participant2}
+          />
+        )}
 
         <PunditTicker
           fixtureId={fixture.FixtureId}
