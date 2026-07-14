@@ -357,7 +357,7 @@ export function BetSlipTray({
           )}
           <p className="caption muted" style={{ textAlign: "center" }}>
             {guest
-              ? "Your picks are saved — join free to place them."
+              ? "Your picks are saved. Join free to place them."
               : currency === "SOL"
                 ? "SOL calls pay withdrawable SOL and can be cashed out early."
                 : "Coin calls ride to full time and pay out in SOL when they win (no cash out)."}

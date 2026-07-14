@@ -4,10 +4,10 @@ import type { MetadataRoute } from "next";
 // splash. Icons and theme match the brand tile (dark canvas, neon-green mark).
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "GetIN!!! — FIFA World Cup 26 Predictions",
+    name: "GetIN!!! · FIFA World Cup 26 Predictions",
     short_name: "GetIN",
     description:
-      "Play the FIFA World Cup 26 on Solana devnet — free, no risk. Stake live odds, then cash out or convert to SOL.",
+      "Play the FIFA World Cup 26 on Solana devnet, free and no risk. Stake live odds, then cash out or convert to SOL.",
     start_url: "/",
     display: "standalone",
     background_color: "#0a0a0a",

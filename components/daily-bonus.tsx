@@ -69,7 +69,7 @@ export function DailyBonus({
         </p>
         <p className="muted" style={{ fontSize: 12.5 }}>
           {claimed
-            ? "Claimed today — come back tomorrow for 100 more."
+            ? "Claimed today. Come back tomorrow for 100 more."
             : "Grab 100 free GI coins, every day."}
         </p>
         {msg && (

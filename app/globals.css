@@ -546,6 +546,54 @@ a {
   animation: breathe 1.6s ease-in-out infinite;
 }
 
+/* The GetIN wordmark's live ping dot. */
+.getin-dot {
+  box-shadow: 0 0 8px rgba(57, 255, 20, 0.75);
+  animation: breathe 1.9s ease-in-out infinite;
+}
+
+/* Recent form "Last 5 matches" — mirrored rows with the result pills on the
+   outer edges, joined by a faint vertical streak line. */
+.form5-bar {
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-fog);
+  background: var(--color-panel-2, rgba(255, 255, 255, 0.04));
+  border-radius: var(--radius-buttons, 8px);
+  padding: 5px 0;
+}
+.form5-side {
+  position: relative;
+  display: grid;
+  gap: 7px;
+}
+/* The streak line runs through the pill column on the outer edge. */
+.form5-side::before {
+  content: "";
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  width: 2px;
+  background: var(--color-border);
+  z-index: 0;
+}
+.form5-side.left::before {
+  left: 9px;
+}
+.form5-side.right::before {
+  right: 9px;
+}
+.form5-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .fixture-row {
   width: 100%;
   text-align: left;

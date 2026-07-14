@@ -5,7 +5,7 @@
 // its form panel, even while loading or when the feed is unavailable.
 
 import { useEffect, useState } from "react";
-import { BarChart3, ChevronDown, ChevronRight } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronRight, House } from "lucide-react";
 import { Flag } from "@/components/flag";
 
 interface FormResult {
@@ -29,42 +29,88 @@ interface MatchStats {
 const resultColor = (r: "W" | "D" | "L") =>
   r === "W" ? "var(--color-tape-green)" : r === "L" ? "var(--color-festival-red)" : "var(--color-fog)";
 
-function TeamRow({ team }: { team: TeamForm }) {
+/** A short 3-letter code for an opponent, e.g. "Portugal" -> "POR". */
+const teamCode = (name: string) =>
+  (name.replace(/[^A-Za-z]/g, "").slice(0, 3) || "???").toUpperCase();
+
+/** The scoreline in home:away order (the team's venue tells you which side). */
+function fixtureScore(r: FormResult): string {
+  const [mine, opp] = r.score.split("-");
+  return r.home ? `${mine}:${opp}` : `${opp}:${mine}`;
+}
+
+function Pill({ result }: { result: "W" | "D" | "L" }) {
   return (
-    <div style={{ display: "grid", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <Flag country={team.name} />
-        <span style={{ fontWeight: 600, fontSize: 14, flex: 1, minWidth: 0 }} className="team">
-          {team.name}
-        </span>
-        <span className="muted" style={{ fontSize: 11 }}>
-          {team.summary}
-        </span>
-      </div>
-      {team.form.length > 0 ? (
-        <div style={{ display: "grid", gap: 6 }}>
-          {team.form.map((r, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span
-                className="form-pill"
-                style={{ background: resultColor(r.result), color: "var(--color-void)" }}
-              >
-                {r.result}
-              </span>
-              <span style={{ fontSize: 12.5, fontVariantNumeric: "tabular-nums", minWidth: 34 }}>
-                {r.score}
-              </span>
-              <span className="muted" style={{ fontSize: 12, flex: 1, minWidth: 0 }} >
-                {r.home ? "vs" : "at"}{" "}
-                <span className="team">{r.opponent}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="muted" style={{ fontSize: 12 }}>
-          No recent matches yet.
-        </p>
+    <span
+      className="form-pill"
+      style={{ background: resultColor(result), color: "var(--color-void)", flex: "none" }}
+    >
+      {result}
+    </span>
+  );
+}
+
+/** Venue glyph: a house when the team played at home, "@" when away. */
+function Venue({ home }: { home: boolean }) {
+  return home ? (
+    <House size={12} aria-label="home" style={{ color: "var(--color-fog)", flex: "none" }} />
+  ) : (
+    <span className="muted" style={{ fontSize: 12, flex: "none" }} aria-label="away">
+      @
+    </span>
+  );
+}
+
+const teamNameStyle: React.CSSProperties = {
+  fontWeight: 700,
+  fontSize: 12.5,
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+const codeStyle: React.CSSProperties = { fontWeight: 700, fontSize: 11.5, flex: "none" };
+const scoreStyle: React.CSSProperties = {
+  fontSize: 11.5,
+  fontVariantNumeric: "tabular-nums",
+  flex: "none",
+};
+
+/** One team's five results as an outward-reading column (pills on the edge). */
+function FormSide({ team, side }: { team: TeamForm; side: "left" | "right" }) {
+  if (team.form.length === 0) {
+    return (
+      <p className="muted" style={{ fontSize: 11.5, textAlign: side }}>
+        No recent matches.
+      </p>
+    );
+  }
+  return (
+    <div className={`form5-side ${side}`}>
+      {team.form.map((r, i) =>
+        side === "left" ? (
+          <div key={i} className="form5-row" title={r.opponent}>
+            <Pill result={r.result} />
+            <Venue home={r.home} />
+            <span className="mono" style={codeStyle}>
+              {teamCode(r.opponent)}
+            </span>
+            <span className="mono" style={{ ...scoreStyle, marginLeft: "auto" }}>
+              {fixtureScore(r)}
+            </span>
+          </div>
+        ) : (
+          <div key={i} className="form5-row" title={r.opponent}>
+            <span className="mono" style={scoreStyle}>
+              {fixtureScore(r)}
+            </span>
+            <span className="mono" style={{ ...codeStyle, marginLeft: "auto" }}>
+              {teamCode(r.opponent)}
+            </span>
+            <Venue home={r.home} />
+            <Pill result={r.result} />
+          </div>
+        ),
       )}
     </div>
   );
@@ -142,10 +188,38 @@ export function MatchStats({
               appears once they have finished matches on record.
             </p>
           ) : (
-            <div style={{ display: "grid", gap: 16 }}>
-              <TeamRow team={stats.home} />
-              <div style={{ height: 1, background: "var(--color-border)" }} />
-              <TeamRow team={stats.away} />
+            <div style={{ display: "grid", gap: 10 }}>
+              {/* Team names + form summary, home left / away right */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+                  <Flag country={stats.home.name} size={16} />
+                  <span className="team" style={teamNameStyle}>
+                    {stats.home.name}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    flex: 1,
+                    minWidth: 0,
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <span className="team" style={{ ...teamNameStyle, textAlign: "right" }}>
+                    {stats.away.name}
+                  </span>
+                  <Flag country={stats.away.name} size={16} />
+                </div>
+              </div>
+
+              <div className="form5-bar">Last 5 matches</div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+                <FormSide team={stats.home} side="left" />
+                <FormSide team={stats.away} side="right" />
+              </div>
             </div>
           )
         ) : failed ? (

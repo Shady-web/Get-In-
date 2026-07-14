@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { WcBadge } from "@/components/wc-badge";
+import { GetinWordmark } from "@/components/getin-wordmark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -143,12 +144,9 @@ export default function LoginPage() {
         <p className="caption" style={{ color: "var(--color-ash)" }}>
           FIFA World Cup 26 · Live Predictions
         </p>
-        <h1 className="display" style={{ marginTop: -2 }}>
-          <span className="brand-gradient">GetIN</span>
-          <span style={{ color: "var(--color-lime)", textShadow: "0 0 24px rgba(190,255,80,0.4)" }}>
-            !!!
-          </span>
-        </h1>
+        <div style={{ marginTop: -2 }}>
+          <GetinWordmark size={48} />
+        </div>
         <p style={{ fontSize: 15, color: "var(--color-ash)" }}>
           Call the result before the whistle. Climb the board.
         </p>

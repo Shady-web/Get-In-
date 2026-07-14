@@ -9,6 +9,7 @@ import { WalletPanel } from "@/components/wallet-panel";
 import { Coin } from "@/components/coin";
 import { Solana } from "@/components/solana";
 import { WcBadge } from "@/components/wc-badge";
+import { GetinWordmark } from "@/components/getin-wordmark";
 import { MatchStats } from "@/components/match-stats";
 import { EconomyExplainer, useEconomyExplainer } from "@/components/economy-explainer";
 import { coinsToLamports, formatAmount, type Currency } from "@/lib/money";
@@ -303,9 +304,7 @@ export default function MatchScreen() {
       <header className="topbar">
         <div className="brand" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <WcBadge size={26} />
-          <span style={{ display: "flex", alignItems: "baseline", gap: 1 }}>
-            GetIN<span className="bang">!!!</span>
-          </span>
+          <GetinWordmark size={22} />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
           {loading ? (
@@ -425,6 +424,7 @@ export default function MatchScreen() {
               onBrowse={() =>
                 document.getElementById("gi-matches")?.scrollIntoView({ behavior: "smooth" })
               }
+              showHowItWorks={!explainer.seen}
             />
           )}
           {player && <DailyBonus player={player} onPlayerUpdate={updatePlayerRecord} />}

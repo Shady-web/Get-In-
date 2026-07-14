@@ -22,9 +22,9 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata = {
-  title: "GetIN!!! — Zero to staked in seconds · FIFA World Cup 26",
+  title: "GetIN!!! · Zero to staked in seconds · FIFA World Cup 26",
   description:
-    "Play the FIFA World Cup 26 on Solana devnet — free, no risk. Log in, get an auto wallet, claim test SOL, stake live odds, then cash out or convert to SOL. Call it before the whistle.",
+    "Play the FIFA World Cup 26 on Solana devnet, free and no risk. Log in, get an auto wallet, claim test SOL, stake live odds, then cash out or convert to SOL. Call it before the whistle.",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [

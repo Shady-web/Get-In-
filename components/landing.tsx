@@ -9,9 +9,12 @@ import { HowItWorks, HOW_INTRO } from "@/components/how-it-works";
 export function Landing({
   onJoin,
   onBrowse,
+  showHowItWorks = true,
 }: {
   onJoin: () => void;
   onBrowse: () => void;
+  /** Hidden once the visitor has dismissed the "How GetIN works" explainer. */
+  showHowItWorks?: boolean;
 }) {
   return (
     <section className="fade-in" style={{ display: "grid", gap: 22 }}>
@@ -36,12 +39,16 @@ export function Landing({
         </div>
       </div>
 
-      <HowItWorks />
+      {showHowItWorks && (
+        <>
+          <HowItWorks />
 
-      {/* Repeat the primary CTA after the loop, where intent is highest. */}
-      <button className="btn btn-primary" onClick={onJoin}>
-        {HOW_INTRO.cta}
-      </button>
+          {/* Repeat the primary CTA after the loop, where intent is highest. */}
+          <button className="btn btn-primary" onClick={onJoin}>
+            {HOW_INTRO.cta}
+          </button>
+        </>
+      )}
     </section>
   );
 }
