@@ -740,7 +740,7 @@ function FixtureList({ onPick }: { onPick: (s: Selection) => void }) {
   const replayable = [...pinnedReal, ...seedFixtures, ...feedReplays];
 
   return (
-    <>
+    <div style={{ display: "grid", gap: "var(--section-gap)" }}>
       <section style={{ display: "grid", gap: "var(--element-gap)" }}>
         <p className="caption section-label">Live now</p>
 
@@ -843,7 +843,7 @@ function FixtureList({ onPick }: { onPick: (s: Selection) => void }) {
           ))}
         </div>
       </section>
-    </>
+    </div>
   );
 }
 
@@ -1196,6 +1196,7 @@ function LiveMatch({
           fixtureId={fixture.FixtureId}
           home={fixture.Participant1}
           away={fixture.Participant2}
+          askable
         />
       </div>
 
