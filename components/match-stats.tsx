@@ -1,7 +1,8 @@
 "use client";
 
-// Recent form card: each team's last 3 results, so you can check form
-// before you predict. Collapsible; hides itself if the feed has no history.
+// Recent form card: each team's last 5 results, so you can check form
+// before you predict. Collapsible; always visible so a matchup never loses
+// its form panel, even while loading or when the feed is unavailable.
 
 import { useEffect, useState } from "react";
 import { BarChart3, ChevronDown, ChevronRight } from "lucide-react";
@@ -69,28 +70,40 @@ function TeamRow({ team }: { team: TeamForm }) {
   );
 }
 
-export function MatchStats({ fixtureId }: { fixtureId: number }) {
+export function MatchStats({
+  fixtureId,
+  home,
+  away,
+}: {
+  fixtureId: number;
+  home?: string;
+  away?: string;
+}) {
   const [stats, setStats] = useState<MatchStats | null>(null);
   const [open, setOpen] = useState(true);
-  const [gone, setGone] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/stats/${fixtureId}`)
+    setStats(null);
+    setFailed(false);
+    const qs = new URLSearchParams();
+    if (home) qs.set("home", home);
+    if (away) qs.set("away", away);
+    const q = qs.toString();
+    fetch(`/api/stats/${fixtureId}${q ? `?${q}` : ""}`)
       .then(async (res) => {
         const body = await res.json();
         if (!res.ok || !body.ok) throw new Error(body?.error ?? "stats unavailable");
         if (!cancelled) setStats(body.stats as MatchStats);
       })
       .catch(() => {
-        if (!cancelled) setGone(true); // no history: hide quietly
+        if (!cancelled) setFailed(true); // keep the card, show a clear state
       });
     return () => {
       cancelled = true;
     };
-  }, [fixtureId]);
-
-  if (gone) return null;
+  }, [fixtureId, home, away]);
 
   const noHistory =
     stats !== null && stats.home.form.length === 0 && stats.away.form.length === 0;
@@ -113,7 +126,7 @@ export function MatchStats({ fixtureId }: { fixtureId: number }) {
         }}
       >
         <span className="caption section-label">
-          <BarChart3 size={13} aria-hidden style={{ verticalAlign: -2, marginRight: 5 }} /> Recent form · last 3
+          <BarChart3 size={13} aria-hidden style={{ verticalAlign: -2, marginRight: 5 }} /> Recent form · last 5
         </span>
         <span className="muted" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 3 }}>
           {open ? "Hide" : "Show"}
@@ -135,6 +148,10 @@ export function MatchStats({ fixtureId }: { fixtureId: number }) {
               <TeamRow team={stats.away} />
             </div>
           )
+        ) : failed ? (
+          <p className="muted" style={{ fontSize: 13 }}>
+            Recent form is unavailable right now. Check back in a moment.
+          </p>
         ) : (
           <div className="skeleton" style={{ height: 96 }} />
         ))}

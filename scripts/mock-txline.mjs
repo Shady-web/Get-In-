@@ -53,9 +53,24 @@ const PAST = [
   [90010, 3, "Testland", 1, "Farland", 11, 2, 0],
   [90011, 6, "Nearland", 12, "Testland", 1, 1, 1],
   [90012, 9, "Testland", 1, "Highland", 13, 3, 1],
+  [90016, 12, "Coastland", 14, "Testland", 1, 0, 2],
+  [90017, 15, "Testland", 1, "Riverland", 15, 1, 1],
   [90013, 2, "Mockovia", 2, "Farland", 11, 0, 3],
   [90014, 5, "Nearland", 12, "Mockovia", 2, 2, 1],
   [90015, 8, "Mockovia", 2, "Highland", 13, 1, 1],
+  [90018, 11, "Mockovia", 2, "Coastland", 14, 2, 2],
+  [90019, 14, "Riverland", 15, "Mockovia", 2, 3, 0],
+  // Upcoming match (90002) sides, so the pre-match Recent-form card has history.
+  [90020, 4, "Upcomia", 3, "Farland", 11, 2, 1],
+  [90021, 7, "Highland", 13, "Upcomia", 3, 0, 0],
+  [90022, 10, "Upcomia", 3, "Coastland", 14, 3, 2],
+  [90023, 13, "Riverland", 15, "Upcomia", 3, 1, 2],
+  [90024, 16, "Upcomia", 3, "Nearland", 12, 1, 0],
+  [90025, 5, "Futuria", 4, "Highland", 13, 1, 1],
+  [90026, 8, "Farland", 11, "Futuria", 4, 2, 3],
+  [90027, 11, "Futuria", 4, "Riverland", 15, 0, 2],
+  [90028, 14, "Coastland", 14, "Futuria", 4, 1, 1],
+  [90029, 17, "Futuria", 4, "Nearland", 12, 2, 0],
 ];
 for (const [id, daysAgo, p1, p1Id, p2, p2Id] of PAST) {
   fixtures.push({
