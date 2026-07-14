@@ -10,6 +10,7 @@ import { getReplayTimeline, stateAt } from "@/lib/replay";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { adjustHousePool, logLedger } from "@/lib/wallet";
 import { coinsToLamports } from "@/lib/money";
+import { getSolPriceUsd } from "@/lib/sol-price";
 import { getOrCreatePlayer, isFinal, type PlayerRow } from "@/lib/game";
 import { winnerOdds } from "@/lib/odds";
 import { synthesizeMarkets, type Prob3 } from "@/lib/market-model";
@@ -368,6 +369,8 @@ export async function settleSlipsForMatch(
 
   const results: SlipResult[] = [];
   const deltas: Record<Currency, number> = { COIN: 0, SOL: 0 };
+  // Live SOL/USD price, so coin payouts convert at the real market rate.
+  const solPriceUsd = await getSolPriceUsd();
 
   for (const slipId of touchedSlips) {
     const { data: slip } = await supabase
@@ -409,9 +412,10 @@ export async function settleSlipsForMatch(
       const ccy = (slip.currency ?? "COIN") as Currency;
       results.push({ slipId, status: allVoid ? "void" : "won", payout });
       if (ccy === "COIN" && !allVoid) {
-        // Winning GI-coin calls pay out in SOL at the fixed peg; the coin
-        // stake was already spent at placement. The house pool funds it.
-        const lamports = coinsToLamports(payout);
+        // Winning GI-coin calls pay out in SOL at the coin's fixed USD value,
+        // priced into SOL at the live market rate; the coin stake was already
+        // spent at placement. The house pool funds it.
+        const lamports = coinsToLamports(payout, solPriceUsd);
         deltas.SOL += lamports;
         await logLedger(player.id, "bet_payout_sol", lamports, "SOL", slipId);
         await adjustHousePool(-lamports);
@@ -606,6 +610,7 @@ export async function voidStaleReplayLegs(identity: string): Promise<void> {
       .eq("result", "pending");
   }
   // Re-settle affected slips with a synthetic final state (voids pay 1.0).
+  const solPriceUsd = await getSolPriceUsd();
   const slipIds = [...new Set(legs.map((l: any) => l.slip))];
   for (const slipId of slipIds) {
     const { data: slip } = await supabase
@@ -636,8 +641,8 @@ export async function voidStaleReplayLegs(identity: string): Promise<void> {
       const ccy = (slip.currency ?? "COIN") as Currency;
       const p = await getOrCreatePlayer(identity);
       if (ccy === "COIN" && !allVoid) {
-        // Winning coin call pays out in SOL at the fixed peg.
-        const lamports = coinsToLamports(payout);
+        // Winning coin call pays out in SOL at the live market rate.
+        const lamports = coinsToLamports(payout, solPriceUsd);
         await supabase
           .from("players")
           .update({ sol_balance: readBalance(p, "sol_balance") + lamports })

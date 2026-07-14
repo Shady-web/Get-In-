@@ -25,6 +25,7 @@ import {
   stakePlaceholder,
   type Currency,
 } from "@/lib/money";
+import { useSolPrice } from "@/lib/use-sol-price";
 import { authFetch } from "@/lib/api-client";
 
 export interface SlipSelection {
@@ -117,6 +118,7 @@ export function BetSlipTray({
   onRequireLogin?: () => void;
 }) {
   const { selections, remove, clear, open, setOpen } = useBetSlip();
+  const solPriceUsd = useSolPrice();
   const [currency, setCurrency] = useState<Currency>("COIN");
   const [stake, setStake] = useState("50");
   const [placing, setPlacing] = useState(false);
@@ -322,7 +324,7 @@ export function BetSlipTray({
               <span className="muted" style={{ fontSize: 10.5 }}>
                 {currency === "SOL"
                   ? "Pays withdrawable SOL"
-                  : `Pays ≈ ${formatAmount(coinsToLamports(potential), "SOL")} on a win`}{" "}
+                  : `Pays ≈ ${formatAmount(coinsToLamports(potential, solPriceUsd), "SOL")} on a win`}{" "}
                 · odds {combined.toFixed(2)}
               </span>
             </span>

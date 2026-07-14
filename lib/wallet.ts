@@ -20,8 +20,8 @@ import {
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSolPriceUsd } from "@/lib/sol-price";
 
-export const SOL_USD_RATE = 150; // hard-coded display rate: 1 SOL = $150
 export const LAMPORTS_PER_SOL = 1_000_000_000;
 export const MIN_WITHDRAW_LAMPORTS = 6_700_000; // 0.0067 SOL
 const NETWORK_FEE_BUFFER = 10_000; // leave room for the tx fee on-chain
@@ -296,13 +296,14 @@ export async function getWalletInfo(
   }
 
   const sol = spendable / LAMPORTS_PER_SOL;
+  const rate = await getSolPriceUsd(); // live market price, checked in real time
   return {
     address,
     lamports: spendable,
     sol,
-    usd: Math.round(sol * SOL_USD_RATE * 100) / 100,
+    usd: Math.round(sol * rate * 100) / 100,
     onchain,
-    rate: SOL_USD_RATE,
+    rate,
     stale,
   };
 }

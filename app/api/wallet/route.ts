@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
  * GET /api/wallet (authenticated)
  *
  * The caller's custodial devnet wallet: address + live balance in SOL and
- * USD (hard-coded 1 SOL = $150). Creates the keypair on first call; never
- * funds it. The secret key stays server-side, always.
+ * USD (priced at the live SOL market rate). Creates the keypair on first
+ * call; never funds it. The secret key stays server-side, always.
  */
 export async function GET(request: Request) {
   try {

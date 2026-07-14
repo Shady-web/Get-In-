@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 import { coinsToLamports, formatAmount, type Currency } from "@/lib/money";
+import { useSolPrice } from "@/lib/use-sol-price";
 import { ResultIcon } from "@/components/icons";
 
 interface DetailLeg {
@@ -77,6 +78,7 @@ function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
 }
 
 export function BetSlipDetail({ slipId, onClose }: { slipId: string; onClose: () => void }) {
+  const solPriceUsd = useSolPrice();
   const [slip, setSlip] = useState<DetailSlip | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -107,7 +109,7 @@ export function BetSlipDetail({ slipId, onClose }: { slipId: string; onClose: ()
   if (slip) {
     if (slip.status === "won") {
       const amt =
-        ccy === "COIN" ? coinsToLamports(slip.potential_return) : slip.potential_return;
+        ccy === "COIN" ? coinsToLamports(slip.potential_return, solPriceUsd) : slip.potential_return;
       returnText = `+${formatAmount(amt, "SOL")}`;
     } else if (slip.status === "cashed") {
       returnText = `+${formatAmount(Number(slip.cashout_amount ?? 0), ccy)}`;
