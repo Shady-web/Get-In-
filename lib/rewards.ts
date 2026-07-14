@@ -11,6 +11,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOrCreatePlayer, type PlayerRow } from "@/lib/game";
 import { dayKey } from "@/lib/quests";
+import { coinsToLamports, COINS_PER_SOL } from "@/lib/money";
 import {
   adjustHousePool,
   getHouseBalance,
@@ -22,6 +23,7 @@ import {
 export const DAILY_COINS = 100;
 export const AIRDROP_MIN_LAMPORTS = 10_000_000; // 0.01 SOL
 export const AIRDROP_MAX_LAMPORTS = 500_000_000; // 0.5 SOL
+export const MIN_CONVERT_COINS = 100; // smallest coin lot worth converting
 
 const COIN_QUEST = "daily_coins";
 const SOL_QUEST = "sol_airdrop";
@@ -146,4 +148,69 @@ export async function airdropSol(
   // The airdrop is drawn from the house pool (which losing SOL stakes feed).
   await adjustHousePool(-amount);
   return { lamports: amount, player: updated as PlayerRow };
+}
+
+/**
+ * Convert leftover GI coins into spendable (and withdrawable) SOL at the fixed
+ * peg (COINS_PER_SOL). The coins are burned and the equivalent SOL is credited
+ * from the house reserve — the same reserve that pays withdrawals — so a player
+ * can sweep coins into SOL before withdrawing. Guards the house float and
+ * refunds the coins if the SOL credit fails.
+ */
+export async function convertCoinsToSol(
+  identity: string,
+  coins: number,
+): Promise<{ coins: number; lamports: number; player: PlayerRow }> {
+  const supabase = requireDb();
+  const amount = Math.floor(coins);
+  if (!Number.isFinite(amount) || amount < MIN_CONVERT_COINS) {
+    throw new Error(`Convert at least ${MIN_CONVERT_COINS.toLocaleString()} coins.`);
+  }
+  const lamports = coinsToLamports(amount);
+  if (lamports <= 0) throw new Error(`Convert at least ${COINS_PER_SOL / 1000}k coins for any SOL.`);
+
+  const player = await getOrCreatePlayer(identity);
+  if ((player.coin_balance ?? 0) < amount) throw new Error("You don't have that many coins.");
+
+  // The house reserve backs the new SOL (it pays every withdrawal).
+  let house: { lamports: number };
+  try {
+    house = await getHouseBalance();
+  } catch {
+    throw new Error("The house pool is unavailable right now. Try again shortly.");
+  }
+  if (house.lamports < lamports) {
+    throw new Error("The house pool can't cover that right now. Try a smaller amount.");
+  }
+
+  // Burn the coins first (guarded so we never go negative on a race).
+  const { data: debited, error: debErr } = await supabase
+    .from("players")
+    .update({ coin_balance: (player.coin_balance ?? 0) - amount })
+    .eq("id", player.id)
+    .gte("coin_balance", amount)
+    .select("*")
+    .single();
+  if (debErr || !debited) throw new Error("You don't have that many coins.");
+
+  // Credit the SOL; refund the coins if the credit fails so nothing is lost.
+  const { data: credited, error: crErr } = await supabase
+    .from("players")
+    .update({ sol_balance: Number(debited.sol_balance ?? 0) + lamports })
+    .eq("id", player.id)
+    .select("*")
+    .single();
+  if (crErr || !credited) {
+    await supabase
+      .from("players")
+      .update({ coin_balance: Number(debited.coin_balance ?? 0) + amount })
+      .eq("id", player.id);
+    throw new Error("Conversion failed. Your coins are unchanged.");
+  }
+
+  await logCoinLedger(player.id, "coin_convert", amount, "convert");
+  await logLedger(player.id, "coin_convert_payout", lamports, "SOL", "convert");
+  // The SOL is drawn from the house pool, like any coin payout.
+  await adjustHousePool(-lamports);
+  return { coins: amount, lamports, player: credited as PlayerRow };
 }
