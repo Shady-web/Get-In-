@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 110" width="430" height="110" role="img" aria-label="getin">
+  <defs>
+    <filter id="wmglow" x="-20%" y="-40%" width="140%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#39FF14" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <g filter="url(#wmglow)">
+    <text x="16" y="80" font-family="Archivo, system-ui, sans-serif" font-weight="800" font-size="72" letter-spacing="4"><tspan fill="#EAF0EA">get</tspan><tspan fill="#39FF14">in</tspan></text>
+    <circle cx="258" cy="40" r="8" fill="#39FF14"/>
+    <circle cx="258" cy="40" r="8" fill="none" stroke="#39FF14" stroke-width="2.6"/>
+  </g>
+</svg>
