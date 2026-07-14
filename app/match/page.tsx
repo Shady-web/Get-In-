@@ -1121,7 +1121,11 @@ function LiveMatch({
         />
 
         {/* Recent form for both teams, to size up before predicting */}
-        <MatchStats fixtureId={fixture.FixtureId} />
+        <MatchStats
+          fixtureId={fixture.FixtureId}
+          home={fixture.Participant1}
+          away={fixture.Participant2}
+        />
 
         {/* Match-winner odds live DIRECTLY under the stats, betting-app style.
             Always available before full time, even before a book opens - the

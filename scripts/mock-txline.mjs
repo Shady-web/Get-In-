@@ -53,9 +53,13 @@ const PAST = [
   [90010, 3, "Testland", 1, "Farland", 11, 2, 0],
   [90011, 6, "Nearland", 12, "Testland", 1, 1, 1],
   [90012, 9, "Testland", 1, "Highland", 13, 3, 1],
+  [90016, 12, "Coastland", 14, "Testland", 1, 0, 2],
+  [90017, 15, "Testland", 1, "Riverland", 15, 1, 1],
   [90013, 2, "Mockovia", 2, "Farland", 11, 0, 3],
   [90014, 5, "Nearland", 12, "Mockovia", 2, 2, 1],
   [90015, 8, "Mockovia", 2, "Highland", 13, 1, 1],
+  [90018, 11, "Mockovia", 2, "Coastland", 14, 2, 2],
+  [90019, 14, "Riverland", 15, "Mockovia", 2, 3, 0],
 ];
 for (const [id, daysAgo, p1, p1Id, p2, p2Id] of PAST) {
   fixtures.push({
