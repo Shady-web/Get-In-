@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120" width="300" height="120" role="img" aria-label="GetIN">
+  <defs>
+    
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#39FF14" flood-opacity="0.45"></feDropShadow>
+    </filter>
+  </defs>
+  <rect width="300" height="120" fill="#0a0a0a"></rect>
+  <g filter="url(#glow)">
+    <text class="wm" x="16" y="80"><tspan fill="#EAF0EA">get</tspan><tspan fill="#39FF14">in</tspan></text>
+    <circle class="dot" cx="258" cy="40" r="8" fill="#39FF14"></circle>
+    <circle class="ring" cx="258" cy="40" r="8" fill="none" stroke="#39FF14" stroke-width="2.6"></circle>
+  </g>
+</svg>

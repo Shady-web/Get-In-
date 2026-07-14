@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import { WcBadge } from "@/components/wc-badge";
+import { GetinMark } from "@/components/getin-mark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -139,7 +139,7 @@ export default function LoginPage() {
   return (
     <main className="shell confetti" style={{ justifyContent: "center", gap: 26, paddingTop: 36 }}>
       <header style={{ textAlign: "center", display: "grid", gap: 12, justifyItems: "center" }}>
-        <WcBadge size={72} />
+        <GetinMark size={72} />
         <p className="caption" style={{ color: "var(--color-ash)" }}>
           FIFA World Cup 26 · Live Predictions
         </p>
