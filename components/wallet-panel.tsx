@@ -6,10 +6,12 @@
 // is still shown so real deposits sent there are auto-credited.
 
 import { useCallback, useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { authFetch } from "@/lib/api-client";
 import { Solana } from "@/components/solana";
+import { Coin } from "@/components/coin";
 import { useAutoClear } from "@/lib/use-auto-clear";
+import { coinsToLamports, COINS_PER_SOL, LAMPORTS_PER_SOL } from "@/lib/money";
 import type { PlayerRecord } from "@/lib/player";
 
 interface WalletInfo {
@@ -25,15 +27,19 @@ interface WalletInfo {
 const MIN_WITHDRAW_SOL = 0.0067;
 const MAX_AIRDROP_SOL = 0.5;
 const AIRDROP_CHIPS = [0.1, 0.25, 0.5] as const;
+const MIN_CONVERT_COINS = 100;
 
 export function WalletPanel({
   onPlayerUpdate,
   solLamports,
+  coinBalance,
 }: {
   onPlayerUpdate?: (p: PlayerRecord) => void;
   /** The player's spendable lamports, so this card tracks the header pill in
    *  lockstep (both update together after any claim / withdraw / bet). */
   solLamports?: number | null;
+  /** The player's coin balance, for the coin→SOL conversion card. */
+  coinBalance?: number | null;
 }) {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +59,14 @@ export function WalletPanel({
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawMsg, setWithdrawMsg] = useState<string | null>(null);
   const [withdrawErr, setWithdrawErr] = useState<string | null>(null);
+
+  // Convert leftover coins to SOL
+  const [convertCoins, setConvertCoins] = useState("");
+  const [converting, setConverting] = useState(false);
+  const [convertMsg, setConvertMsg] = useState<string | null>(null);
+  const [convertErr, setConvertErr] = useState<string | null>(null);
+  useAutoClear(convertMsg, setConvertMsg, 6000);
+  useAutoClear(convertErr, setConvertErr, 6000);
 
   // Transient notifications clear themselves after a few seconds.
   useAutoClear(claimMsg, setClaimMsg, 5000);
@@ -148,6 +162,31 @@ export function WalletPanel({
       setWithdrawErr(err instanceof Error ? err.message : "Withdrawal failed.");
     } finally {
       setWithdrawing(false);
+    }
+  }
+
+  async function convert() {
+    setConverting(true);
+    setConvertMsg(null);
+    setConvertErr(null);
+    try {
+      const res = await authFetch("/api/wallet/convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coins: Math.floor(Number(convertCoins)) }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Conversion failed.");
+      if (body.player) onPlayerUpdate?.(body.player as PlayerRecord);
+      setConvertMsg(
+        `Converted ${Number(body.coins).toLocaleString()} coins to ${(body.lamports / LAMPORTS_PER_SOL).toFixed(4)} SOL.`,
+      );
+      setConvertCoins("");
+      void load();
+    } catch (err) {
+      setConvertErr(err instanceof Error ? err.message : "Conversion failed.");
+    } finally {
+      setConverting(false);
     }
   }
 
@@ -336,7 +375,92 @@ export function WalletPanel({
         </p>
       </div>
       ) : (
-      /* Withdraw to an external devnet address */
+      <div style={{ display: "grid", gap: "var(--element-gap)" }}>
+      {/* Convert leftover coins to SOL before withdrawing */}
+      {(() => {
+        const coins = Math.max(0, Math.floor(coinBalance ?? 0));
+        const typed = Math.max(0, Math.floor(Number(convertCoins) || 0));
+        const previewLamports = coinsToLamports(typed);
+        const canConvert =
+          !converting && typed >= MIN_CONVERT_COINS && typed <= coins;
+        return (
+          <div className="card fade-in" style={{ display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+              <p className="caption section-label">Convert coins to SOL</p>
+              <span
+                className="muted"
+                style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}
+              >
+                <Coin size={13} /> {coins.toLocaleString()}
+              </span>
+            </div>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Turn leftover GI coins into withdrawable SOL at {COINS_PER_SOL.toLocaleString()} coins
+              = 1 SOL, straight from the house pool.
+            </p>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                className="input"
+                style={{ maxWidth: 160 }}
+                inputMode="numeric"
+                placeholder="Coins to convert"
+                value={convertCoins}
+                onChange={(e) => setConvertCoins(e.target.value.replace(/[^\d]/g, ""))}
+                disabled={converting}
+                aria-label="Coins to convert"
+              />
+              <button
+                className="pill tab"
+                disabled={converting || coins < MIN_CONVERT_COINS}
+                onClick={() => setConvertCoins(String(coins))}
+              >
+                Max
+              </button>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                fontSize: 14,
+              }}
+            >
+              <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <Coin size={15} /> {typed.toLocaleString()}
+              </span>
+              <ArrowRight size={15} aria-hidden style={{ color: "var(--color-fog)" }} />
+              <span
+                className="mono"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  color: "var(--color-tape-green)",
+                  fontWeight: 700,
+                }}
+              >
+                <Solana size={14} /> {(previewLamports / LAMPORTS_PER_SOL).toFixed(4)}
+              </span>
+            </div>
+            <button className="btn btn-primary" disabled={!canConvert} onClick={() => void convert()}>
+              {converting
+                ? "Converting…"
+                : typed > coins
+                  ? "Not enough coins"
+                  : typed > 0 && typed < MIN_CONVERT_COINS
+                    ? `Convert at least ${MIN_CONVERT_COINS} coins`
+                    : "Convert to SOL"}
+            </button>
+            {convertMsg && (
+              <p style={{ fontSize: 13, color: "var(--color-tape-green)" }}>{convertMsg}</p>
+            )}
+            {convertErr && <p className="error-text">{convertErr}</p>}
+          </div>
+        );
+      })()}
+
+      {/* Withdraw to an external devnet address */}
       <div className="card fade-in" style={{ display: "grid", gap: 12 }}>
         <p className="caption section-label">Withdraw SOL</p>
         <p className="muted" style={{ fontSize: 13 }}>
@@ -377,6 +501,7 @@ export function WalletPanel({
           <p style={{ fontSize: 13, color: "var(--color-tape-green)" }}>{withdrawMsg}</p>
         )}
         {withdrawErr && <p className="error-text">{withdrawErr}</p>}
+      </div>
       </div>
       )}
     </section>
