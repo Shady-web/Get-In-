@@ -102,7 +102,7 @@ export function ReplayMarkets({
         </section>
       ))}
       <p className="muted" style={{ fontSize: 11, textAlign: "center" }}>
-        Tap a price to add it to your bet slip — it settles at the replay's full time.
+        Tap a price to add it to your bet slip. It settles at the replay's full time.
       </p>
     </div>
   );

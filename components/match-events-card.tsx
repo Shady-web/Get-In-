@@ -153,7 +153,7 @@ export function MatchEventsCard({
       {open &&
         (shown.length === 0 ? (
           <p className="muted" style={{ fontSize: 13 }}>
-            No goals or cards yet — they appear here as the replay reaches them.
+            No goals or cards yet. They appear here as the replay reaches them.
           </p>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>

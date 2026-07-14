@@ -30,8 +30,8 @@ export const HOW_INTRO = {
   eyebrow: "How it works",
   headlineTop: "Zero to staked",
   headlineAccent: "in seconds.",
-  sub: "GetIN runs on Solana devnet — no cost, no risk. Play the World Cup with real odds and a test-money economy that mirrors the real thing.",
-  cta: "Join now — claim test SOL",
+  sub: "GetIN runs on Solana devnet, so there's no cost and no risk. Play the World Cup with real odds and a test-money economy that mirrors the real thing.",
+  cta: "Join now and claim test SOL",
 } as const;
 
 /** The player loop: login → auto wallet → claim → stake → cash out → convert. */
@@ -39,7 +39,7 @@ export const HOW_STEPS: HowStep[] = [
   { icon: LogIn, title: "Log in", body: "One tap to sign in. No seed phrase, no setup, no wallet app to install." },
   {
     icon: Wallet,
-    title: "Get a wallet — automatically",
+    title: "Get a wallet, automatically",
     body: "A Solana devnet wallet is spun up for you in the background the moment you're in.",
   },
   {
@@ -61,7 +61,7 @@ export const HOW_STEPS: HowStep[] = [
   {
     icon: ArrowLeftRight,
     title: "Convert & withdraw",
-    body: "Turn your coin winnings into withdrawable SOL. The loop closes — and pays out.",
+    body: "Turn your coin winnings into withdrawable SOL. The loop closes, and pays out.",
     gold: true,
   },
 ];
@@ -69,12 +69,12 @@ export const HOW_STEPS: HowStep[] = [
 /** One line on how the house earns: odds margin + coin economy. */
 export const HOW_MODEL = {
   title: "How GetIN earns",
-  line: "GetIN makes money the way every book does — a small margin baked into the odds — plus the coin economy of buy-ins, boosts and conversion fees on the way back to withdrawable SOL.",
+  line: "GetIN makes money the way every book does: a small margin baked into the odds, plus the coin economy of buy-ins, boosts and conversion fees on the way back to withdrawable SOL.",
   points: [
     {
       icon: Percent,
       title: "House margin on odds",
-      body: "A small edge is baked into every odds line — the same vig that runs every book.",
+      body: "A small edge is baked into every odds line, the same vig that runs every book.",
     },
     {
       icon: Coins,
@@ -85,7 +85,7 @@ export const HOW_MODEL = {
 };
 
 export const HOW_DISCLAIMER =
-  "Devnet · test tokens · no real value. GetIN is a free-to-play World Cup prediction game on Solana devnet — nothing here is real money.";
+  "Devnet · test tokens · no real value. GetIN is a free-to-play World Cup prediction game on Solana devnet, and nothing here is real money.";
 
 function StepRow({ step, index, last }: { step: HowStep; index: number; last: boolean }) {
   const Icon = step.icon;

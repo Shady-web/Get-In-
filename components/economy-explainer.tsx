@@ -14,9 +14,14 @@ const SEEN_KEY = "getin.economySeen";
 /** Controls first-visit auto-open; the header button can force it too. */
 export function useEconomyExplainer() {
   const [open, setOpen] = useState(false);
+  // Whether the player has dismissed the explainer ("Got it") at least once.
+  // Starts false so first-time visitors still see the inline how-it-works.
+  const [seen, setSeen] = useState(false);
   useEffect(() => {
     try {
-      if (!window.localStorage.getItem(SEEN_KEY)) {
+      if (window.localStorage.getItem(SEEN_KEY)) {
+        setSeen(true);
+      } else {
         const id = window.setTimeout(() => setOpen(true), 700);
         return () => window.clearTimeout(id);
       }
@@ -30,9 +35,10 @@ export function useEconomyExplainer() {
     } catch {
       /* ignore */
     }
+    setSeen(true);
     setOpen(false);
   }
-  return { open, openExplainer: () => setOpen(true), close };
+  return { open, seen, openExplainer: () => setOpen(true), close };
 }
 
 export function EconomyExplainer({ onClose }: { onClose: () => void }) {

@@ -163,7 +163,7 @@ export function MarketsPanel({ fixture }: { fixture: FixtureNames }) {
             </div>
           ))}
           <p className="muted" style={{ fontSize: 12.5, textAlign: "center" }}>
-            Live prices open nearer kickoff — check back soon.
+            Live prices open nearer kickoff. Check back soon.
           </p>
         </div>
       )}
