@@ -9,6 +9,7 @@ import { WalletPanel } from "@/components/wallet-panel";
 import { Coin } from "@/components/coin";
 import { Solana } from "@/components/solana";
 import { WcBadge } from "@/components/wc-badge";
+import { GetinMark } from "@/components/getin-mark";
 import { MatchStats } from "@/components/match-stats";
 import { EconomyExplainer, useEconomyExplainer } from "@/components/economy-explainer";
 import { coinsToLamports, formatAmount, type Currency } from "@/lib/money";
@@ -302,7 +303,7 @@ export default function MatchScreen() {
     <main className="shell" style={{ gap: 24 }}>
       <header className="topbar">
         <div className="brand" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <WcBadge size={26} />
+          <GetinMark size={26} />
           <span style={{ display: "flex", alignItems: "baseline", gap: 1 }}>
             GetIN<span className="bang">!!!</span>
           </span>
