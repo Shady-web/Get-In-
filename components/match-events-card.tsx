@@ -109,14 +109,23 @@ export function MatchEventsCard({
   vt,
   home,
   away,
+  title = "Match events",
+  defaultOpen = true,
+  hideWhenEmpty = true,
 }: {
   events: MatchEvent[];
   vt: number;
   home: string;
   away: string;
+  /** Section label (e.g. "Match events" for replay, "Live feed" for live). */
+  title?: string;
+  /** Start expanded (replay) or collapsed (live, to keep the page uncluttered). */
+  defaultOpen?: boolean;
+  /** Hide the whole card when there are no events (replay); keep it for live. */
+  hideWhenEmpty?: boolean;
 }) {
-  const [open, setOpen] = useState(true);
-  if (events.length === 0) return null;
+  const [open, setOpen] = useState(defaultOpen);
+  if (events.length === 0 && hideWhenEmpty) return null;
 
   const shown = events.filter((e) => e.t <= vt);
   const homeEvents = shown.filter((e) => e.team === "home");
@@ -140,7 +149,7 @@ export function MatchEventsCard({
           gap: 8,
         }}
       >
-        <span className="caption section-label">Match events</span>
+        <span className="caption section-label">{title}</span>
         <span
           className="muted"
           style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}
@@ -153,7 +162,7 @@ export function MatchEventsCard({
       {open &&
         (shown.length === 0 ? (
           <p className="muted" style={{ fontSize: 13 }}>
-            No goals or cards yet. They appear here as the replay reaches them.
+            No goals or cards yet. Key moments appear here as the match unfolds.
           </p>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>

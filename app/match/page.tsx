@@ -23,6 +23,7 @@ import { DailyBonus } from "@/components/daily-bonus";
 import { BadgeWall } from "@/components/badge-wall";
 import { BetSlipDetail } from "@/components/bet-detail";
 import { MatchEventsCard } from "@/components/match-events-card";
+import { LiveFeed } from "@/components/live-feed";
 import { ReplayMarkets } from "@/components/replay-markets";
 import type { LiveState } from "@/lib/live";
 import { isFinal } from "@/lib/game-core";
@@ -724,19 +725,22 @@ function FixtureList({ onPick }: { onPick: (s: Selection) => void }) {
   const upcoming = (fixtures ?? [])
     .filter((f) => (f.LiveStatus ? f.LiveStatus === "upcoming" : f.StartTime > now))
     .sort((a, b) => a.StartTime - b.StartTime);
-  // Finished matches you can replay, newest first. Real fixtures named in
-  // NEXT_PUBLIC_PINNED_REPLAY_IDS are pinned on top once they've finished (e.g.
-  // the real France–Spain after it's played); until then the always-available
-  // seeded demo is pinned so Replay Mode is never empty. When a pinned real
-  // match is available, the demo steps aside so the real replay takes over.
+  // Finished matches you can replay, newest first, built from the REAL feed
+  // (real scores, odds and events). Real fixtures named in
+  // NEXT_PUBLIC_PINNED_REPLAY_IDS are pinned on top. The bundled demo is only a
+  // last resort: it shows when there is no real finished match to replay, so
+  // Replay Mode is never empty — but the moment a real match is available (e.g.
+  // the real France–Spain once it's played), the demo steps aside and the real
+  // replay, with the real match events, takes over.
   const pinnedReal = PINNED_REPLAY_IDS
     .map((id) => (fixtures ?? []).find((f) => f.FixtureId === id && f.LiveStatus === "finished"))
     .filter((f): f is Fixture => Boolean(f));
-  const seedFixtures = pinnedReal.length === 0 ? (SEED_REPLAY_FIXTURES as Fixture[]) : [];
   const pinnedIds = new Set<number>([...PINNED_REPLAY_IDS, ...SEED_REPLAY_IDS]);
   const feedReplays = (fixtures ?? [])
     .filter((f) => isReplayable(f, now) && !pinnedIds.has(f.FixtureId))
     .sort((a, b) => b.StartTime - a.StartTime);
+  const hasRealReplay = pinnedReal.length > 0 || feedReplays.length > 0;
+  const seedFixtures = hasRealReplay ? [] : (SEED_REPLAY_FIXTURES as Fixture[]);
   const replayable = [...pinnedReal, ...seedFixtures, ...feedReplays];
 
   return (
@@ -1191,6 +1195,14 @@ function LiveMatch({
         })()}
 
         <MarketsPanel fixture={fixture} />
+
+        {matchStarted && (
+          <LiveFeed
+            fixtureId={fixture.FixtureId}
+            home={fixture.Participant1}
+            away={fixture.Participant2}
+          />
+        )}
 
         <PunditTicker
           fixtureId={fixture.FixtureId}
