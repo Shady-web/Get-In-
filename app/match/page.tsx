@@ -57,11 +57,10 @@ interface Fixture {
   LiveScore?: { home: number; away: number } | null;
 }
 
-// Replay shows finished matches for up to 3 weeks after kickoff, so you can
-// re-watch any game from the tournament so far (subject to the feed still
-// carrying its history).
-// Generous window so finished matches stay replayable across the whole
-// tournament + judging period; the seeded replay is always there regardless.
+// Replay shows finished matches for up to 60 days after kickoff, so you can
+// re-watch any game from the tournament (subject to the feed still carrying
+// its history). The most recent finished match is also kept beyond this window
+// (see feedReplays), so the final never drops out of Replay Mode.
 const REPLAY_MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000; // 60 days
 const SEED_REPLAY_IDS = new Set(SEED_REPLAY_FIXTURES.map((f) => f.FixtureId));
 const POLL_MS = 7_000;
@@ -727,18 +726,25 @@ function FixtureList({ onPick }: { onPick: (s: Selection) => void }) {
     .sort((a, b) => a.StartTime - b.StartTime);
   // Finished matches you can replay, newest first, built from the REAL feed
   // (real scores, odds and events). Real fixtures named in
-  // NEXT_PUBLIC_PINNED_REPLAY_IDS are pinned on top. The bundled demo is only a
-  // last resort: it shows when there is no real finished match to replay, so
-  // Replay Mode is never empty — but the moment a real match is available (e.g.
-  // the real France–Spain once it's played), the demo steps aside and the real
-  // replay, with the real match events, takes over.
+  // NEXT_PUBLIC_PINNED_REPLAY_IDS are pinned on top. As each match finishes it
+  // automatically becomes the newest replay, all the way down to the final.
+  //
+  // The single most recent finished match is ALWAYS kept, even after it ages
+  // out of the window — so once the tournament ends, the final stays viewable
+  // in Replay Mode indefinitely (well past the "at least a month" ask). The
+  // bundled demo only shows as a last resort, when there has never been a
+  // finished match at all, so Replay Mode is never empty.
   const pinnedReal = PINNED_REPLAY_IDS
     .map((id) => (fixtures ?? []).find((f) => f.FixtureId === id && f.LiveStatus === "finished"))
     .filter((f): f is Fixture => Boolean(f));
   const pinnedIds = new Set<number>([...PINNED_REPLAY_IDS, ...SEED_REPLAY_IDS]);
-  const feedReplays = (fixtures ?? [])
-    .filter((f) => isReplayable(f, now) && !pinnedIds.has(f.FixtureId))
+  const finishedAll = (fixtures ?? [])
+    .filter((f) => f.LiveStatus === "finished" && !pinnedIds.has(f.FixtureId))
     .sort((a, b) => b.StartTime - a.StartTime);
+  const inWindow = finishedAll.filter((f) => isReplayable(f, now));
+  // Keep everything inside the window; if the whole list has aged out, still
+  // keep the most recent finished match (the final) so it never disappears.
+  const feedReplays = inWindow.length > 0 ? inWindow : finishedAll.slice(0, 1);
   const hasRealReplay = pinnedReal.length > 0 || feedReplays.length > 0;
   const seedFixtures = hasRealReplay ? [] : (SEED_REPLAY_FIXTURES as Fixture[]);
   const replayable = [...pinnedReal, ...seedFixtures, ...feedReplays];
@@ -817,9 +823,8 @@ function FixtureList({ onPick }: { onPick: (s: Selection) => void }) {
         <p className="caption section-label">Replay mode</p>
         {fixtures && replayable.length === 0 && (
           <p className="muted fade-in" style={{ fontSize: 14 }}>
-            Finished matches stay here to replay for up to 3 weeks after
-            kickoff. Nothing has wrapped up in that window yet, so check back
-            after the next match ends.
+            Finished matches land here to replay. Nothing has wrapped up yet, so
+            check back after the next match ends.
           </p>
         )}
         <div className="fixture-grid">
