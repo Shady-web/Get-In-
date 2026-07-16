@@ -7,6 +7,30 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { WcBadge } from "@/components/wc-badge";
 import { GetinWordmark } from "@/components/getin-wordmark";
 
+// Minimal shape of the Phantom provider we rely on (window.solana).
+interface PhantomProvider {
+  isPhantom?: boolean;
+  connect: () => Promise<{ publicKey: { toString: () => string } }>;
+  signMessage: (
+    message: Uint8Array,
+    display?: "utf8" | "hex",
+  ) => Promise<{ signature: Uint8Array }>;
+}
+
+// The exact text the wallet signs. Must stay in lockstep with the server
+// (app/api/auth/solana/route.ts): statement first, the address inline, and an
+// ISO `Issued:` timestamp the server checks for freshness.
+function buildSolanaChallenge(address: string): string {
+  const nonce = Math.random().toString(36).slice(2);
+  return [
+    "Sign in to GetIN",
+    "",
+    `Wallet: ${address}`,
+    `Issued: ${new Date().toISOString()}`,
+    `Nonce: ${nonce}`,
+  ].join("\n");
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -131,6 +155,52 @@ export default function LoginPage() {
     }
   }
 
+  // Sign in with a Solana wallet (Phantom). We never trust the address the
+  // browser reports: the wallet signs a fresh, timestamped challenge, the
+  // server verifies that signature, then mints a real Supabase session for the
+  // wallet. From that point the wallet is just another logged-in user, so
+  // wallet/bets/balances all keep working through the same auth model.
+  async function onSolana() {
+    const supabase = requireSupabase();
+    if (!supabase) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const provider = (window as unknown as { solana?: PhantomProvider }).solana;
+      if (!provider?.isPhantom) {
+        throw new Error("Phantom wallet not found. Install Phantom, then try again.");
+      }
+      const { publicKey } = await provider.connect();
+      const address = publicKey.toString();
+      const message = buildSolanaChallenge(address);
+      const { signature } = await provider.signMessage(new TextEncoder().encode(message), "utf8");
+      let binary = "";
+      for (const byte of signature) binary += String.fromCharCode(byte);
+      const signatureB64 = btoa(binary);
+
+      const res = await fetch("/api/auth/solana", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, message, signature: signatureB64 }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body?.error ?? "Wallet sign-in failed.");
+
+      const { error: authErr } = await supabase.auth.signInWithPassword({
+        email: body.email as string,
+        password: body.password as string,
+      });
+      if (authErr) throw new Error(authErr.message);
+      router.push("/match");
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "Wallet sign-in failed.";
+      // Phantom throws a 4001 when the user dismisses the popup: keep it calm.
+      const message = /reject|4001|denied/i.test(raw) ? "Wallet request cancelled." : raw;
+      setError(message);
+      setBusy(false);
+    }
+  }
+
   const submit = mode === "signin" ? onSignIn : onSignUp;
   const canSubmit =
     mode === "signin"
@@ -232,6 +302,10 @@ export default function LoginPage() {
 
         <button className="btn btn-ghost" onClick={() => void onGoogle()} disabled={busy}>
           Continue with Google
+        </button>
+
+        <button className="btn btn-ghost" onClick={() => void onSolana()} disabled={busy}>
+          Sign in with Solana
         </button>
 
         {error && <p className="error-text">{error}</p>}
