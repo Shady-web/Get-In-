@@ -53,27 +53,29 @@ function outcomeLabel(name: string, fixture: FixtureNames): string {
 
 function Sparkline({ points }: { points: number[] }) {
   if (points.length < 2) {
-    return <span className="spark-empty" aria-hidden />;
+    return <span className="spark spark-empty" aria-hidden />;
   }
   const data = points.map((v, i) => ({ i, v }));
   return (
-    <LineChart
-      width={64}
-      height={22}
-      data={data}
-      margin={{ top: 2, right: 0, bottom: 2, left: 0 }}
-      aria-label={`Price history: ${points[0]} to ${points[points.length - 1]}`}
-    >
-      <YAxis domain={["dataMin", "dataMax"]} hide />
-      <Line
-        type="monotone"
-        dataKey="v"
-        stroke="#7c7c6f"
-        strokeWidth={2}
-        dot={false}
-        isAnimationActive={false}
-      />
-    </LineChart>
+    <span className="spark" aria-hidden>
+      <LineChart
+        width={64}
+        height={22}
+        data={data}
+        margin={{ top: 2, right: 0, bottom: 2, left: 0 }}
+        aria-label={`Price history: ${points[0]} to ${points[points.length - 1]}`}
+      >
+        <YAxis domain={["dataMin", "dataMax"]} hide />
+        <Line
+          type="monotone"
+          dataKey="v"
+          stroke="#7c7c6f"
+          strokeWidth={2}
+          dot={false}
+          isAnimationActive={false}
+        />
+      </LineChart>
+    </span>
   );
 }
 

@@ -876,8 +876,8 @@ function ScoreCard({
   const odds = state?.odds;
 
   return (
-    <div className="card fade-in" style={{ display: "grid", gap: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div className="card fade-in score-card" style={{ display: "grid", gap: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", minWidth: 0, gap: 8 }}>
         <p className="caption section-label">{fixture.Competition}</p>
         {headerRight}
       </div>
@@ -890,9 +890,12 @@ function ScoreCard({
           gap: 12,
         }}
       >
-        <div style={{ display: "grid", gap: 6, justifyItems: "start" }}>
+        <div style={{ display: "grid", gap: 6, justifyItems: "start", minWidth: 0 }}>
           <Flag country={fixture.Participant1} size={26} />
-          <p style={{ fontWeight: 600, fontSize: 16, textAlign: "left" }}>
+          <p
+            className="team"
+            style={{ fontWeight: 600, fontSize: 16, textAlign: "left", maxWidth: "100%" }}
+          >
             {fixture.Participant1}
           </p>
         </div>
@@ -915,9 +918,12 @@ function ScoreCard({
             </span>
           )}
         </div>
-        <div style={{ display: "grid", gap: 6, justifyItems: "end" }}>
+        <div style={{ display: "grid", gap: 6, justifyItems: "end", minWidth: 0 }}>
           <Flag country={fixture.Participant2} size={26} />
-          <p style={{ fontWeight: 600, fontSize: 16, textAlign: "right" }}>
+          <p
+            className="team"
+            style={{ fontWeight: 600, fontSize: 16, textAlign: "right", maxWidth: "100%" }}
+          >
             {fixture.Participant2}
           </p>
         </div>
