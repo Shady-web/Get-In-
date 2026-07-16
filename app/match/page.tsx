@@ -71,6 +71,14 @@ function isReplayable(f: Fixture, now: number): boolean {
   return f.LiveStatus === "finished" && now - f.StartTime <= REPLAY_MAX_AGE_MS;
 }
 
+// International/club friendlies come through the same feed as the World Cup.
+// We only want competitive games in the app, so friendlies are filtered out of
+// every list (live, upcoming and replay). Matched on the competition name so
+// it catches "International Friendlies", "Club Friendlies", "Friendly", etc.
+function isFriendly(f: Fixture): boolean {
+  return /friendl/i.test(f.Competition ?? "");
+}
+
 // --- Bottom-nav icons (inline SVG keeps the tab bar crisp, no assets) ---------
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
@@ -718,10 +726,12 @@ function FixtureList({ onPick }: { onPick: (s: Selection) => void }) {
   }, []);
 
   const now = Date.now();
+  // Friendlies are stripped up front so they can't appear in any list.
+  const competitive = (fixtures ?? []).filter((f) => !isFriendly(f));
   // Trust the server's LiveStatus (drawn from the real scores feed). A match
   // deep in extra time or penalties is LIVE no matter what the clock says.
-  const live = (fixtures ?? []).filter((f) => f.LiveStatus === "live");
-  const upcoming = (fixtures ?? [])
+  const live = competitive.filter((f) => f.LiveStatus === "live");
+  const upcoming = competitive
     .filter((f) => (f.LiveStatus ? f.LiveStatus === "upcoming" : f.StartTime > now))
     .sort((a, b) => a.StartTime - b.StartTime);
   // Finished matches you can replay, newest first, built from the REAL feed
@@ -735,10 +745,10 @@ function FixtureList({ onPick }: { onPick: (s: Selection) => void }) {
   // bundled demo only shows as a last resort, when there has never been a
   // finished match at all, so Replay Mode is never empty.
   const pinnedReal = PINNED_REPLAY_IDS
-    .map((id) => (fixtures ?? []).find((f) => f.FixtureId === id && f.LiveStatus === "finished"))
+    .map((id) => competitive.find((f) => f.FixtureId === id && f.LiveStatus === "finished"))
     .filter((f): f is Fixture => Boolean(f));
   const pinnedIds = new Set<number>([...PINNED_REPLAY_IDS, ...SEED_REPLAY_IDS]);
-  const finishedAll = (fixtures ?? [])
+  const finishedAll = competitive
     .filter((f) => f.LiveStatus === "finished" && !pinnedIds.has(f.FixtureId))
     .sort((a, b) => b.StartTime - a.StartTime);
   const inWindow = finishedAll.filter((f) => isReplayable(f, now));
