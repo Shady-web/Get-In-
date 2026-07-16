@@ -7,7 +7,7 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { WcBadge } from "@/components/wc-badge";
 import { GetinWordmark } from "@/components/getin-wordmark";
 
-// Minimal shape of the Phantom provider we rely on (window.solana).
+// Minimal shape of the Phantom provider we rely on.
 interface PhantomProvider {
   isPhantom?: boolean;
   connect: () => Promise<{ publicKey: { toString: () => string } }>;
@@ -15,6 +15,21 @@ interface PhantomProvider {
     message: Uint8Array,
     display?: "utf8" | "hex",
   ) => Promise<{ signature: Uint8Array }>;
+}
+
+// Find the Phantom provider. Modern Phantom injects window.phantom.solana;
+// window.solana is the legacy handle and can be taken over by another wallet
+// extension that doesn't set isPhantom, so we check the namespaced handle
+// first and only accept window.solana when it's actually Phantom.
+function getPhantomProvider(): PhantomProvider | null {
+  const w = window as unknown as {
+    phantom?: { solana?: PhantomProvider };
+    solana?: PhantomProvider;
+  };
+  const fromNamespace = w.phantom?.solana;
+  if (fromNamespace?.isPhantom) return fromNamespace;
+  if (w.solana?.isPhantom) return w.solana;
+  return null;
 }
 
 // The exact text the wallet signs. Must stay in lockstep with the server
@@ -166,8 +181,8 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      const provider = (window as unknown as { solana?: PhantomProvider }).solana;
-      if (!provider?.isPhantom) {
+      const provider = getPhantomProvider();
+      if (!provider) {
         throw new Error("Phantom wallet not found. Install Phantom, then try again.");
       }
       const { publicKey } = await provider.connect();

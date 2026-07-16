@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createHmac } from "crypto";
+import { createHash, createHmac } from "crypto";
 import nacl from "tweetnacl";
 import { PublicKey } from "@solana/web3.js";
 import { getSupabaseAdmin } from "@/lib/supabase";
@@ -8,8 +8,9 @@ export const dynamic = "force-dynamic";
 
 // How stale a signed challenge may be. The client stamps the message with an
 // ISO timestamp; anything older than this is rejected so a captured signature
-// can't be replayed days later.
-const MAX_AGE_MS = 5 * 60 * 1000;
+// can't be replayed days later. Compared as an absolute delta, so it also
+// tolerates a client clock that runs a little ahead of the server.
+const MAX_AGE_MS = 10 * 60 * 1000;
 
 // Human-readable statement the wallet signs. Kept in lockstep with the client
 // (app/login/page.tsx buildSolanaChallenge). Binding the wallet address and a
@@ -26,8 +27,20 @@ const STATEMENT = "Sign in to GetIN";
  * without the secret - so nobody can log in as a wallet without a fresh signed
  * challenge OR knowledge of the service-role key (which is server-only).
  */
+// Domain the synthetic wallet emails live under. Supabase/GoTrue rejects
+// addresses whose domain isn't a real, well-formed TLD ("Email address is
+// invalid"), so we use the same real domain the app already uses for its own
+// accounts rather than a made-up one like ".getin". Overridable via env.
+const WALLET_EMAIL_DOMAIN =
+  (process.env.WALLET_EMAIL_DOMAIN || "getin.gg").replace(/^@/, "").trim() || "getin.gg";
+
 function walletEmail(address: string): string {
-  return `sol_${address.toLowerCase()}@wallet.getin`;
+  // Hash the address for the local-part: base58 is case-sensitive but email
+  // local-parts are folded to lowercase by GoTrue, so two distinct addresses
+  // could otherwise collide onto one email. A hex digest is stable, unique,
+  // and case-safe.
+  const digest = createHash("sha256").update(address).digest("hex").slice(0, 40);
+  return `sol_${digest}@${WALLET_EMAIL_DOMAIN}`;
 }
 
 function walletPassword(address: string, secret: string): string {
