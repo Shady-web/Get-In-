@@ -620,7 +620,9 @@ a {
 /* Scoreboard numerals: Anton with the Authkit ice-gradient fill. */
 .score-num {
   font-family: var(--font-display), "Archivo", sans-serif;
-  font-size: 54px;
+  /* Fixed 54px above ~360px; scales down on smaller phones so the scoreline
+     and both team names fit without clipping. */
+  font-size: clamp(38px, 15vw, 54px);
   font-weight: 400;
   line-height: 0.95;
   letter-spacing: 0.01em;
@@ -685,10 +687,27 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  flex: 0 1 auto;
   font-size: 12px;
   color: var(--color-fog);
   letter-spacing: -0.12px;
-  min-width: 0;
+}
+
+/* On very narrow phones the free-flowing legend can't shrink enough, so give it
+   three equal, always-shrinkable columns (team names truncate, %s stay). Wider
+   screens keep the natural layout with full names. */
+@media (max-width: 359px) {
+  .prob-labels {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .prob-label:nth-child(2) {
+    justify-content: center;
+  }
+  .prob-label:nth-child(3) {
+    justify-content: flex-end;
+  }
 }
 
 .prob-label .dot {
@@ -703,9 +722,11 @@ a {
   color: var(--color-snow);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  flex: none;
 }
 
 .prob-label .team {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -810,10 +831,25 @@ a {
   box-shadow: var(--frost-edge);
 }
 
+.spark {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
 .spark-empty {
   display: inline-block;
   width: 64px;
   height: 22px;
+}
+
+/* The odds micro-chart is decorative; drop it on phones so market rows never
+   overflow the card on narrow screens (label + % + price still fit). */
+@media (max-width: 420px) {
+  .spark,
+  .spark-empty {
+    display: none;
+  }
 }
 
 .price-num {
@@ -822,7 +858,7 @@ a {
   font-size: 14px;
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
-  min-width: 64px;
+  min-width: 56px;
   text-align: right;
   border-radius: 6px;
   padding: 2px 6px;
@@ -1084,6 +1120,20 @@ a {
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
+  min-width: 0; /* never force the page wider than the viewport */
+}
+
+/* Grid/flex items default to min-width:auto, which lets wide inner content
+   (odds rows, scorelines) push a card past the viewport on very narrow phones.
+   Let the cards shrink to the track so their content wraps instead. */
+.match-grid > * {
+  min-width: 0;
+}
+
+/* ...and the score card's own rows, so the scoreline/legend can't force the
+   card content wider than the card on narrow phones. */
+.score-card > * {
+  min-width: 0;
 }
 
 .leaders-grid {
