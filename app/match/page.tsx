@@ -17,7 +17,6 @@ import { solPriceNow } from "@/lib/use-sol-price";
 import { MarketsPanel } from "@/components/markets-panel";
 import { Flag } from "@/components/flag";
 import { BetSlipProvider, BetSlipTray, useBetSlip } from "@/components/bet-slip";
-import { PunditTicker } from "@/components/pundit-ticker";
 import { QuestsCard } from "@/components/quests-card";
 import { DailyBonus } from "@/components/daily-bonus";
 import { BadgeWall } from "@/components/badge-wall";
@@ -1224,13 +1223,6 @@ function LiveMatch({
             away={fixture.Participant2}
           />
         )}
-
-        <PunditTicker
-          fixtureId={fixture.FixtureId}
-          home={fixture.Participant1}
-          away={fixture.Participant2}
-          askable
-        />
       </div>
 
       {error && <p className="error-text">{error}</p>}
@@ -1504,14 +1496,6 @@ function ReplayMatch({
             vt={vt}
             home={fixture.Participant1}
             away={fixture.Participant2}
-          />
-
-          <PunditTicker
-            fixtureId={fixture.FixtureId}
-            home={fixture.Participant1}
-            away={fixture.Participant2}
-            getVt={getVt}
-            askable
           />
         </div>
       )}

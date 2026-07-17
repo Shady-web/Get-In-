@@ -1,5 +1,5 @@
 // Server-only: cached raw scores snapshot per fixture, shared by the live
-// state (fold to latest) and the Pundit ticker (event derivation) so TxLINE
+// state (fold to latest) and the match-events feed (event derivation) so TxLINE
 // sees at most one scores request per fixture per ~7s cycle.
 
 import { txlineGet } from "@/lib/txline";
