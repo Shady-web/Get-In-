@@ -59,8 +59,13 @@ export function WalletPanel({
   const [toAddress, setToAddress] = useState("");
   const [amount, setAmount] = useState("");
   const [withdrawing, setWithdrawing] = useState(false);
-  const [withdrawMsg, setWithdrawMsg] = useState<string | null>(null);
   const [withdrawErr, setWithdrawErr] = useState<string | null>(null);
+  // Success popup shown after a withdrawal confirms on-chain.
+  const [withdrawDone, setWithdrawDone] = useState<{
+    sol: number;
+    signature: string;
+    address: string;
+  } | null>(null);
 
   // Convert leftover coins to SOL
   const [convertCoins, setConvertCoins] = useState("");
@@ -73,7 +78,6 @@ export function WalletPanel({
   // Transient notifications clear themselves after a few seconds.
   useAutoClear(claimMsg, setClaimMsg, 5000);
   useAutoClear(claimErr, setClaimErr, 5000);
-  useAutoClear(withdrawMsg, setWithdrawMsg, 6000);
   useAutoClear(withdrawErr, setWithdrawErr, 6000);
 
   const load = useCallback(async () => {
@@ -143,20 +147,24 @@ export function WalletPanel({
 
   async function withdraw() {
     setWithdrawing(true);
-    setWithdrawMsg(null);
     setWithdrawErr(null);
+    // Capture the destination before the inputs are cleared, so the success
+    // popup can show where the SOL went.
+    const dest = toAddress.trim();
     try {
       const res = await authFetch("/api/wallet/withdraw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: toAddress.trim(), sol: Number(amount) }),
+        body: JSON.stringify({ address: dest, sol: Number(amount) }),
       });
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body?.error ?? "Withdrawal failed.");
       if (body.player) onPlayerUpdate?.(body.player as PlayerRecord);
-      setWithdrawMsg(
-        `Sent ${(body.lamports / 1e9).toFixed(4)} SOL. Tx ${String(body.signature).slice(0, 8)}…`,
-      );
+      setWithdrawDone({
+        sol: body.lamports / LAMPORTS_PER_SOL,
+        signature: String(body.signature),
+        address: dest,
+      });
       setAmount("");
       setToAddress("");
       void load();
@@ -501,12 +509,80 @@ export function WalletPanel({
         >
           {withdrawing ? "Sending…" : "Withdraw SOL"}
         </button>
-        {withdrawMsg && (
-          <p style={{ fontSize: 13, color: "var(--color-tape-green)" }}>{withdrawMsg}</p>
-        )}
         {withdrawErr && <p className="error-text">{withdrawErr}</p>}
       </div>
       </div>
+      )}
+
+      {withdrawDone && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-label="Withdrawal sent"
+          onClick={() => setWithdrawDone(null)}
+        >
+          <div
+            className="modal-sheet fade-in"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 380 }}
+          >
+            <div style={{ display: "grid", gap: 14, justifyItems: "center", textAlign: "center" }}>
+              <span
+                aria-hidden
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: "50%",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "color-mix(in srgb, var(--color-tape-green) 18%, transparent)",
+                  color: "var(--color-tape-green)",
+                }}
+              >
+                <Check size={28} />
+              </span>
+              <h2 className="display" style={{ fontSize: 24 }}>
+                Withdrawal sent
+              </h2>
+              <p style={{ fontSize: 15, color: "var(--color-ash)" }}>
+                <strong style={{ color: "var(--color-snow)" }}>
+                  {withdrawDone.sol.toFixed(4)} SOL
+                </strong>{" "}
+                is on its way to
+              </p>
+              <code
+                style={{
+                  fontSize: 13,
+                  background: "var(--surface-elevated-card)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: "var(--radius-buttons)",
+                  padding: "8px 12px",
+                  overflowWrap: "anywhere",
+                }}
+              >
+                {withdrawDone.address.slice(0, 6)}…{withdrawDone.address.slice(-6)}
+              </code>
+              <a
+                href={`https://explorer.solana.com/tx/${withdrawDone.signature}?cluster=devnet`}
+                target="_blank"
+                rel="noreferrer"
+                className="pill tab"
+                style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+              >
+                View transaction <ArrowRight size={13} aria-hidden />
+              </a>
+              <p className="caption muted">Devnet only · test tokens · no real value</p>
+              <button
+                className="btn btn-primary"
+                style={{ width: "100%" }}
+                onClick={() => setWithdrawDone(null)}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );
