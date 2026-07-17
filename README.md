@@ -10,6 +10,10 @@ Built for a World Cup hackathon with **Next.js (App Router) + TypeScript +
 Supabase + Vercel**, on live data from the **TxLINE** sports API (free
 on-chain World Cup tier, Solana).
 
+> **[Technical documentation & TxLINE feedback →](./TECHNICAL.md)** — core
+> idea, business/technical highlights, the TxLINE endpoints used, and our
+> feedback on the API.
+
 ## How it works
 
 - **Public first, log in to play**: the app itself is the landing page (`/`
