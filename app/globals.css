@@ -1233,54 +1233,6 @@ a {
   50% { opacity: 1; }
 }
 
-/* ---- Pundit ticker ------------------------------------------------------------ */
-
-.pundit-feed {
-  display: grid;
-  gap: 10px;
-  max-height: 250px;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-
-.pundit-item {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  animation: pundit-in 0.45s ease both;
-}
-
-.pundit-minute {
-  flex: none;
-  min-width: 34px;
-  text-align: center;
-  padding: 2px 6px;
-  border-radius: var(--radius-pill);
-  background: rgba(248, 184, 242, 0.12);
-  color: var(--color-pink);
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-@keyframes pundit-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pundit-item {
-    animation: none;
-  }
-}
-
 /* ---- Daily quests ---------------------------------------------------------------- */
 
 .quest-bar {

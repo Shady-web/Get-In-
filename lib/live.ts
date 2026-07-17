@@ -59,7 +59,7 @@ export async function getLiveState(fixtureId: number): Promise<LiveState> {
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.state;
 
   const [scoresRaw, oddsRaw] = await Promise.allSettled([
-    getScoresSnapshot(fixtureId), // shared cache with the Pundit ticker
+    getScoresSnapshot(fixtureId), // shared cache with the match-events feed
     getOddsSnapshot(fixtureId), // shared cache with the Markets tab
   ]);
 
