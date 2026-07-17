@@ -118,10 +118,49 @@ export function deriveEventsFromFrames(frames: ScoreFrame[]): MatchEvent[] {
   return events;
 }
 
+/** Final (latest) goal tally from the frames: home = Participant1, away = P2. */
+function finalGoals(frames: ScoreFrame[]): { home: number; away: number } {
+  for (let i = frames.length - 1; i >= 0; i--) {
+    if (frames[i]?.score) return frames[i].score;
+  }
+  return { home: 0, away: 0 };
+}
+
+/**
+ * Keep the incidents feed on the SAME side convention as everything else in
+ * the app (home = Participant1, away = Participant2, per the scores frames).
+ *
+ * The incidents feed attributes events by the *venue* home/away team, which is
+ * NOT always Participant1 — when Participant1IsHome is false the two are
+ * opposite, and the feed would show every goal under the wrong flag (the score
+ * looked "inverse"). The frame goal totals are authoritative and already in
+ * our convention, so if the named goals only line up when swapped, the whole
+ * incident list is flipped to match. Symmetric or unclear tallies are left
+ * as-is (flipping wouldn't change the visible scoreline anyway).
+ */
+function reconcileSides(events: MatchEvent[], frames: ScoreFrame[]): MatchEvent[] {
+  const fg = finalGoals(frames);
+  let namedHome = 0;
+  let namedAway = 0;
+  for (const e of events) {
+    if (e.kind !== "goal") continue;
+    if (e.team === "home") namedHome += 1;
+    else namedAway += 1;
+  }
+  const aligned = namedHome === fg.home && namedAway === fg.away;
+  const swapped = namedHome === fg.away && namedAway === fg.home;
+  if (swapped && !aligned) {
+    return events.map((e) => ({ ...e, team: e.team === "home" ? "away" : "home" }));
+  }
+  return events;
+}
+
 /**
  * The richest event timeline available: named incidents when the feed carries
  * them, otherwise the frame-derived goals + cards. When incidents exist but
- * omit some (e.g. only goals), we still trust them as the source of truth.
+ * omit some (e.g. only goals), we still trust them as the source of truth -
+ * after reconciling their side attribution against the frame totals so the
+ * feed never shows the scorers on the wrong team.
  */
 export function buildMatchEvents(
   frames: ScoreFrame[],
@@ -129,7 +168,7 @@ export function buildMatchEvents(
   ids?: { home: number; away: number },
 ): MatchEvent[] {
   const named = parseIncidents(incidentsRaw, ids);
-  if (named.length > 0) return named;
+  if (named.length > 0) return reconcileSides(named, frames);
   return deriveEventsFromFrames(frames);
 }
 
@@ -138,4 +177,4 @@ export function eventLabel(kind: MatchEvent["kind"]): string {
   return kind === "goal" ? "Goal" : kind === "yellow" ? "Yellow card" : "Red card";
 }
 
-export const _test = { minuteOf, kindOf };
+export const _test = { minuteOf, kindOf, reconcileSides, finalGoals };
